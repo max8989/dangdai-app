@@ -1,0 +1,182 @@
+/**
+ * useChapterProgress Hook Tests
+ *
+ * Tests for the chapter progress fetching hook.
+ * Validates querying chapter_progress table, mapping to ChapterId,
+ * and handling loading/error states.
+ */
+
+import { renderHook } from '@testing-library/react-native'
+
+// Mock useAuth to provide user context
+const mockUser = { id: 'test-user-123' }
+jest.mock('../providers/AuthProvider', () => ({
+  useAuth: () => ({
+    user: mockUser,
+  }),
+}))
+
+// Mock supabase client
+const mockSupabaseFrom = jest.fn()
+jest.mock('../lib/supabase', () => ({
+  supabase: {
+    from: (table: string) => mockSupabaseFrom(table),
+  },
+}))
+
+// Mock TanStack Query
+jest.mock('@tanstack/react-query', () => ({
+  useQuery: jest.fn(),
+}))
+
+// Import after mocks
+import { useQuery } from '@tanstack/react-query'
+import { useChapterProgress } from './useChapterProgress'
+
+const mockUseQuery = useQuery as jest.Mock
+
+describe('useChapterProgress', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockSupabaseFrom.mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+    })
+  })
+
+  describe('query configuration', () => {
+    it('uses correct query key with userId and bookId', () => {
+      mockUseQuery.mockReturnValue({
+        data: {},
+        isLoading: false,
+        error: null,
+      })
+
+      renderHook(() => useChapterProgress(1))
+
+      expect(mockUseQuery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          queryKey: ['chapterProgress', 'test-user-123', 1],
+        })
+      )
+    })
+
+    it('is enabled only when user exists', () => {
+      mockUseQuery.mockReturnValue({
+        data: {},
+        isLoading: false,
+        error: null,
+      })
+
+      renderHook(() => useChapterProgress(1))
+
+      expect(mockUseQuery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          enabled: true,
+        })
+      )
+    })
+  })
+
+  describe('loading state', () => {
+    it('returns isLoading true while fetching', () => {
+      mockUseQuery.mockReturnValue({
+        data: undefined,
+        isLoading: true,
+        error: null,
+      })
+
+      const { result } = renderHook(() => useChapterProgress(1))
+
+      expect(result.current.isLoading).toBe(true)
+    })
+
+    it('returns isLoading false when data is available', () => {
+      mockUseQuery.mockReturnValue({
+        data: {},
+        isLoading: false,
+        error: null,
+      })
+
+      const { result } = renderHook(() => useChapterProgress(1))
+
+      expect(result.current.isLoading).toBe(false)
+    })
+  })
+
+  describe('data mapping', () => {
+    it('returns progress data mapped by chapterId', () => {
+      const mockProgressMap = {
+        101: {
+          id: 'progress-1',
+          userId: 'test-user-123',
+          chapterId: 101,
+          bookId: 1,
+          completionPercentage: 45,
+          masteredAt: null,
+          updatedAt: '2026-02-15T00:00:00Z',
+        },
+        102: {
+          id: 'progress-2',
+          userId: 'test-user-123',
+          chapterId: 102,
+          bookId: 1,
+          completionPercentage: 100,
+          masteredAt: '2026-02-14T00:00:00Z',
+          updatedAt: '2026-02-15T00:00:00Z',
+        },
+      }
+
+      mockUseQuery.mockReturnValue({
+        data: mockProgressMap,
+        isLoading: false,
+        error: null,
+      })
+
+      const { result } = renderHook(() => useChapterProgress(1))
+
+      expect(result.current.data).toEqual(mockProgressMap)
+      expect(result.current.data?.[101]?.completionPercentage).toBe(45)
+      expect(result.current.data?.[102]?.completionPercentage).toBe(100)
+    })
+
+    it('returns empty object when no progress exists', () => {
+      mockUseQuery.mockReturnValue({
+        data: {},
+        isLoading: false,
+        error: null,
+      })
+
+      const { result } = renderHook(() => useChapterProgress(1))
+
+      expect(result.current.data).toEqual({})
+    })
+
+    it('returns undefined during loading', () => {
+      mockUseQuery.mockReturnValue({
+        data: undefined,
+        isLoading: true,
+        error: null,
+      })
+
+      const { result } = renderHook(() => useChapterProgress(1))
+
+      expect(result.current.data).toBeUndefined()
+    })
+  })
+
+  describe('error handling', () => {
+    it('exposes error when query fails', () => {
+      const mockError = new Error('Network error')
+      mockUseQuery.mockReturnValue({
+        data: undefined,
+        isLoading: false,
+        error: mockError,
+      })
+
+      const { result } = renderHook(() => useChapterProgress(1))
+
+      expect(result.current.error).toBe(mockError)
+    })
+  })
+})

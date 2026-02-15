@@ -30,7 +30,9 @@ export const queryKeys = {
   // Progress data
   progress: ['progress'] as const,
   userProgress: (userId: string) => ['progress', userId] as const,
-  chapterProgress: (userId: string, chapterId: number) =>
+  chapterProgress: (userId: string, bookId: number) =>
+    ['chapterProgress', userId, bookId] as const,
+  singleChapterProgress: (userId: string, chapterId: number) =>
     ['progress', userId, 'chapter', chapterId] as const,
 
   // Activity and streaks

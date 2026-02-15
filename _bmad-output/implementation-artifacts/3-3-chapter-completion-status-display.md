@@ -1,6 +1,6 @@
 # Story 3.3: Chapter Completion Status Display
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -32,35 +32,35 @@ So that I know my progress and which chapters need more work.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Extend ChapterListItem with progress states (AC: #1, #2, #3)
-  - [ ] 1.1 Add `progress` prop to ChapterListItem
-  - [ ] 1.2 Implement "Not started" state (gray badge)
-  - [ ] 1.3 Implement "In progress" state (percentage + progress indicator)
-  - [ ] 1.4 Implement "Mastered" state (green badge + checkmark)
-  - [ ] 1.5 Add progress bar or ring indicator
+- [x] Task 1: Extend ChapterListItem with progress states (AC: #1, #2, #3)
+  - [x] 1.1 Add `progress` prop to ChapterListItem
+  - [x] 1.2 Implement "Not started" state (gray badge)
+  - [x] 1.3 Implement "In progress" state (percentage + progress indicator)
+  - [x] 1.4 Implement "Mastered" state (green badge + checkmark)
+  - [x] 1.5 Add progress bar or ring indicator
 
-- [ ] Task 2: Create useChapterProgress hook (AC: #1, #2, #3, #4)
-  - [ ] 2.1 Create `hooks/useChapterProgress.ts`
-  - [ ] 2.2 Query chapter_progress table for user's chapters
-  - [ ] 2.3 Return progress by chapterId
-  - [ ] 2.4 Handle loading state
-  - [ ] 2.5 Add query key to queryKeys.ts
+- [x] Task 2: Create useChapterProgress hook (AC: #1, #2, #3, #4)
+  - [x] 2.1 Create `hooks/useChapterProgress.ts`
+  - [x] 2.2 Query chapter_progress table for user's chapters
+  - [x] 2.3 Return progress by chapterId
+  - [x] 2.4 Handle loading state
+  - [x] 2.5 Add query key to queryKeys.ts
 
-- [ ] Task 3: Integrate progress into Chapter List screen (AC: #1, #2, #3)
-  - [ ] 3.1 Fetch progress data for selected book
-  - [ ] 3.2 Pass progress to each ChapterListItem
-  - [ ] 3.3 Handle missing progress (default to 0%)
+- [x] Task 3: Integrate progress into Chapter List screen (AC: #1, #2, #3)
+  - [x] 3.1 Fetch progress data for selected book
+  - [x] 3.2 Pass progress to each ChapterListItem
+  - [x] 3.3 Handle missing progress (default to 0%)
 
-- [ ] Task 4: Create ChapterListSkeleton component (AC: #4)
-  - [ ] 4.1 Create `components/chapter/ChapterListSkeleton.tsx`
-  - [ ] 4.2 Show skeleton while progress loading
-  - [ ] 4.3 Match ChapterListItem layout
+- [x] Task 4: Create ChapterListSkeleton component (AC: #4)
+  - [x] 4.1 Create `components/chapter/ChapterListSkeleton.tsx`
+  - [x] 4.2 Show skeleton while progress loading
+  - [x] 4.3 Match ChapterListItem layout
 
-- [ ] Task 5: Test progress display
-  - [ ] 5.1 Test not started chapters show 0%
-  - [ ] 5.2 Test in-progress chapters show correct %
-  - [ ] 5.3 Test mastered chapters show checkmark
-  - [ ] 5.4 Test loading state displays correctly
+- [x] Task 5: Test progress display
+  - [x] 5.1 Test not started chapters show 0%
+  - [x] 5.2 Test in-progress chapters show correct %
+  - [x] 5.3 Test mastered chapters show checkmark
+  - [x] 5.4 Test loading state displays correctly
 
 ## Dev Notes
 
@@ -532,10 +532,38 @@ Files to modify:
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+claude-opus-4-5
 
 ### Debug Log References
 
+None - implementation proceeded smoothly with no blocking issues.
+
 ### Completion Notes List
 
+- Implemented chapter completion status display with three progress states: not-started (0%), in-progress (1-79%), and mastered (80%+)
+- ChapterListItem enhanced with progress prop, dynamic badge colors (gray/blue/green), checkmark icon for mastered state, and progress bar for in-progress state
+- Created useChapterProgress hook using TanStack Query to fetch chapter_progress from Supabase, mapped by chapterId for O(1) lookup
+- Added ChapterListSkeleton component for loading state that matches ChapterListItem layout
+- Integrated progress fetching into Chapter List screen with skeleton loading state
+- Updated queryKeys.ts with chapterProgress key pattern: ['chapterProgress', userId, bookId]
+- Hook gracefully handles missing chapter_progress table (Epic 6 dependency) by returning empty object
+- All 84 unit tests pass with no regressions
+- TypeScript compiles with no errors
+
+### Change Log
+
+- 2026-02-15: Implemented Story 3.3 - Chapter Completion Status Display (all acceptance criteria satisfied)
+
 ### File List
+
+**New Files:**
+- dangdai-mobile/hooks/useChapterProgress.ts
+- dangdai-mobile/hooks/useChapterProgress.test.ts
+- dangdai-mobile/components/chapter/ChapterListSkeleton.tsx
+- dangdai-mobile/components/chapter/ChapterListSkeleton.test.tsx
+
+**Modified Files:**
+- dangdai-mobile/components/chapter/ChapterListItem.tsx (added progress prop and states)
+- dangdai-mobile/components/chapter/ChapterListItem.test.tsx (added progress state tests)
+- dangdai-mobile/app/chapter/[bookId].tsx (integrated progress hook and skeleton)
+- dangdai-mobile/lib/queryKeys.ts (updated chapterProgress key)
