@@ -219,22 +219,19 @@ export function LoginForm() {
             )}
           </Button>
 
-          {/* Social Sign-In Options - Only show on iOS */}
+          {/* Social Sign-In Options */}
+          {/* AppleSignInButton handles its own platform check (returns null on non-iOS) */}
+          {/* Divider only shows when social sign-in options are available for the platform */}
           {Platform.OS === 'ios' && (
-            <YStack gap="$4" marginTop="$4">
-              {/* Divider with "or" text */}
-              <XStack alignItems="center" gap="$3">
-                <Separator flex={1} />
-                <Text color="$gray10" fontSize="$2">
-                  or continue with
-                </Text>
-                <Separator flex={1} />
-              </XStack>
-
-              {/* Apple Sign-In Button */}
-              <AppleSignInButton />
-            </YStack>
+            <XStack alignItems="center" gap="$3" marginTop="$4">
+              <Separator flex={1} />
+              <Text color="$gray10" fontSize="$2">
+                or continue with
+              </Text>
+              <Separator flex={1} />
+            </XStack>
           )}
+          <AppleSignInButton />
 
           {/* Link to Sign Up */}
           <XStack justifyContent="center" marginTop="$4">
