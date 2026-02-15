@@ -24,10 +24,13 @@ export function useAuth() {
       })
 
       if (signUpError) {
-        // Handle specific error cases
+        // Handle specific error cases (case-insensitive matching for robustness)
+        const errorLower = signUpError.message.toLowerCase()
+        
         if (
-          signUpError.message.includes('already registered') ||
-          signUpError.message.includes('User already registered')
+          errorLower.includes('already registered') ||
+          errorLower.includes('user already registered') ||
+          errorLower.includes('email already exists')
         ) {
           setError({
             message: 'Email already registered',
@@ -36,7 +39,7 @@ export function useAuth() {
           return false
         }
 
-        if (signUpError.message.includes('Invalid email')) {
+        if (errorLower.includes('invalid email')) {
           setError({
             message: 'Please enter a valid email',
             field: 'email',
@@ -44,7 +47,7 @@ export function useAuth() {
           return false
         }
 
-        if (signUpError.message.includes('Password')) {
+        if (errorLower.includes('password')) {
           setError({
             message: 'Password must be at least 8 characters',
             field: 'password',

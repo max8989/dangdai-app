@@ -43,6 +43,30 @@ test.describe('Signup Flow', () => {
     await expect(page.getByText('Password must be at least 8 characters')).toBeVisible()
   })
 
+  test('accepts password at exactly 8 characters (boundary test)', async ({ page }) => {
+    await expect(page.getByText('Create Account')).toBeVisible({ timeout: 10000 })
+
+    // Enter password with exactly 8 characters
+    const passwordInput = page.getByPlaceholder('At least 8 characters')
+    await passwordInput.fill('exactly8')
+    await passwordInput.blur()
+
+    // Should NOT show validation error for exactly 8 chars
+    await expect(page.getByText('Password must be at least 8 characters')).not.toBeVisible()
+  })
+
+  test('shows validation error for 7 character password (boundary test)', async ({ page }) => {
+    await expect(page.getByText('Create Account')).toBeVisible({ timeout: 10000 })
+
+    // Enter password with exactly 7 characters
+    const passwordInput = page.getByPlaceholder('At least 8 characters')
+    await passwordInput.fill('seven77')
+    await passwordInput.blur()
+
+    // Should show validation error for 7 chars
+    await expect(page.getByText('Password must be at least 8 characters')).toBeVisible()
+  })
+
   test('shows validation error when passwords do not match', async ({ page }) => {
     await expect(page.getByText('Create Account')).toBeVisible({ timeout: 10000 })
 
