@@ -1,6 +1,6 @@
 # Story 2.6: Auth State Persistence and Session Management
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -30,36 +30,36 @@ So that I don't have to sign in every time I open the app.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create AuthProvider context (AC: #1, #3, #4)
-  - [ ] 1.1 Create `providers/AuthProvider.tsx`
-  - [ ] 1.2 Manage session state with useState
-  - [ ] 1.3 Subscribe to auth state changes
-  - [ ] 1.4 Provide user and session to children
+- [x] Task 1: Create AuthProvider context (AC: #1, #3, #4)
+  - [x] 1.1 Create `providers/AuthProvider.tsx`
+  - [x] 1.2 Manage session state with useState
+  - [x] 1.3 Subscribe to auth state changes
+  - [x] 1.4 Provide user and session to children
 
-- [ ] Task 2: Implement session restoration (AC: #1)
-  - [ ] 2.1 Call `supabase.auth.getSession()` on mount
-  - [ ] 2.2 Set loading state while checking session
-  - [ ] 2.3 Update state when session found
+- [x] Task 2: Implement session restoration (AC: #1)
+  - [x] 2.1 Call `supabase.auth.getSession()` on mount
+  - [x] 2.2 Set loading state while checking session
+  - [x] 2.3 Update state when session found
 
-- [ ] Task 3: Handle session expiry (AC: #2)
-  - [ ] 3.1 Listen for SIGNED_OUT event
-  - [ ] 3.2 Display toast for session expiry
-  - [ ] 3.3 Redirect to login screen
+- [x] Task 3: Handle session expiry (AC: #2)
+  - [x] 3.1 Listen for SIGNED_OUT event
+  - [x] 3.2 Display toast for session expiry
+  - [x] 3.3 Redirect to login screen
 
-- [ ] Task 4: Create loading/splash screen (AC: #4)
-  - [ ] 4.1 Create splash screen component
-  - [ ] 4.2 Show while auth state loading
-  - [ ] 4.3 Smooth transition to main app
+- [x] Task 4: Create loading/splash screen (AC: #4)
+  - [x] 4.1 Create splash screen component
+  - [x] 4.2 Show while auth state loading
+  - [x] 4.3 Smooth transition to main app
 
-- [ ] Task 5: Implement route protection (AC: #1, #2)
-  - [ ] 5.1 Update root layout with auth check
-  - [ ] 5.2 Redirect unauthenticated to login
-  - [ ] 5.3 Redirect authenticated to dashboard
+- [x] Task 5: Implement route protection (AC: #1, #2)
+  - [x] 5.1 Update root layout with auth check
+  - [x] 5.2 Redirect unauthenticated to login
+  - [x] 5.3 Redirect authenticated to dashboard
 
-- [ ] Task 6: Test persistence flow
-  - [ ] 6.1 Test app restart stays logged in
-  - [ ] 6.2 Test session expiry shows message
-  - [ ] 6.3 Test loading state appears
+- [x] Task 6: Test persistence flow
+  - [x] 6.1 Test app restart stays logged in
+  - [x] 6.2 Test session expiry shows message
+  - [x] 6.3 Test loading state appears
 
 ## Dev Notes
 
@@ -319,15 +319,15 @@ The Supabase client automatically:
 ### File Checklist
 
 New files to create:
-- [ ] `dangdai-mobile/providers/AuthProvider.tsx`
-- [ ] `dangdai-mobile/components/SplashScreen.tsx`
+- [x] `dangdai-mobile/providers/AuthProvider.tsx`
+- [x] `dangdai-mobile/components/SplashScreen.tsx`
 
 Files to modify:
-- [ ] `dangdai-mobile/app/_layout.tsx` - Wrap with AuthProvider
-- [ ] `dangdai-mobile/hooks/useAuth.ts` - Update to use context
+- [x] `dangdai-mobile/app/_layout.tsx` - Wrap with AuthProvider
+- [x] `dangdai-mobile/hooks/useAuth.ts` - Update to use context
 
 Files to delete (or merge):
-- [ ] Remove standalone auth functions from `hooks/useAuth.ts` (move to provider)
+- [x] Remove standalone auth functions from `hooks/useAuth.ts` (move to provider)
 
 ### Testing Approach
 
@@ -371,10 +371,32 @@ Files to delete (or merge):
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude claude-opus-4-5 (anthropic/claude-opus-4-5)
 
 ### Debug Log References
 
 ### Completion Notes List
 
+- Created AuthProvider context with full session management, auth methods (signIn, signUp, signOut, resetPassword, updatePassword), and error handling
+- Implemented session restoration using supabase.auth.getSession() on mount with loading state
+- Added session expiry detection with toast notification for non-manual sign-outs using wasManualSignOutRef
+- Created SplashScreen component with Tamagui Spinner and loading text
+- Updated root layout to use AuthProvider and show SplashScreen while loading
+- Refactored hooks/useAuth.ts to re-export from AuthProvider for backward compatibility
+- Added isLoading alias for backward compatibility with existing components
+- All 22 existing Playwright E2E tests pass with no regressions
+- TypeScript compilation passes with no errors
+
+### Change Log
+
+- 2026-02-15: Implemented auth state persistence and session management (Story 2.6)
+
 ### File List
+
+New files:
+- dangdai-mobile/providers/AuthProvider.tsx
+- dangdai-mobile/components/SplashScreen.tsx
+
+Modified files:
+- dangdai-mobile/app/_layout.tsx
+- dangdai-mobile/hooks/useAuth.ts
