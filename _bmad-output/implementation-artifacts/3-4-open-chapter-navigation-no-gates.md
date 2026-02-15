@@ -1,6 +1,6 @@
 # Story 3.4: Open Chapter Navigation (No Gates)
 
-Status: review
+Status: done
 
 ## Story
 
@@ -498,15 +498,36 @@ None - implementation proceeded without blocking issues.
 ### Change Log
 
 - 2026-02-15: Story 3.4 implementation complete - Open chapter navigation with quiz type selection
+- 2026-02-15: Code review fixes applied - Added loading.tsx tests, improved chapterId validation, documented metro.config.js
+
+### Senior Developer Review (AI)
+
+**Review Date:** 2026-02-15
+**Reviewer:** claude-opus-4-5
+
+**Issues Found & Fixed:**
+1. **MEDIUM - Missing tests for loading.tsx** - Added `loading.test.tsx` with 8 tests covering rendering, quiz type display, and edge cases
+2. **MEDIUM - Invalid chapterId handling** - Added validation for non-numeric, undefined, and negative chapterId params with explicit NaN check
+3. **MEDIUM - Undocumented metro.config.js** - Added to File List below
+
+**Verification:**
+- All 146 unit tests pass (up from 135)
+- TypeScript compilation successful
+- All Acceptance Criteria verified as implemented
+- No gating logic found in any navigation path
+
+**Outcome:** APPROVED - All issues fixed, story ready for done status
 
 ### File List
 
 **New files:**
 - `dangdai-mobile/app/quiz/[chapterId].tsx` - Chapter detail screen with quiz type selection
-- `dangdai-mobile/app/quiz/[chapterId].test.tsx` - Comprehensive tests for chapter detail screen (25 tests)
+- `dangdai-mobile/app/quiz/[chapterId].test.tsx` - Comprehensive tests for chapter detail screen (28 tests)
 - `dangdai-mobile/app/quiz/loading.tsx` - Quiz loading placeholder screen (Epic 4 target)
+- `dangdai-mobile/app/quiz/loading.test.tsx` - Tests for quiz loading screen (8 tests)
 
 **Modified files:**
 - `dangdai-mobile/components/chapter/ChapterListItem.test.tsx` - Added 5 "no gating" verification tests
 - `dangdai-mobile/app/chapter/[bookId].test.tsx` - Added 2 open navigation tests
 - `dangdai-mobile/eslint.config.mjs` - Added Jest globals to ESLint configuration
+- `dangdai-mobile/metro.config.js` - Added test file exclusion from bundle

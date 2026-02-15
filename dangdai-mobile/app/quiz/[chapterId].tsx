@@ -22,8 +22,11 @@ export default function ChapterDetailScreen() {
   const { chapterId } = useLocalSearchParams<{ chapterId: string }>()
   const router = useRouter()
 
-  const chapterIdNum = parseInt(chapterId ?? '0', 10)
-  const chapter = useChapter(chapterIdNum)
+  // Validate chapterId param - handle invalid/missing values
+  const chapterIdNum = chapterId ? parseInt(chapterId, 10) : NaN
+  const isValidChapterId = !Number.isNaN(chapterIdNum) && chapterIdNum > 0
+
+  const chapter = isValidChapterId ? useChapter(chapterIdNum) : undefined
   const book = chapter ? BOOKS.find((b) => b.id === chapter.bookId) : null
 
   // Get progress for this specific chapter
@@ -32,8 +35,8 @@ export default function ChapterDetailScreen() {
   const percentage = progress?.completionPercentage ?? 0
   const isMastered = percentage >= 80
 
-  // Chapter not found state
-  if (!chapter) {
+  // Invalid chapterId or chapter not found state
+  if (!isValidChapterId || !chapter) {
     return (
       <>
         <Stack.Screen

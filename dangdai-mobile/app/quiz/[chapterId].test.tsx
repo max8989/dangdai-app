@@ -140,6 +140,24 @@ describe('ChapterDetailScreen', () => {
       const { getByTestId } = render(<ChapterDetailScreen />)
       expect(getByTestId('chapter-not-found')).toBeTruthy()
     })
+
+    it('shows "Chapter not found" for non-numeric chapterId param', () => {
+      mockUseLocalSearchParams.mockReturnValue({ chapterId: 'abc' })
+      const { getByTestId } = render(<ChapterDetailScreen />)
+      expect(getByTestId('chapter-not-found')).toBeTruthy()
+    })
+
+    it('shows "Chapter not found" for undefined chapterId param', () => {
+      mockUseLocalSearchParams.mockReturnValue({ chapterId: undefined })
+      const { getByTestId } = render(<ChapterDetailScreen />)
+      expect(getByTestId('chapter-not-found')).toBeTruthy()
+    })
+
+    it('shows "Chapter not found" for negative chapterId', () => {
+      mockUseLocalSearchParams.mockReturnValue({ chapterId: '-5' })
+      const { getByTestId } = render(<ChapterDetailScreen />)
+      expect(getByTestId('chapter-not-found')).toBeTruthy()
+    })
   })
 
   describe('quiz type selection (AC #3 - subtasks 1.3, 1.4)', () => {
