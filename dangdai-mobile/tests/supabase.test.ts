@@ -15,10 +15,11 @@ test.describe('Supabase Integration', () => {
       consoleLogs.push(msg.text())
     })
 
-    await page.goto('/', { waitUntil: 'load' })
+    await page.goto('/', { waitUntil: 'networkidle' })
 
-    // wait for client hydration and Supabase connection test
-    await page.waitForTimeout(3000)
+    // Wait for the app to fully hydrate by checking for the main heading
+    const heading = page.getByText('Dangdai')
+    await expect(heading).toBeVisible({ timeout: 10000 })
 
     // should not show error boundary
     await expect(page.getByText('Something went wrong')).not.toBeVisible()
@@ -29,17 +30,14 @@ test.describe('Supabase Integration', () => {
     )
     expect(envErrors).toHaveLength(0)
 
-    // The main app should render
-    const heading = page.getByText('Dangdai')
-    await expect(heading).toBeVisible()
   })
 
   test('environment variables are not exposed in client bundle source', async ({ page }) => {
-    // Navigate to the app
-    await page.goto('/', { waitUntil: 'load' })
+    // Navigate to the app and wait for full load
+    await page.goto('/', { waitUntil: 'networkidle' })
 
-    // Wait for scripts to load
-    await page.waitForTimeout(2000)
+    // Wait for the app to fully render
+    await expect(page.getByText('Dangdai')).toBeVisible({ timeout: 10000 })
 
     // Get all script contents
     const scripts = await page.evaluate(() => {

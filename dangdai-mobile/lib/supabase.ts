@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
@@ -14,7 +15,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 // Storage adapter that works across platforms
 // AsyncStorage is used for React Native (iOS/Android)
-// localStorage is used for web
+// localStorage is used for web (AsyncStorage polyfills to localStorage on web)
 const getStorage = () => {
   if (Platform.OS === 'web') {
     // For web, check if we're in a browser environment
@@ -39,8 +40,6 @@ const getStorage = () => {
     };
   }
   // For native platforms, use AsyncStorage
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const AsyncStorage = require('@react-native-async-storage/async-storage').default;
   return AsyncStorage;
 };
 

@@ -7,18 +7,15 @@ test('static export hydrates without Missing theme error', async ({ page }) => {
     errors.push(err.message)
   })
 
-  await page.goto('/', { waitUntil: 'load' })
+  await page.goto('/', { waitUntil: 'networkidle' })
 
-  // wait for client hydration
-  await page.waitForTimeout(3000)
+  // Wait for client hydration by checking for the main heading
+  const heading = page.getByText('Dangdai')
+  await expect(heading).toBeVisible({ timeout: 10000 })
 
   // should not show the error boundary
   await expect(page.getByText('Something went wrong')).not.toBeVisible()
   await expect(page.getByText('Missing theme')).not.toBeVisible()
-
-  // verify tamagui rendered with theme - the heading should be visible
-  const heading = page.getByText('Dangdai')
-  await expect(heading).toBeVisible()
 
   // verify no page errors related to missing theme
   const themeErrors = errors.filter((e) => e.includes('Missing theme'))

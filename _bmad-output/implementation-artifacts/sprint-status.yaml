@@ -45,9 +45,9 @@ development_status:
   1-1-initialize-mobile-app-with-tamagui-expo-router: done
   1-2-initialize-python-backend-with-langgraph: done
   1-3-configure-supabase-project-and-base-schema: in-progress
-  1-4-configure-mobile-app-environment-and-supabase-client: ready-for-dev
+  1-4-configure-mobile-app-environment-and-supabase-client: review
   1-5-configure-state-management-tanstack-query-zustand: ready-for-dev
-  1-6-deploy-python-backend-to-azure-container-apps: ready-for-dev
+  1-6-deploy-python-backend-to-azure-container-apps: in-progress
   1-7-configure-ci-cd-with-github-actions: ready-for-dev
   epic-1-retrospective: optional
 

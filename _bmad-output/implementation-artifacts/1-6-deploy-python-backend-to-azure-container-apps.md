@@ -1,6 +1,6 @@
 # Story 1.6: Deploy Python Backend to Azure Container Apps
 
-Status: ready-for-dev
+Status: in-progress
 
 ## Story
 
@@ -32,34 +32,34 @@ So that the quiz generation API is accessible from the mobile app.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Set up Terraform configuration (AC: #1)
-  - [ ] 1.1 Create `terraform/` directory in project root
-  - [ ] 1.2 Create `main.tf` with Azure provider and resource group
-  - [ ] 1.3 Create `variables.tf` with input variables
-  - [ ] 1.4 Create `outputs.tf` for API URL output
-  - [ ] 1.5 Create `terraform.tfvars.example` template
+- [x] Task 1: Set up Terraform configuration (AC: #1)
+  - [x] 1.1 Create `terraform/` directory in project root
+  - [x] 1.2 Create `main.tf` with Azure provider and resource group
+  - [x] 1.3 Create `variables.tf` with input variables
+  - [x] 1.4 Create `outputs.tf` for API URL output
+  - [x] 1.5 Create `terraform.tfvars.example` template
 
-- [ ] Task 2: Create Container Apps environment (AC: #1)
-  - [ ] 2.1 Define Azure Container Apps Environment resource
-  - [ ] 2.2 Configure Log Analytics workspace
-  - [ ] 2.3 Set up networking for public access
+- [x] Task 2: Create Container Apps environment (AC: #1)
+  - [x] 2.1 Define Azure Container Apps Environment resource
+  - [x] 2.2 Configure Log Analytics workspace
+  - [x] 2.3 Set up networking for public access
 
-- [ ] Task 3: Create container app resource (AC: #2)
-  - [ ] 3.1 Define container app with Python backend image
-  - [ ] 3.2 Configure scale-to-zero (min replicas: 0, max: 10)
-  - [ ] 3.3 Set resource limits (0.5 vCPU, 1GB memory)
-  - [ ] 3.4 Configure ingress for external access
+- [x] Task 3: Create container app resource (AC: #2)
+  - [x] 3.1 Define container app with Python backend image
+  - [x] 3.2 Configure scale-to-zero (min replicas: 0, max: 10)
+  - [x] 3.3 Set resource limits (0.5 vCPU, 1GB memory)
+  - [x] 3.4 Configure ingress for external access
 
-- [ ] Task 4: Configure secrets and environment (AC: #3)
-  - [ ] 4.1 Create secrets for SUPABASE_SERVICE_KEY and LLM_API_KEY
-  - [ ] 4.2 Configure environment variables referencing secrets
-  - [ ] 4.3 Add non-secret environment variables (SUPABASE_URL, etc.)
+- [x] Task 4: Configure secrets and environment (AC: #3)
+  - [x] 4.1 Create secrets for SUPABASE_SERVICE_KEY and LLM_API_KEY
+  - [x] 4.2 Configure environment variables referencing secrets
+  - [x] 4.3 Add non-secret environment variables (SUPABASE_URL, etc.)
 
-- [ ] Task 5: Create Dockerfile (AC: #2)
-  - [ ] 5.1 Create `Dockerfile` in dangdai-api directory
-  - [ ] 5.2 Use Python 3.11 slim base image
-  - [ ] 5.3 Install dependencies from pyproject.toml
-  - [ ] 5.4 Configure uvicorn as entrypoint
+- [x] Task 5: Create Dockerfile (AC: #2)
+  - [x] 5.1 Create `Dockerfile` in dangdai-api directory
+  - [x] 5.2 Use Python 3.11 slim base image
+  - [x] 5.3 Install dependencies from pyproject.toml
+  - [x] 5.4 Configure uvicorn as entrypoint
 
 - [ ] Task 6: Deploy and verify (AC: #4, #5)
   - [ ] 6.1 Run `terraform init`
@@ -483,10 +483,30 @@ az containerapp create \
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+claude-opus-4-5
 
 ### Debug Log References
 
+None
+
 ### Completion Notes List
 
+- **2026-02-15**: Tasks 1-5 completed - All Terraform configuration files and Dockerfile created
+- Created terraform/ directory with main.tf, variables.tf, outputs.tf, terraform.tfvars.example, and .gitignore
+- Terraform configuration includes: Azure Resource Group, Log Analytics Workspace, Container Apps Environment, Container App with scale-to-zero (0-10 replicas), 0.5 vCPU, 1GB memory
+- Secrets configured for SUPABASE_SERVICE_KEY and LLM_API_KEY with Azure secret references
+- Environment variables configured: SUPABASE_URL, HOST, PORT
+- Dockerfile created with Python 3.11 slim, uvicorn entrypoint on port 8000
+- Added 25 infrastructure validation tests in tests/unit_tests/test_infrastructure.py
+- All 29 tests pass (4 existing + 25 new infrastructure tests)
+- Task 6 pending: Requires Azure credentials and Terraform CLI for actual deployment
+
 ### File List
+
+- terraform/main.tf (new)
+- terraform/variables.tf (new)
+- terraform/outputs.tf (new)
+- terraform/terraform.tfvars.example (new)
+- terraform/.gitignore (new)
+- dangdai-api/Dockerfile (new)
+- dangdai-api/tests/unit_tests/test_infrastructure.py (new)
