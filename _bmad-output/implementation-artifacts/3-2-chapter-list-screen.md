@@ -1,6 +1,6 @@
 # Story 3.2: Chapter List Screen
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -38,42 +38,42 @@ So that I can see what content is available and choose what to study.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create ChapterListItem component (AC: #1)
-  - [ ] 1.1 Create `components/chapter/ChapterListItem.tsx`
-  - [ ] 1.2 Display chapter number badge
-  - [ ] 1.3 Display English title
-  - [ ] 1.4 Display Chinese title
-  - [ ] 1.5 Add press handler for navigation
+- [x] Task 1: Create ChapterListItem component (AC: #1)
+  - [x] 1.1 Create `components/chapter/ChapterListItem.tsx`
+  - [x] 1.2 Display chapter number badge
+  - [x] 1.3 Display English title
+  - [x] 1.4 Display Chinese title
+  - [x] 1.5 Add press handler for navigation
 
-- [ ] Task 2: Create Chapter List screen (AC: #1, #2, #3, #4, #5)
-  - [ ] 2.1 Create `app/chapter/[bookId].tsx` dynamic route
-  - [ ] 2.2 Parse bookId from route params
-  - [ ] 2.3 Display screen header with book title
-  - [ ] 2.4 Implement back navigation
-  - [ ] 2.5 Render scrollable chapter list
+- [x] Task 2: Create Chapter List screen (AC: #1, #2, #3, #4, #5)
+  - [x] 2.1 Create `app/chapter/[bookId].tsx` dynamic route
+  - [x] 2.2 Parse bookId from route params
+  - [x] 2.3 Display screen header with book title
+  - [x] 2.4 Implement back navigation
+  - [x] 2.5 Render scrollable chapter list
 
-- [ ] Task 3: Define chapter data (AC: #2, #3, #4, #5)
-  - [ ] 3.1 Create `constants/chapters.ts` with all chapter definitions
-  - [ ] 3.2 Include chapter titles in English and Chinese
-  - [ ] 3.3 Organize by book (15, 15, 12, 12 chapters)
+- [x] Task 3: Define chapter data (AC: #2, #3, #4, #5)
+  - [x] 3.1 Create `constants/chapters.ts` with all chapter definitions
+  - [x] 3.2 Include chapter titles in English and Chinese
+  - [x] 3.3 Organize by book (15, 15, 12, 12 chapters)
 
-- [ ] Task 4: Create useChapters hook (AC: #1)
-  - [ ] 4.1 Create `hooks/useChapters.ts`
-  - [ ] 4.2 Filter chapters by bookId
-  - [ ] 4.3 Add to queryKeys
+- [x] Task 4: Create useChapters hook (AC: #1)
+  - [x] 4.1 Create `hooks/useChapters.ts`
+  - [x] 4.2 Filter chapters by bookId
+  - [x] 4.3 Add to queryKeys (already existed in lib/queryKeys.ts)
 
-- [ ] Task 5: Implement chapter selection (AC: #6)
-  - [ ] 5.1 Add onPress handler to ChapterListItem
-  - [ ] 5.2 Navigate to `/quiz/[chapterId]` route
-  - [ ] 5.3 Pass chapter context to quiz screen
+- [x] Task 5: Implement chapter selection (AC: #6)
+  - [x] 5.1 Add onPress handler to ChapterListItem
+  - [x] 5.2 Navigate to `/quiz/[chapterId]` route
+  - [x] 5.3 Pass chapter context to quiz screen
 
-- [ ] Task 6: Test chapter list flow
-  - [ ] 6.1 Test Book 1 shows 15 chapters
-  - [ ] 6.2 Test Book 2 shows 15 chapters
-  - [ ] 6.3 Test Book 3 shows 12 chapters
-  - [ ] 6.4 Test Book 4 shows 12 chapters
-  - [ ] 6.5 Test back navigation works
-  - [ ] 6.6 Test chapter selection navigates to quiz
+- [x] Task 6: Test chapter list flow
+  - [x] 6.1 Test Book 1 shows 15 chapters
+  - [x] 6.2 Test Book 2 shows 15 chapters
+  - [x] 6.3 Test Book 3 shows 12 chapters
+  - [x] 6.4 Test Book 4 shows 12 chapters
+  - [x] 6.5 Test back navigation works
+  - [x] 6.6 Test chapter selection navigates to quiz
 
 ## Dev Notes
 
@@ -470,10 +470,38 @@ Files to modify:
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude claude-opus-4-5
 
 ### Debug Log References
 
+No debug issues encountered.
+
 ### Completion Notes List
 
+- Created ChapterListItem component with chapter number badge, English and Chinese titles, and press handler
+- Implemented full [bookId].tsx screen replacing the placeholder with complete functionality
+- Created constants/chapters.ts with all 54 chapters across 4 books (15, 15, 12, 12)
+- Created useChapters and useChapter hooks using memoization for static data
+- Created placeholder quiz route (app/quiz/[chapterId].tsx) for navigation target
+- Added comprehensive unit tests for chapters constants (21 tests), ChapterListItem (12 tests), and useChapters hooks (14 tests)
+- Added e2e Playwright tests for chapter list flow (skipped without test credentials)
+- All 58 unit tests pass, TypeScript compiles without errors
+
 ### File List
+
+**New files:**
+- dangdai-mobile/constants/chapters.ts
+- dangdai-mobile/constants/chapters.test.ts
+- dangdai-mobile/components/chapter/ChapterListItem.tsx
+- dangdai-mobile/components/chapter/ChapterListItem.test.tsx
+- dangdai-mobile/hooks/useChapters.ts
+- dangdai-mobile/hooks/useChapters.test.ts
+- dangdai-mobile/app/quiz/[chapterId].tsx
+- dangdai-mobile/tests/chapters.test.ts
+
+**Modified files:**
+- dangdai-mobile/app/chapter/[bookId].tsx (replaced placeholder with full implementation)
+
+## Change Log
+
+- 2026-02-15: Implemented Story 3.2 Chapter List Screen - Full chapter list functionality with navigation to quiz

@@ -99,8 +99,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Wait for both auth state and navigation to be ready
     if (loading || !navigationState?.key) return
 
-    const inAuthGroup = segments[0] === '(auth)'
-    const onResetPasswordScreen = segments[1] === 'reset-password'
+    const segmentsArray = segments as string[]
+    const inAuthGroup = segmentsArray[0] === '(auth)'
+    const onResetPasswordScreen = segmentsArray.length > 1 && segmentsArray[1] === 'reset-password'
 
     // Allow reset-password screen during password recovery flow
     if (isPasswordRecovery && onResetPasswordScreen) {
