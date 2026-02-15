@@ -1,5 +1,7 @@
 ---
-stepsCompleted: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+stepsCompleted: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+workflowComplete: true
+completedAt: 2026-02-14
 inputDocuments:
   - '/home/maxime/repos/dangdai-app/_bmad-output/planning-artifacts/prd.md'
   - '/home/maxime/repos/dangdai-app/_bmad-output/brainstorming/brainstorming-session-20260214.md'
@@ -667,3 +669,599 @@ flowchart TD
 4. **Always show progress** - User always knows where they are
 5. **Graceful degradation** - Handle errors without losing progress
 6. **Celebrate milestones** - Mark achievements clearly
+
+## Component Strategy
+
+### Design System Components (from Tamagui)
+
+**Foundation Components (use as-is):**
+
+| Component | Usage |
+|-----------|-------|
+| Button | Navigation, CTAs |
+| Text | All typography |
+| Stack (XStack, YStack) | Layout structure |
+| Card | Container for content |
+| Sheet | Bottom sheets, modals |
+| Input | Text input fields |
+| Tabs | Bottom navigation |
+| Separator | Visual dividers |
+
+**Extended Components (customize Tamagui base):**
+
+| Component | Base | Customization |
+|-----------|------|---------------|
+| AnswerButton | Button | Add correct/incorrect states, larger touch target |
+| ProgressBar | Progress | Add animation, custom colors |
+| NavTab | Tabs | Custom icons, active states |
+
+### Custom Components
+
+#### QuizQuestionCard
+
+**Purpose:** Display quiz question with character, pinyin, or meaning prompt
+
+**Anatomy:**
+- Question type label ("What does this mean?")
+- Primary content (large Chinese character, pinyin, or English)
+- Secondary content (pinyin below character if applicable)
+- Container with rounded corners, elevation
+
+**States:**
+- Default (awaiting answer)
+- Correct (green border, success indicator)
+- Incorrect (orange border, shows correct answer)
+
+**Variants:**
+- Character display (large 72px character)
+- Pinyin display (medium 24px pinyin)
+- Meaning display (medium 20px English)
+
+---
+
+#### AnswerOptionGrid
+
+**Purpose:** Display answer options in flexible layouts
+
+**Variants:**
+
+| Variant | Layout | Use Case |
+|---------|--------|----------|
+| Grid 2x2 | 4 options in grid | Most common - vocabulary |
+| List | 2-4 vertical options | Longer answer text |
+| TextInput | Single input field | User types answer |
+
+**States (per option):**
+- Default (neutral border)
+- Hover/Press (primary color border)
+- Selected (primary fill)
+- Correct (green border + checkmark)
+- Incorrect (orange border)
+- Disabled (dimmed, after answer)
+
+**Accessibility:**
+- Minimum 48x48px touch targets
+- Focus states for keyboard navigation
+- ARIA labels for screen readers
+
+---
+
+#### TextInputAnswer
+
+**Purpose:** Allow user to type answer (pinyin, character, or meaning)
+
+**Anatomy:**
+- Input field with placeholder
+- Submit button
+- Character counter (if applicable)
+
+**States:**
+- Empty (placeholder visible)
+- Focused (primary border)
+- Filled (user input shown)
+- Correct (green border + checkmark)
+- Incorrect (orange border + show correct)
+
+**Behavior:**
+- Auto-submit on Enter key
+- Show pinyin keyboard hints on mobile (if typing pinyin)
+- Support Chinese character input
+
+---
+
+#### ActivityCalendar
+
+**Purpose:** GitHub-style calendar showing learning activity
+
+**Anatomy:**
+- Month/year header with navigation arrows
+- Day-of-week labels (S M T W T F S)
+- Day grid (colored by activity)
+- "X days this month" counter
+
+**States (per day):**
+- Empty (no activity) - gray
+- Active (completed exercise) - primary color
+- Today (current day) - highlighted border
+- Future (upcoming) - very light/disabled
+
+**Behavior:**
+- Swipe/arrow to navigate months
+- Tap day to see details (Phase 2)
+- Color intensity based on activity count (optional)
+
+**Variants:**
+- Week view (compact, dashboard)
+- Month view (full, progress screen)
+
+---
+
+#### PointsCounter
+
+**Purpose:** Display and animate points earned
+
+**Anatomy:**
+- Points value (large number)
+- Points label
+- Optional: flame/trophy icon
+
+**Animation:**
+- Count-up animation on points earned
+- Satisfying "tick tick tick" timing
+- Subtle scale bounce at end
+
+**Variants:**
+- Inline (small, header badge)
+- Celebration (large, completion screen)
+
+---
+
+#### CompletionScreen
+
+**Purpose:** Celebrate exercise completion
+
+**Anatomy:**
+- Celebration icon/emoji
+- "Exercise Complete!" title
+- Points earned (animated)
+- Stats row (correct count, accuracy %)
+- Weak areas summary card
+- Continue button
+
+**Animation Sequence:**
+1. Screen slides up
+2. Trophy/emoji bounces in
+3. Points count up with sound
+4. Stats fade in
+5. Continue button appears
+
+**Variants:**
+- Normal completion
+- Chapter mastery (extra celebration, badge)
+
+---
+
+#### ChapterListItem
+
+**Purpose:** Display chapter in list with progress
+
+**Anatomy:**
+- Chapter number badge
+- Chapter name (English)
+- Chapter name (Chinese)
+- Progress indicator (% or checkmark)
+
+**States:**
+- Not started (gray badge, 0%)
+- In progress (primary badge, X%)
+- Completed (green badge, checkmark)
+
+**Behavior:**
+- Tap to start/continue quiz
+- All chapters tappable (no locks)
+
+---
+
+#### BookCard
+
+**Purpose:** Display book with overall progress
+
+**Anatomy:**
+- Book cover (colored, with Chinese + number)
+- Book title
+- Progress summary (X/15 chapters)
+- Progress bar
+
+**Behavior:**
+- Tap to view chapters
+
+---
+
+#### FeedbackOverlay
+
+**Purpose:** Show correct/incorrect feedback after answer
+
+**Anatomy:**
+- Semi-transparent overlay
+- Icon (checkmark or X)
+- Optional: correct answer display
+
+**Animation:**
+- Quick fade in (100ms)
+- Hold (500ms)
+- Auto-dismiss and advance
+
+**Sound Integration:**
+- Correct: satisfying "ding"
+- Incorrect: gentle "bonk" (not harsh)
+
+---
+
+### Component Implementation Strategy
+
+**Build Order (by user journey priority):**
+
+**Phase 1 - Core Quiz Experience:**
+1. QuizQuestionCard
+2. AnswerOptionGrid (2x2 + list variants)
+3. TextInputAnswer
+4. FeedbackOverlay
+5. ProgressBar (animated)
+6. CompletionScreen
+
+**Phase 2 - Navigation & Progress:**
+7. ChapterListItem
+8. BookCard
+9. ActivityCalendar (week view)
+10. PointsCounter
+
+**Phase 3 - Enhanced Experience:**
+11. ActivityCalendar (full month, scrollable)
+12. Chapter mastery celebration variant
+13. Sound integration across components
+
+### Implementation Approach
+
+**Tamagui Integration:**
+- Use Tamagui's `styled()` to extend base components
+- Leverage theme tokens for all colors
+- Use `@tamagui/animations` for micro-interactions
+
+**Animation Library:**
+- React Native Reanimated for complex animations
+- Tamagui animations for simple transitions
+
+**Sound Integration:**
+- expo-av for audio playback
+- Preload sounds on app start
+- Sound manager for volume/mute control
+
+**Accessibility:**
+- All interactive elements have ARIA labels
+- Minimum 48px touch targets
+- Support VoiceOver/TalkBack
+- Respect reduced motion preference
+
+## UX Consistency Patterns
+
+### Feedback Patterns
+
+#### Answer Feedback
+
+| State | Visual | Sound | Duration |
+|-------|--------|-------|----------|
+| Correct | Green border, checkmark icon, card highlight | Satisfying "ding" | 1 second |
+| Incorrect | Orange border, show correct answer | Gentle "bonk" | 1 second |
+
+**Behavior:**
+- Feedback appears immediately on tap (<100ms)
+- Auto-advance to next question after 1 second
+- User cannot tap during feedback animation
+- Points increment visible on correct answer
+
+#### Completion Feedback
+
+| State | Visual | Sound |
+|-------|--------|-------|
+| Exercise Complete | Full-screen celebration, points tally | Celebratory chime |
+| Chapter Mastery (80%+) | Extra celebration, badge earned | Special achievement sound |
+
+**Animation Sequence:**
+1. Screen transition (slide up)
+2. Emoji/trophy bounce in
+3. Points count up (with ticking sound)
+4. Stats fade in
+5. Continue button appears
+
+---
+
+### Button Hierarchy
+
+| Level | Style | Usage | Example |
+|-------|-------|-------|---------|
+| Primary | Filled, primary color | Main action per screen | "Continue", "Start Quiz" |
+| Secondary | Outlined, primary color | Alternative action | "View All Chapters" |
+| Tertiary | Text only, primary color | Minor action | "Skip", "Cancel" |
+| Destructive | Outlined, error color | Dangerous action | "Delete Progress" |
+
+**Button States:**
+- Default → Hover/Press (darken 10%) → Disabled (50% opacity)
+- Minimum height: 48px
+- Minimum width: 120px for primary buttons
+- Full-width on mobile for primary CTAs
+
+---
+
+### Navigation Patterns
+
+#### Tab Navigation
+
+| Tab | Icon | Label |
+|-----|------|-------|
+| Home | House | Home |
+| Books | Book | Books |
+| Progress | Chart | Progress |
+| Settings | Gear | Settings |
+
+**Behavior:**
+- Active tab: Primary color icon + label
+- Inactive tab: Gray icon + label
+- Tap switches immediately (no animation delay)
+- Badge on tab for notifications (Phase 2)
+
+#### Back Navigation
+
+| Context | Behavior |
+|---------|----------|
+| Within flow | Back arrow in header, returns to previous screen |
+| Quiz in progress | X button, triggers "Are you sure?" dialog |
+| Root screens (tabs) | No back button |
+
+#### Quiz Exit Confirmation
+
+**Trigger:** User taps X during active quiz
+
+**Dialog:**
+- Title: "Leave exercise?"
+- Message: "Your progress will be saved."
+- Primary action: "Keep Learning" (stay)
+- Secondary action: "Leave" (exit and save)
+
+**Behavior:**
+- Progress saves automatically
+- User returns to dashboard
+- Can resume from where they left off
+
+---
+
+### Loading & Empty States
+
+#### Quiz Generation Loading
+
+**Trigger:** Starting new quiz (LLM generating questions ~5 seconds)
+
+**Display:**
+- Fun animation (rotating Chinese character or bouncing mascot)
+- Rotating tips about Chinese learning:
+  - "Did you know? 你好 literally means 'you good'!"
+  - "Tip: Practice writing characters by hand too!"
+  - "Fun fact: Mandarin has 4 tones (plus neutral)!"
+- Progress indicator (spinner or bar)
+
+**Behavior:**
+- Tips rotate every 2 seconds
+- Cancel button available (returns to previous screen)
+- Graceful error if generation fails
+
+#### Empty States
+
+| Screen | Empty State |
+|--------|-------------|
+| Dashboard (new user) | "Welcome! Choose a book to start learning" + Book selection CTA |
+| Progress (no activity) | "Start your first exercise to see progress here" + Start CTA |
+| Chapter (0%) | "Ready to begin? Tap to start your first exercise" |
+
+**Design:**
+- Friendly illustration or icon
+- Clear message explaining what to do
+- Single CTA button
+
+#### Error States
+
+| Error Type | Display | Recovery |
+|------------|---------|----------|
+| Network error | "Oops! Check your connection" + Retry button | Tap to retry |
+| Quiz generation failed | "Couldn't load questions" + Retry button | Tap to retry |
+| General error | "Something went wrong" + Go Home button | Return to dashboard |
+
+**Tone:** Friendly, not technical. Never blame the user.
+
+---
+
+### Sound Patterns
+
+#### Sound Events
+
+| Event | Sound | Character |
+|-------|-------|-----------|
+| Correct answer | "Ding" | Bright, satisfying, short |
+| Incorrect answer | "Bonk" | Soft, gentle, not harsh |
+| Exercise complete | "Celebration chime" | Uplifting, rewarding |
+| Chapter mastery | "Achievement fanfare" | Special, memorable |
+| Points counting | "Tick tick tick" | Fast, satisfying tally |
+| Button tap | Subtle haptic | Tactile feedback only |
+
+#### Sound Settings
+
+- Master toggle: Sounds on/off
+- Respect device silent mode
+- No sounds for navigation (only meaningful moments)
+- Haptic feedback independent of sound setting
+
+---
+
+### Form Patterns
+
+#### Text Input (Quiz Answer)
+
+**States:**
+- Empty: Placeholder text ("Type your answer...")
+- Focused: Primary color border, keyboard open
+- Filled: User text visible
+- Submitting: Brief loading indicator
+- Correct: Green border + checkmark
+- Incorrect: Orange border + show correct answer
+
+**Behavior:**
+- Submit on Enter key
+- Submit button also available
+- Auto-capitalize off for pinyin input
+- Support Chinese keyboard for character input
+
+#### Validation
+
+- Validate on submit (not on blur)
+- Inline error message below input
+- Don't clear input on error (let user correct)
+
+---
+
+### Animation Patterns
+
+#### Timing Guidelines
+
+| Animation Type | Duration | Easing |
+|----------------|----------|--------|
+| Micro-interaction (button) | 100-150ms | ease-out |
+| Feedback (correct/incorrect) | 200ms in, 1000ms hold | ease-out |
+| Screen transition | 300ms | ease-in-out |
+| Celebration | 500-800ms | spring |
+| Points counter | 1500-2000ms | linear |
+
+#### Reduced Motion
+
+- Respect `prefers-reduced-motion` setting
+- Disable animations but keep feedback (color changes)
+- Sound feedback still works
+- Instant transitions instead of animated
+
+---
+
+### Consistency Rules
+
+1. **One primary action per screen** - Never compete for attention
+2. **Immediate feedback** - Every tap gets visual/audio response
+3. **Predictable navigation** - Same patterns everywhere
+4. **Forgiving interactions** - Confirm destructive actions, allow undo
+5. **Celebration over shame** - Emphasize success, gentle on failure
+6. **Sound enhances, never annoys** - Meaningful moments only
+
+## Responsive Design & Accessibility
+
+### Responsive Strategy
+
+**Platform Focus:** Mobile phones only (iOS and Android)
+
+**Supported Devices:**
+- iPhone SE (375px) to iPhone Pro Max (430px)
+- Android phones (360px - 412px typical)
+- No tablet optimization (scaled phone UI acceptable)
+
+**Orientation:** Portrait only
+- Lock orientation to portrait
+- Simplifies layout and quiz interaction
+- Consistent with learning app conventions (Duolingo, etc.)
+
+### Screen Size Adaptations
+
+| Screen Width | Adaptations |
+|--------------|-------------|
+| Small (< 375px) | Tighter spacing, smaller fonts (minimum readable) |
+| Medium (375-400px) | Default design, standard spacing |
+| Large (> 400px) | Slightly more breathing room, larger touch targets |
+
+**Key Adaptation Points:**
+- Quiz answer grid: Fixed 2x2, but padding adjusts
+- Chinese characters: Maintain 72px minimum for readability
+- Bottom navigation: Fixed height, icons scale slightly
+- Cards: Horizontal margins adjust (16px small, 20px large)
+
+### Layout Principles
+
+**Fixed Elements:**
+- Bottom tab bar (always visible except during quiz)
+- Status bar area (respected via safe area)
+- Quiz progress bar (fixed at top during quiz)
+
+**Scrollable Content:**
+- Dashboard cards
+- Chapter lists
+- Progress calendar (month view)
+
+**Safe Areas:**
+- Respect notch/dynamic island on iPhone
+- Respect Android navigation bar
+- Use `SafeAreaView` consistently
+
+### Accessibility Approach
+
+**Basic Accessibility (Good Practices):**
+
+| Category | Implementation |
+|----------|---------------|
+| Touch Targets | Minimum 48x48px for all interactive elements |
+| Color Contrast | Meet 4.5:1 ratio for text readability |
+| Font Sizing | Support dynamic type / system font scaling |
+| Feedback | Visual + audio (never color alone) |
+| Screen Reader | Basic labels for key interactive elements |
+
+**Not in Scope (MVP):**
+- Formal WCAG AA/AAA compliance
+- Full VoiceOver/TalkBack optimization
+- High contrast mode
+- Reduced motion (nice to have, not required)
+
+### Chinese Character Accessibility
+
+**Specific Considerations for Chinese Learning:**
+
+| Consideration | Implementation |
+|---------------|---------------|
+| Character Size | 72px for quiz display (large, clear strokes) |
+| Stroke Clarity | Adequate font weight for thin strokes |
+| Pinyin Display | 20px minimum, clear tone marks |
+| Character + Pinyin | Sufficient spacing between |
+
+### Testing Strategy
+
+**Device Testing:**
+- iPhone SE (smallest common iOS)
+- iPhone 14/15 (standard size)
+- iPhone Pro Max (largest)
+- Popular Android (Pixel, Samsung mid-range)
+
+**Testing Checklist:**
+- [ ] All touch targets reachable with thumb
+- [ ] Text readable without zooming
+- [ ] Quiz answers tappable without mis-taps
+- [ ] Chinese characters clear at all sizes
+- [ ] No content cut off by notch/safe areas
+- [ ] Sounds play correctly on both platforms
+
+### Implementation Guidelines
+
+**React Native Specifics:**
+- Lock to portrait: `expo.orientation: "portrait"`
+- Use `SafeAreaView` from `react-native-safe-area-context`
+- Check device width with `Dimensions.get('window')`
+- Define `isSmallDevice = width < 375` for conditional styling
+
+**Tamagui Responsive:**
+- Use Tamagui's responsive props where needed
+- Define size tokens for small/medium/large
+- Keep breakpoints simple (just small vs normal)
+
+**Font Scaling:**
+- Allow system font scaling up to 1.2x
+- Test UI doesn't break at larger sizes
+- Consider max font size for critical UI
