@@ -377,6 +377,64 @@ describe('ChapterListItem', () => {
       })
     })
 
+    /**
+     * Story 3.4: Open Chapter Navigation (No Gates)
+     * These tests explicitly verify NO gating logic exists
+     */
+    describe('no gating (AC #1, #2) - Story 3.4', () => {
+      it('is always pressable regardless of progress', () => {
+        const { getByTestId } = render(
+          <ChapterListItem chapter={mockChapter} progress={null} onPress={mockOnPress} />
+        )
+
+        const card = getByTestId('chapter-list-item-105')
+        fireEvent.press(card)
+        expect(mockOnPress).toHaveBeenCalledTimes(1)
+      })
+
+      it('does not render any lock icon', () => {
+        const { queryByTestId, queryByText } = render(
+          <ChapterListItem chapter={mockChapter} progress={null} onPress={mockOnPress} />
+        )
+
+        expect(queryByTestId('lock-icon')).toBeNull()
+        expect(queryByTestId('locked-indicator')).toBeNull()
+        expect(queryByText(/locked/i)).toBeNull()
+        expect(queryByText(/unlock/i)).toBeNull()
+      })
+
+      it('does not show unlock requirements message', () => {
+        const { queryByText } = render(
+          <ChapterListItem chapter={mockChapter} progress={null} onPress={mockOnPress} />
+        )
+
+        expect(queryByText(/complete previous/i)).toBeNull()
+        expect(queryByText(/unlock/i)).toBeNull()
+        expect(queryByText(/prerequisite/i)).toBeNull()
+      })
+
+      it('is pressable for a later chapter even with no progress on earlier chapters', () => {
+        // Simulating Book 3, Chapter 1 being accessed with no progress
+        const { getByTestId } = render(
+          <ChapterListItem chapter={mockBook3Chapter} progress={null} onPress={mockOnPress} />
+        )
+
+        const card = getByTestId('chapter-list-item-301')
+        fireEvent.press(card)
+        expect(mockOnPress).toHaveBeenCalledTimes(1)
+      })
+
+      it('has no disabled state on the card', () => {
+        const { getByTestId } = render(
+          <ChapterListItem chapter={mockChapter} progress={null} onPress={mockOnPress} />
+        )
+
+        const card = getByTestId('chapter-list-item-105')
+        // If disabled was set, onPress would not fire
+        expect(card.props.disabled).toBeFalsy()
+      })
+    })
+
     describe('percentage bounds validation', () => {
       it('clamps negative percentage to 0%', () => {
         const progressNegative = { ...mockProgressInProgress, completionPercentage: -10 }

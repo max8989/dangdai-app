@@ -62,6 +62,16 @@ export default [
         // React Native globals
         __DEV__: 'readonly',
         React: 'readonly',
+        // Jest globals (for test files)
+        jest: 'readonly',
+        describe: 'readonly',
+        it: 'readonly',
+        test: 'readonly',
+        expect: 'readonly',
+        beforeEach: 'readonly',
+        afterEach: 'readonly',
+        beforeAll: 'readonly',
+        afterAll: 'readonly',
         // Additional
         global: 'readonly',
         Promise: 'readonly',
