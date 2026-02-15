@@ -1,5 +1,7 @@
 ---
-stepsCompleted: ['step-01-validate-prerequisites', 'step-02-design-epics', 'step-03-create-stories']
+stepsCompleted: ['step-01-validate-prerequisites', 'step-02-design-epics', 'step-03-create-stories', 'step-04-final-validation']
+workflowComplete: true
+completedAt: 2026-02-15
 inputDocuments:
   - '/home/maxime/repos/dangdai-app/_bmad-output/planning-artifacts/prd.md'
   - '/home/maxime/repos/dangdai-app/_bmad-output/planning-artifacts/architecture.md'
