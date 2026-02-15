@@ -71,6 +71,9 @@ export default function RootLayout() {
 }
 
 const Providers = ({ children }: { children: React.ReactNode }) => {
+  // Per architecture spec: AuthProvider wraps QueryClientProvider wraps TamaguiProvider
+  // AuthProvider needs access to ToastProvider (inside Provider) for session expiry toasts
+  // So we nest: Provider (Tamagui+Query+Toast) > AuthProvider > children
   return (
     <Provider>
       <AuthProvider>{children}</AuthProvider>

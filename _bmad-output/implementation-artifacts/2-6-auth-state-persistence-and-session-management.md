@@ -1,6 +1,6 @@
 # Story 2.6: Auth State Persistence and Session Management
 
-Status: review
+Status: done
 
 ## Story
 
@@ -390,13 +390,37 @@ Claude claude-opus-4-5 (anthropic/claude-opus-4-5)
 ### Change Log
 
 - 2026-02-15: Implemented auth state persistence and session management (Story 2.6)
+- 2026-02-15: Code review fixes applied (5 issues fixed)
 
 ### File List
 
 New files:
 - dangdai-mobile/providers/AuthProvider.tsx
 - dangdai-mobile/components/SplashScreen.tsx
+- dangdai-mobile/tests/auth-persistence.test.ts
 
 Modified files:
 - dangdai-mobile/app/_layout.tsx
 - dangdai-mobile/hooks/useAuth.ts
+
+## Senior Developer Review (AI)
+
+**Reviewer:** Claude claude-opus-4-5
+**Date:** 2026-02-15
+**Outcome:** APPROVED (after fixes)
+
+### Issues Found & Fixed
+
+| # | Severity | Issue | Resolution |
+|---|----------|-------|------------|
+| 1 | HIGH | Provider nesting order differs from architecture spec | Documented deviation - nesting is correct for toast access |
+| 2 | MEDIUM | No automated tests for auth persistence | Added 6 new E2E tests in auth-persistence.test.ts |
+| 3 | MEDIUM | SplashScreen uses $blue10 instead of $primary | Changed to $primary for theme consistency |
+| 4 | MEDIUM | Missing useRootNavigationState check | Added navigation state check to prevent race conditions |
+| 5 | MEDIUM | Session expiry message wording inconsistent | Updated toast title to match AC wording |
+
+### Verification
+
+- TypeScript compilation: PASS
+- All 28 E2E tests: PASS (6 new tests added)
+- All Acceptance Criteria validated as implemented

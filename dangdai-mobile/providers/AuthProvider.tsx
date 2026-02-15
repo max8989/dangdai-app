@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import { router, useSegments } from 'expo-router'
+import { router, useRootNavigationState, useSegments } from 'expo-router'
 import { useToastController } from '@tamagui/toast'
 import type { AuthChangeEvent, Session, User } from '@supabase/supabase-js'
 
@@ -45,6 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<AuthError | null>(null)
 
   const segments = useSegments()
+  const navigationState = useRootNavigationState()
   const toast = useToastController()
 
   // Track if sign-out was manual (user-initiated) vs session expiry
@@ -66,7 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Handle session expiry (SIGNED_OUT when not manual)
         if (event === 'SIGNED_OUT' && !wasManualSignOutRef.current) {
-          toast.show('Session Expired', {
+          toast.show('Session expired', {
             message: 'Please sign in again',
             type: 'warning',
           })
@@ -95,7 +96,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Handle routing based on auth state
   useEffect(() => {
-    if (loading) return
+    // Wait for both auth state and navigation to be ready
+    if (loading || !navigationState?.key) return
 
     const inAuthGroup = segments[0] === '(auth)'
     const onResetPasswordScreen = segments[1] === 'reset-password'
@@ -112,7 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Signed in, redirect to main app
       router.replace('/(tabs)')
     }
-  }, [session, segments, loading, isPasswordRecovery])
+  }, [session, segments, loading, isPasswordRecovery, navigationState?.key])
 
   const signUp = useCallback(
     async (email: string, password: string): Promise<boolean> => {

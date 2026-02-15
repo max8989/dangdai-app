@@ -8,7 +8,7 @@ export function SplashScreen() {
       alignItems="center"
       backgroundColor="$background"
     >
-      <Spinner size="large" color="$blue10" />
+      <Spinner size="large" color="$primary" />
       <Text marginTop="$4" color="$gray11">
         Loading...
       </Text>
