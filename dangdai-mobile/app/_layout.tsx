@@ -9,6 +9,8 @@ import { SplashScreen, Stack } from 'expo-router'
 import { Provider } from 'components/Provider'
 import { useTheme } from 'tamagui'
 
+import { supabase } from '../lib/supabase'
+
 export {
   // Catch any errors thrown by the Layout component.
   ErrorBoundary,
@@ -34,6 +36,26 @@ export default function RootLayout() {
       SplashScreen.hideAsync()
     }
   }, [interLoaded, interError])
+
+  // Test Supabase connection (only in development mode)
+  useEffect(() => {
+    const testSupabaseConnection = async () => {
+      try {
+        const { data, error } = await supabase.from('users').select('count')
+        if (error) {
+          console.log('[Supabase] Connection test - Error:', error.message)
+        } else {
+          console.log('[Supabase] Connection test - Success!')
+        }
+      } catch (err) {
+        console.log('[Supabase] Connection test - Exception:', err)
+      }
+    }
+
+    if (__DEV__) {
+      testSupabaseConnection()
+    }
+  }, [])
 
   if (!interLoaded && !interError) {
     return null

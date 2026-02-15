@@ -1,6 +1,6 @@
 # Story 1.4: Configure Mobile App Environment and Supabase Client
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -28,34 +28,34 @@ So that the app can communicate with Supabase for auth and data.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Set up environment variables (AC: #1)
-  - [ ] 1.1 Create `.env.local` file in mobile app root
-  - [ ] 1.2 Add Supabase URL and anon key
-  - [ ] 1.3 Create `.env.example` as template (without real values)
-  - [ ] 1.4 Verify `.gitignore` excludes `.env.local`
+- [x] Task 1: Set up environment variables (AC: #1)
+  - [x] 1.1 Create `.env.local` file in mobile app root
+  - [x] 1.2 Add Supabase URL and anon key
+  - [x] 1.3 Create `.env.example` as template (without real values)
+  - [x] 1.4 Verify `.gitignore` excludes `.env.local`
 
-- [ ] Task 2: Configure expo-constants (AC: #3)
-  - [ ] 2.1 Install expo-constants if not present
-  - [ ] 2.2 Update `app.json` or `app.config.js` for environment variable exposure
-  - [ ] 2.3 Verify EXPO_PUBLIC_ prefix variables are accessible
+- [x] Task 2: Configure expo-constants (AC: #3)
+  - [x] 2.1 Install expo-constants if not present
+  - [x] 2.2 Update `app.json` or `app.config.js` for environment variable exposure
+  - [x] 2.3 Verify EXPO_PUBLIC_ prefix variables are accessible
 
-- [ ] Task 3: Create Supabase client (AC: #2)
-  - [ ] 3.1 Install @supabase/supabase-js
-  - [ ] 3.2 Create `lib/supabase.ts` with client initialization
-  - [ ] 3.3 Configure AsyncStorage for session persistence
-  - [ ] 3.4 Export typed Supabase client
+- [x] Task 3: Create Supabase client (AC: #2)
+  - [x] 3.1 Install @supabase/supabase-js
+  - [x] 3.2 Create `lib/supabase.ts` with client initialization
+  - [x] 3.3 Configure AsyncStorage for session persistence
+  - [x] 3.4 Export typed Supabase client
 
-- [ ] Task 4: Create lib directory structure (AC: #2)
-  - [ ] 4.1 Create `lib/` directory if not exists
-  - [ ] 4.2 Create placeholder for `lib/api.ts` (Python backend client)
-  - [ ] 4.3 Create placeholder for `lib/queryKeys.ts`
-  - [ ] 4.4 Create placeholder for `lib/queryClient.ts`
+- [x] Task 4: Create lib directory structure (AC: #2)
+  - [x] 4.1 Create `lib/` directory if not exists
+  - [x] 4.2 Create placeholder for `lib/api.ts` (Python backend client)
+  - [x] 4.3 Create placeholder for `lib/queryKeys.ts`
+  - [x] 4.4 Create placeholder for `lib/queryClient.ts`
 
-- [ ] Task 5: Test Supabase connection (AC: #4)
-  - [ ] 5.1 Add connection test in app startup
-  - [ ] 5.2 Log successful connection to console
-  - [ ] 5.3 Handle connection errors gracefully
-  - [ ] 5.4 Remove test code after verification (or make conditional on DEBUG)
+- [x] Task 5: Test Supabase connection (AC: #4)
+  - [x] 5.1 Add connection test in app startup
+  - [x] 5.2 Log successful connection to console
+  - [x] 5.3 Handle connection errors gracefully
+  - [x] 5.4 Remove test code after verification (or make conditional on DEBUG)
 
 ## Dev Notes
 
@@ -299,10 +299,40 @@ yarn list @react-native-async-storage/async-storage
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude claude-opus-4-5
 
 ### Debug Log References
 
+- Fixed AsyncStorage SSR issue: AsyncStorage uses `window.localStorage` on web, which isn't available during static export/SSR. Implemented platform-aware storage adapter that uses localStorage on web (with SSR fallback) and AsyncStorage on native.
+
 ### Completion Notes List
 
+- Implemented environment variable configuration with `.env.local` (gitignored) and `.env.example` template
+- Created `app.config.js` to replace static `app.json` for dynamic environment variable exposure
+- Installed `@supabase/supabase-js` and `@react-native-async-storage/async-storage` dependencies
+- Created typed Supabase client in `lib/supabase.ts` with platform-aware storage adapter
+- Generated TypeScript types from Supabase schema in `types/supabase.ts`
+- Created placeholder files for future stories: `lib/api.ts`, `lib/queryKeys.ts`, `lib/queryClient.ts`
+- Added connection test in `app/_layout.tsx` (conditional on `__DEV__`)
+- Added Playwright E2E tests for Supabase integration
+- All tests pass (3 tests: hydration, Supabase loading, security)
+
 ### File List
+
+- dangdai-mobile/.env.local (new - gitignored)
+- dangdai-mobile/.env.example (modified)
+- dangdai-mobile/app.config.js (new)
+- dangdai-mobile/app.json (deleted - replaced by app.config.js)
+- dangdai-mobile/lib/supabase.ts (new)
+- dangdai-mobile/lib/api.ts (new)
+- dangdai-mobile/lib/queryKeys.ts (new)
+- dangdai-mobile/lib/queryClient.ts (new)
+- dangdai-mobile/types/supabase.ts (new)
+- dangdai-mobile/app/_layout.tsx (modified)
+- dangdai-mobile/tests/supabase.test.ts (new)
+- dangdai-mobile/package.json (modified - new dependencies)
+- dangdai-mobile/yarn.lock (modified)
+
+## Change Log
+
+- 2026-02-15: Story 1.4 implementation complete - configured mobile app environment variables and Supabase client with typed support and E2E tests
