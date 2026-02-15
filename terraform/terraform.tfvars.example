@@ -1,0 +1,10 @@
+# Copy this file to terraform.tfvars and fill in values
+# DO NOT commit terraform.tfvars with real values
+
+project_name         = "dangdai"
+resource_group_name  = "dangdai-rg"
+location             = "eastus"
+image_tag            = "latest"
+supabase_url         = "https://xxx.supabase.co"
+supabase_service_key = "eyJ..."
+llm_api_key          = "sk-..."
