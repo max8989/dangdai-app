@@ -16,25 +16,34 @@ import { queryKeys } from '../lib/queryKeys'
 import { BOOKS } from '../constants/books'
 import type { BookProgress } from '../types/chapter'
 
+/**
+ * Returns default progress (0 chapters completed) for all books.
+ * Used when user is not authenticated or chapter_progress table doesn't exist.
+ */
+function getDefaultProgress(): Record<number, BookProgress> {
+  return BOOKS.reduce(
+    (acc, book) => {
+      acc[book.id] = {
+        bookId: book.id,
+        chaptersCompleted: 0,
+        totalChapters: book.chapterCount,
+      }
+      return acc
+    },
+    {} as Record<number, BookProgress>
+  )
+}
+
 export function useBooks() {
   const { user } = useAuth()
 
   return useQuery({
-    queryKey: queryKeys.books(user?.id ?? ''),
+    // Only include user.id in queryKey when user exists to prevent caching under empty string
+    queryKey: user ? queryKeys.books(user.id) : queryKeys.booksAll,
     queryFn: async (): Promise<Record<number, BookProgress>> => {
+      // This should not happen due to enabled: !!user, but handle gracefully
       if (!user) {
-        // Return default progress for all books when not authenticated
-        return BOOKS.reduce(
-          (acc, book) => {
-            acc[book.id] = {
-              bookId: book.id,
-              chaptersCompleted: 0,
-              totalChapters: book.chapterCount,
-            }
-            return acc
-          },
-          {} as Record<number, BookProgress>
-        )
+        return getDefaultProgress()
       }
 
       // Query chapter_progress grouped by book_id
@@ -46,22 +55,12 @@ export function useBooks() {
         .gte('completion_percentage', 80)
 
       if (error) {
-        // If table doesn't exist yet, return empty progress
-        // This handles the case before Story 6.1 is implemented
-        if (error.code === '42P01' || error.message?.includes('does not exist')) {
-          console.warn('chapter_progress table does not exist yet')
-          return BOOKS.reduce(
-            (acc, book) => {
-              acc[book.id] = {
-                bookId: book.id,
-                chaptersCompleted: 0,
-                totalChapters: book.chapterCount,
-              }
-              return acc
-            },
-            {} as Record<number, BookProgress>
-          )
-        }
+      // If table doesn't exist yet, return empty progress
+          // This handles the case before Story 6.1 is implemented
+          if (error.code === '42P01' || error.message?.includes('does not exist')) {
+            console.warn('chapter_progress table does not exist yet')
+            return getDefaultProgress()
+          }
         throw error
       }
 

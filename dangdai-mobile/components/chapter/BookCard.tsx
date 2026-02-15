@@ -30,7 +30,7 @@ export function BookCard({ book, progress, onPress }: BookCardProps) {
       elevate
       bordered
       padding="$4"
-      borderRadius="$4"
+      borderRadius={12}
       pressStyle={{ scale: 0.98 }}
       onPress={onPress}
       animation="quick"

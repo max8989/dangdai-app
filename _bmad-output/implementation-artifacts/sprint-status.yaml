@@ -63,7 +63,7 @@ development_status:
 
   # Epic 3: Content Navigation & Book Selection
   epic-3: in-progress
-  3-1-book-selection-screen: review
+  3-1-book-selection-screen: done
   3-2-chapter-list-screen: ready-for-dev
   3-3-chapter-completion-status-display: ready-for-dev
   3-4-open-chapter-navigation-no-gates: ready-for-dev

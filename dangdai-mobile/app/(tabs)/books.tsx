@@ -6,10 +6,11 @@
  * Tapping a book navigates to the chapter list for that book.
  */
 
-import { YStack, Text, ScrollView, Spinner } from 'tamagui'
+import { YStack, Text, ScrollView } from 'tamagui'
 import { useRouter } from 'expo-router'
 
 import { BookCard } from '../../components/chapter/BookCard'
+import { BookCardSkeleton } from '../../components/chapter/BookCardSkeleton'
 import { useBooks } from '../../hooks/useBooks'
 import { BOOKS } from '../../constants/books'
 
@@ -30,9 +31,11 @@ export default function BooksScreen() {
       </YStack>
 
       {isLoading ? (
-        <YStack flex={1} justifyContent="center" alignItems="center">
-          <Spinner size="large" color="$primary" />
-        </YStack>
+        <ScrollView testID="books-list-loading">
+          <YStack padding="$4" gap="$4">
+            <BookCardSkeleton count={4} />
+          </YStack>
+        </ScrollView>
       ) : error ? (
         <YStack flex={1} justifyContent="center" alignItems="center" padding="$4">
           <Text color="$error" textAlign="center">
