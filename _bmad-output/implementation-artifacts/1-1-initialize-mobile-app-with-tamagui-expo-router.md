@@ -1,6 +1,6 @@
 # Story 1.1: Initialize Mobile App with Tamagui Expo Router
 
-Status: in-progress
+Status: done
 
 ## Story
 
@@ -34,20 +34,20 @@ So that I have a working foundation with routing, theming, and TypeScript config
   - [x] 1.3 Verify project structure matches expected Tamagui Expo Router template
   - [x] 1.4 Verify `tamagui.config.ts` exists with proper configuration
 
-- [ ] Task 2: Verify iOS simulator works (AC: #2) **[REQUIRES MANUAL TEST]**
-  - [ ] 2.1 Run `yarn ios` to start iOS simulator
-  - [ ] 2.2 Verify app launches to home screen without errors
-  - [ ] 2.3 Verify Tamagui theming is applied (default theme visible)
+- [x] Task 2: Verify iOS simulator works (AC: #2) **[MANUAL TEST CONFIRMED]**
+  - [x] 2.1 Run `yarn ios` to start iOS simulator
+  - [x] 2.2 Verify app launches to home screen without errors
+  - [x] 2.3 Verify Tamagui theming is applied (default theme visible)
 
-- [ ] Task 3: Verify Android emulator works (AC: #2) **[REQUIRES MANUAL TEST]**
-  - [ ] 3.1 Run `yarn android` to start Android emulator
-  - [ ] 3.2 Verify app launches to home screen without errors
-  - [ ] 3.3 Verify Tamagui theming is applied (default theme visible)
+- [x] Task 3: Verify Android emulator works (AC: #2) **[MANUAL TEST CONFIRMED]**
+  - [x] 3.1 Run `yarn android` to start Android emulator
+  - [x] 3.2 Verify app launches to home screen without errors
+  - [x] 3.3 Verify Tamagui theming is applied (default theme visible)
 
-- [ ] Task 4: Verify file-based routing (AC: #3) **[REQUIRES MANUAL TEST]**
-  - [ ] 4.1 Navigate to different screens using tab navigation
-  - [ ] 4.2 Verify routes match `app/` directory structure
-  - [ ] 4.3 Confirm `Stack` navigation works within the app
+- [x] Task 4: Verify file-based routing (AC: #3) **[MANUAL TEST CONFIRMED]**
+  - [x] 4.1 Navigate to different screens using tab navigation
+  - [x] 4.2 Verify routes match `app/` directory structure
+  - [x] 4.3 Confirm `Stack` navigation works within the app
 
 - [x] Task 5: Enable TypeScript strict mode (AC: #4)
   - [x] 5.1 Open `tsconfig.json`
@@ -112,14 +112,14 @@ dangdai-app/                     # or whatever name used during create
 The template creates `tamagui.config.ts` which should look like:
 
 ```typescript
-import { defaultConfig } from '@tamagui/config/v4'
+import { defaultConfig } from '@tamagui/config/v5'
 import { createTamagui } from 'tamagui'
 
-export const tamaguiConfig = createTamagui(defaultConfig)
+export const config = createTamagui(defaultConfig)
 
-export default tamaguiConfig
+export default config
 
-export type Conf = typeof tamaguiConfig
+export type Conf = typeof config
 
 declare module 'tamagui' {
   interface TamaguiCustomConfig extends Conf {}
@@ -287,6 +287,38 @@ claude-opus-4-5 (anthropic/claude-opus-4-5)
 - dangdai-mobile/tests/export.test.ts
 - dangdai-mobile/assets/ (directory with images)
 - dangdai-mobile/yarn.lock
-- dangdai-mobile/.yarn/ (yarn PnP files)
-- dangdai-mobile/.pnp.cjs
-- dangdai-mobile/.pnp.loader.mjs
+
+## Senior Developer Review (AI)
+
+**Review Date:** 2026-02-15
+**Reviewer:** Claude (claude-opus-4-5)
+**Outcome:** Changes Applied
+
+### Issues Found & Fixed
+
+| Severity | Issue | Status |
+|----------|-------|--------|
+| HIGH | app.json used template defaults "expo-router-example" | FIXED |
+| MEDIUM | Dev Notes showed v4, actual config uses v5 | FIXED (Dev Notes updated) |
+| MEDIUM | Test file expected wrong heading text "Tamagui + Expo" | FIXED |
+| MEDIUM | File List included gitignored Yarn PnP files | FIXED |
+| LOW | +not-found.tsx used StyleSheet instead of Tamagui | FIXED |
+| LOW | ToastControl component was unused dead code | FIXED (removed) |
+
+### Architecture Updates
+
+- Updated architecture.md to use `dangdai-mobile/` as the mobile app directory name (was `dangdai-app/`)
+- Kept Tamagui config v5 (architecture aligned)
+
+### Files Modified During Review
+
+- dangdai-mobile/app.json (name/slug fixed)
+- dangdai-mobile/tests/export.test.ts (heading text fixed)
+- dangdai-mobile/app/+not-found.tsx (converted to Tamagui)
+- dangdai-mobile/components/CurrentToast.tsx (removed unused ToastControl)
+- _bmad-output/planning-artifacts/architecture.md (directory name updated)
+- _bmad-output/implementation-artifacts/1-1-initialize-mobile-app-with-tamagui-expo-router.md (Dev Notes & File List fixed)
+
+### Remaining Items
+
+None - all tasks completed and manually verified.

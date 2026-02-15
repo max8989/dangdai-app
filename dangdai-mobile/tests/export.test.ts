@@ -17,7 +17,7 @@ test('static export hydrates without Missing theme error', async ({ page }) => {
   await expect(page.getByText('Missing theme')).not.toBeVisible()
 
   // verify tamagui rendered with theme - the heading should be visible
-  const heading = page.getByText('Tamagui + Expo')
+  const heading = page.getByText('Dangdai')
   await expect(heading).toBeVisible()
 
   // verify no page errors related to missing theme

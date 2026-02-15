@@ -1,9 +1,9 @@
 ---
 stepsCompleted: [1, 2, 3, 4, 5, 6, 7, 8]
 inputDocuments:
-  - '/home/maxime/repos/dangdai-app/_bmad-output/planning-artifacts/prd.md'
-  - '/home/maxime/repos/dangdai-app/_bmad-output/planning-artifacts/ux-design-specification.md'
-  - '/home/maxime/repos/dangdai-app/docs/project-requirement.md'
+  - '/home/maxime/repos/dangdai-mobile/_bmad-output/planning-artifacts/prd.md'
+  - '/home/maxime/repos/dangdai-mobile/_bmad-output/planning-artifacts/ux-design-specification.md'
+  - '/home/maxime/repos/dangdai-mobile/docs/project-requirement.md'
 workflowType: 'architecture'
 project_name: 'dangdai-app'
 user_name: 'Maxime'
@@ -141,7 +141,7 @@ langgraph new --template=new-langgraph-project-python dangdai-api
 ### Implementation Note
 
 Project initialization should be the first implementation task, creating:
-1. `dangdai-app/` - Mobile application (Tamagui Expo Router)
+1. `dangdai-mobile/` - Mobile application (Tamagui Expo Router)
 2. `dangdai-api/` - Python backend (LangGraph)
 
 ## Core Architectural Decisions
@@ -554,10 +554,10 @@ export const useQuizStore = create<QuizState>(...);
 
 ### Complete Project Directory Structure
 
-#### Mobile App (dangdai-app/)
+#### Mobile App (dangdai-mobile/)
 
 ```
-dangdai-app/
+dangdai-mobile/
 ├── README.md
 ├── package.json
 ├── tsconfig.json
@@ -900,7 +900,7 @@ uvicorn src.api.main:app --reload --port 8000
 **Environment Files:**
 
 ```bash
-# dangdai-app/.env.local
+# dangdai-mobile/.env.local
 EXPO_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 EXPO_PUBLIC_API_URL=http://localhost:8000  # dev

@@ -42,7 +42,7 @@ story_location: "{project-root}/_bmad-output/implementation-artifacts"
 development_status:
   # Epic 1: Project Foundation & Infrastructure
   epic-1: in-progress
-  1-1-initialize-mobile-app-with-tamagui-expo-router: ready-for-dev
+  1-1-initialize-mobile-app-with-tamagui-expo-router: done
   1-2-initialize-python-backend-with-langgraph: ready-for-dev
   1-3-configure-supabase-project-and-base-schema: ready-for-dev
   1-4-configure-mobile-app-environment-and-supabase-client: ready-for-dev
