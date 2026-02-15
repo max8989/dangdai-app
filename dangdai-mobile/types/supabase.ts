@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      chapter_progress: {
+        Row: {
+          id: string
+          user_id: string
+          chapter_id: number
+          book_id: number
+          completion_percentage: number
+          mastered_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          chapter_id: number
+          book_id: number
+          completion_percentage?: number
+          mastered_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          chapter_id?: number
+          book_id?: number
+          completion_percentage?: number
+          mastered_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       users: {
         Row: {
           created_at: string

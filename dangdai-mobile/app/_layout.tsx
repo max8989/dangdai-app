@@ -144,6 +144,14 @@ function RootLayoutNav() {
             gestureDirection: 'horizontal',
           }}
         />
+
+        <Stack.Screen
+          name="chapter/[bookId]"
+          options={{
+            headerShown: true,
+            animation: 'slide_from_right',
+          }}
+        />
       </Stack>
     </ThemeProvider>
   )

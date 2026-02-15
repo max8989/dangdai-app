@@ -17,7 +17,8 @@ export const queryKeys = {
   userProfile: (userId: string) => ['user', 'profile', userId] as const,
 
   // Books and chapters
-  books: ['books'] as const,
+  books: (userId: string) => ['books', userId] as const,
+  booksAll: ['books'] as const,
   chapters: (bookId: number) => ['chapters', bookId] as const,
   chapter: (chapterId: number) => ['chapter', chapterId] as const,
 
