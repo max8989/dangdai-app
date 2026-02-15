@@ -1,6 +1,6 @@
 # Story 1.7: Configure CI/CD with GitHub Actions
 
-Status: review
+Status: done
 
 ## Story
 
@@ -525,17 +525,45 @@ None required.
 - EAS build is manual-only (workflow_dispatch) with platform and profile inputs
 - Required secrets: EXPO_TOKEN, AZURE_CREDENTIALS, AZURE_RESOURCE_GROUP
 
+## Senior Developer Review (AI)
+
+**Reviewer:** Code Review Agent (claude-opus-4-5)
+**Date:** 2026-02-15
+**Outcome:** Approved (after fixes)
+
+### Issues Found & Fixed
+
+| # | Severity | Issue | Resolution |
+|---|----------|-------|------------|
+| 1 | HIGH | Files listed but never committed (eslint.config.mjs, eas.json, package.json changes) | Files staged for commit |
+| 2 | HIGH | Missing Azure login step in deploy workflow | Added `azure/login@v2` action before deploy |
+| 3 | HIGH | Duplicate/orphan workflows in `dangdai-api/.github/workflows/` | Removed orphan directory |
+| 4 | MEDIUM | ESLint warnings for unused variables | Fixed by removing unused vars and adding `caughtErrorsIgnorePattern` to ESLint config |
+| 5 | MEDIUM | Missing .dockerignore for Python backend | Created comprehensive .dockerignore |
+
+### Verification
+
+- ESLint passes with 0 errors, 0 warnings
+- TypeScript check passes
+- All workflow files syntactically valid
+- Azure deploy workflow now has proper login step
+
 ## Change Log
 
 - 2026-02-15: Created GitHub Actions CI/CD workflows for mobile app, Python backend, and EAS builds
+- 2026-02-15: [Code Review] Fixed Azure login step, removed orphan workflows, added .dockerignore, fixed ESLint warnings
 
 ### File List
 
 - .github/workflows/ci-mobile.yml (new)
 - .github/workflows/ci-backend.yml (new)
-- .github/workflows/deploy-backend.yml (new)
+- .github/workflows/deploy-backend.yml (new, updated - added Azure login step)
 - .github/workflows/eas-build.yml (new)
-- dangdai-mobile/eslint.config.mjs (new)
+- dangdai-mobile/eslint.config.mjs (new, updated - added caughtErrorsIgnorePattern)
 - dangdai-mobile/eas.json (new)
 - dangdai-mobile/package.json (modified - added lint script and ESLint dependencies)
+- dangdai-mobile/hooks/useAuth.ts (modified - removed unused variables)
+- dangdai-mobile/app/_layout.tsx (modified - removed unused variable)
+- dangdai-api/.dockerignore (new)
+- dangdai-api/.github/ (removed - orphan workflows)
 - dangdai-api/tests/unit_tests/test_infrastructure.py (modified - removed unused import)
