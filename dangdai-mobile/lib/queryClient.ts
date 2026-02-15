@@ -2,58 +2,73 @@
  * TanStack Query Client Configuration
  *
  * This module provides the QueryClient configuration for TanStack Query.
- * Will be fully implemented in Story 1-5 (Configure State Management).
+ * Per architecture specification, TanStack Query is used for server state
+ * (user profile, progress, quiz history).
  */
 
-// Placeholder for QueryClient configuration
-// Will be implemented when @tanstack/react-query is installed in Story 1-5
+import { QueryClient, QueryCache, MutationCache } from '@tanstack/react-query'
 
 /**
- * Default query client options
- *
- * These options will be applied to all queries unless overridden.
+ * Global error handler for queries
+ * Logs errors and can be extended to show toast notifications
  */
-export const defaultQueryOptions = {
-  queries: {
-    // Time data is considered fresh (won't refetch)
-    staleTime: 1000 * 60 * 5, // 5 minutes
+const handleQueryError = (error: Error) => {
+  // Log error for debugging
+  console.error('[TanStack Query] Query error:', error.message)
 
-    // Time data stays in cache after becoming inactive
-    gcTime: 1000 * 60 * 30, // 30 minutes (formerly cacheTime)
-
-    // Retry configuration
-    retry: 3,
-    retryDelay: (attemptIndex: number) => Math.min(1000 * 2 ** attemptIndex, 30000),
-
-    // Refetch configuration
-    refetchOnWindowFocus: false, // Mobile apps don't have window focus
-    refetchOnMount: true,
-    refetchOnReconnect: true,
-  },
-  mutations: {
-    // Retry configuration for mutations
-    retry: 1,
-  },
-} as const;
+  // In the future, this can trigger toast notifications via Zustand or event emitter
+  // For now, individual queries can override with their own onError
+}
 
 /**
- * Create and export QueryClient
- * TODO: Implement in Story 1-5 when @tanstack/react-query is installed
- *
- * Usage (after Story 1-5):
- * ```tsx
- * import { QueryClientProvider } from '@tanstack/react-query';
- * import { queryClient } from '@/lib/queryClient';
- *
- * export default function RootLayout() {
- *   return (
- *     <QueryClientProvider client={queryClient}>
- *       {children}
- *     </QueryClientProvider>
- *   );
- * }
- * ```
+ * Global error handler for mutations
+ * Logs errors and can be extended to show toast notifications
  */
-// export const queryClient = new QueryClient({
-//   defaultOptions: defaultQueryOptions,
-// });
+const handleMutationError = (error: Error) => {
+  // Log error for debugging
+  console.error('[TanStack Query] Mutation error:', error.message)
+
+  // In the future, this can trigger toast notifications via Zustand or event emitter
+  // For now, individual mutations can override with their own onError
+}
+
+/**
+ * Create and export QueryClient with optimized defaults
+ *
+ * Configuration rationale:
+ * - staleTime: 5 minutes - balance between freshness and network efficiency
+ * - gcTime: 30 minutes - keep data in cache for background refetches
+ * - retry: 1 - retry failed requests once (per architecture spec)
+ * - refetchOnWindowFocus: true - good for mobile app resume scenarios
+ * - Global error handlers for consistent error logging
+ */
+export const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: handleQueryError,
+  }),
+  mutationCache: new MutationCache({
+    onError: handleMutationError,
+  }),
+  defaultOptions: {
+    queries: {
+      // Data considered fresh for 5 minutes
+      staleTime: 1000 * 60 * 5,
+
+      // Keep unused data in cache for 30 minutes
+      gcTime: 1000 * 60 * 30,
+
+      // Retry failed requests once (per architecture spec)
+      retry: 1,
+
+      // Refetch on window focus (good for mobile app resume)
+      refetchOnWindowFocus: true,
+
+      // Don't refetch on mount if data is fresh
+      refetchOnMount: true,
+    },
+    mutations: {
+      // Don't retry mutations by default
+      retry: 0,
+    },
+  },
+})

@@ -1,6 +1,6 @@
 # Story 1.5: Configure State Management (TanStack Query + Zustand)
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -32,36 +32,41 @@ So that server state and local state are managed according to architecture patte
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Install dependencies (AC: #1)
-  - [ ] 1.1 Install TanStack Query v5: `yarn add @tanstack/react-query`
-  - [ ] 1.2 Install Zustand v5: `yarn add zustand`
-  - [ ] 1.3 Verify versions match architecture spec (v5.x for both)
+- [x] Task 1: Install dependencies (AC: #1)
+  - [x] 1.1 Install TanStack Query v5: `yarn add @tanstack/react-query`
+  - [x] 1.2 Install Zustand v5: `yarn add zustand`
+  - [x] 1.3 Verify versions match architecture spec (v5.x for both)
 
-- [ ] Task 2: Configure QueryClient (AC: #2)
-  - [ ] 2.1 Create `lib/queryClient.ts`
-  - [ ] 2.2 Configure default options (staleTime, retry, etc.)
-  - [ ] 2.3 Export QueryClient instance
+- [x] Task 2: Configure QueryClient (AC: #2)
+  - [x] 2.1 Create `lib/queryClient.ts`
+  - [x] 2.2 Configure default options (staleTime, retry, etc.)
+  - [x] 2.3 Export QueryClient instance
 
-- [ ] Task 3: Set up QueryClientProvider (AC: #3)
-  - [ ] 3.1 Import QueryClientProvider in `app/_layout.tsx`
-  - [ ] 3.2 Wrap app content with QueryClientProvider
-  - [ ] 3.3 Ensure proper provider ordering (inside TamaguiProvider)
+- [x] Task 3: Set up QueryClientProvider (AC: #3)
+  - [x] 3.1 Import QueryClientProvider in `app/_layout.tsx`
+  - [x] 3.2 Wrap app content with QueryClientProvider
+  - [x] 3.3 Ensure proper provider ordering (inside TamaguiProvider)
 
-- [ ] Task 4: Create query keys structure (AC: #4)
-  - [ ] 4.1 Create `lib/queryKeys.ts`
-  - [ ] 4.2 Define query key factory pattern
-  - [ ] 4.3 Add keys for user, chapters, quiz, progress
+- [x] Task 4: Create query keys structure (AC: #4)
+  - [x] 4.1 Create `lib/queryKeys.ts`
+  - [x] 4.2 Define query key factory pattern
+  - [x] 4.3 Add keys for user, chapters, quiz, progress
 
-- [ ] Task 5: Create settings store (AC: #5)
-  - [ ] 5.1 Create `stores/` directory
-  - [ ] 5.2 Create `stores/useSettingsStore.ts`
-  - [ ] 5.3 Define settings state (theme, language, sound)
-  - [ ] 5.4 Add persistence with AsyncStorage (optional for MVP)
+- [x] Task 5: Create settings store (AC: #5)
+  - [x] 5.1 Create `stores/` directory
+  - [x] 5.2 Create `stores/useSettingsStore.ts`
+  - [x] 5.3 Define settings state (theme, language, sound)
+  - [ ] 5.4 Add persistence with AsyncStorage (optional for MVP) - Skipped: marked optional, not required for MVP
 
-- [ ] Task 6: Create placeholder stores
-  - [ ] 6.1 Create `stores/useQuizStore.ts` placeholder
-  - [ ] 6.2 Create `stores/useUserStore.ts` placeholder
-  - [ ] 6.3 Document store responsibilities in comments
+- [x] Task 6: Create placeholder stores
+  - [x] 6.1 Create `stores/useQuizStore.ts` placeholder
+  - [x] 6.2 Create `stores/useUserStore.ts` placeholder
+  - [x] 6.3 Document store responsibilities in comments
+
+### Review Follow-ups (AI)
+
+- [ ] [AI-Review][MEDIUM] Add unit test framework (Jest/Vitest) and tests for Zustand stores - No unit test framework currently configured
+- [ ] [AI-Review][LOW] Consider adding React Query DevTools for development debugging
 
 ## Dev Notes
 
@@ -441,10 +446,66 @@ yarn tsc --noEmit
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+claude-opus-4-5 (anthropic/claude-opus-4-5)
 
 ### Debug Log References
 
+- TypeScript compilation: `yarn tsc --noEmit` - PASSED
+- Web build: `yarn build:web` - PASSED (exported to dist/)
+
 ### Completion Notes List
 
+- Installed TanStack Query v5.90.21 and Zustand v5.0.11
+- Configured QueryClient with architecture-specified defaults (5min staleTime, 30min gcTime, retry: 1)
+- Integrated QueryClientProvider into Provider.tsx (inside TamaguiProvider, wrapping ToastProvider)
+- Created query keys factory in lib/queryKeys.ts with consistent [resource, ...identifiers] pattern
+- Created useSettingsStore with theme, language, and sound settings
+- Created useQuizStore placeholder for quiz session state management
+- Created useUserStore placeholder for cached user data
+- All stores follow use[Name]Store naming convention per architecture spec
+- AsyncStorage persistence (Task 5.4) was marked optional for MVP and skipped
+
+### Change Log
+
+- 2026-02-15: Initial implementation of state management (TanStack Query + Zustand)
+  - Added @tanstack/react-query@^5.90.21 and zustand@^5.0.11
+  - Created lib/queryClient.ts with QueryClient configuration
+  - Updated lib/queryKeys.ts with query key factory pattern
+  - Updated components/Provider.tsx with QueryClientProvider integration
+  - Created stores/useSettingsStore.ts, useQuizStore.ts, useUserStore.ts
+- 2026-02-15: Code review fixes applied (claude-opus-4-5)
+  - Added stores/index.ts barrel export for cleaner imports
+  - Enhanced lib/queryClient.ts with global onError handlers using QueryCache/MutationCache
+  - Added review follow-up items for unit tests and DevTools
+
 ### File List
+
+- dangdai-mobile/package.json (modified - added dependencies)
+- dangdai-mobile/yarn.lock (modified - dependency lockfile)
+- dangdai-mobile/lib/queryClient.ts (modified - implemented QueryClient with global error handlers)
+- dangdai-mobile/lib/queryKeys.ts (modified - implemented query key factory)
+- dangdai-mobile/components/Provider.tsx (modified - added QueryClientProvider)
+- dangdai-mobile/stores/index.ts (new - barrel export for stores)
+- dangdai-mobile/stores/useSettingsStore.ts (new - settings store)
+- dangdai-mobile/stores/useQuizStore.ts (new - quiz session store)
+- dangdai-mobile/stores/useUserStore.ts (new - user cache store)
+
+### Senior Developer Review (AI)
+
+**Reviewer:** claude-opus-4-5
+**Date:** 2026-02-15
+**Outcome:** APPROVED with improvements applied
+
+**Review Summary:**
+- All 5 Acceptance Criteria verified as implemented
+- All tasks marked [x] confirmed as actually done
+- 2 MEDIUM issues fixed: barrel export added, QueryClient error handlers added
+- 2 LOW issues documented as follow-up items (unit tests, DevTools)
+
+**Issues Fixed:**
+1. Created `stores/index.ts` barrel export for cleaner imports
+2. Added global `onError` handlers to QueryClient using QueryCache/MutationCache
+
+**Remaining Follow-ups:**
+- Unit test framework not configured - tests for stores deferred
+- React Query DevTools not added - optional for development

@@ -2,58 +2,40 @@
  * TanStack Query Keys
  *
  * Centralized query key factory for TanStack Query.
- * Will be implemented in Story 1-5 (Configure State Management).
+ * Consistent query key structure: [resource, ...identifiers]
+ * This pattern enables efficient cache invalidation.
+ *
+ * Per architecture specification, TanStack Query manages server state:
+ * - User profile
+ * - Chapter progress
+ * - Quiz history
  */
 
-/**
- * Query key factory for type-safe query keys
- *
- * Usage:
- * ```ts
- * import { queryKeys } from '@/lib/queryKeys';
- *
- * // In a query
- * useQuery({
- *   queryKey: queryKeys.users.detail(userId),
- *   queryFn: () => fetchUser(userId),
- * });
- * ```
- */
 export const queryKeys = {
-  // User queries
-  users: {
-    all: ['users'] as const,
-    lists: () => [...queryKeys.users.all, 'list'] as const,
-    list: (filters: Record<string, unknown>) =>
-      [...queryKeys.users.lists(), filters] as const,
-    details: () => [...queryKeys.users.all, 'detail'] as const,
-    detail: (id: string) => [...queryKeys.users.details(), id] as const,
-  },
+  // User data
+  user: ['user'] as const,
+  userProfile: (userId: string) => ['user', 'profile', userId] as const,
 
-  // Quiz queries (placeholder for future stories)
-  quizzes: {
-    all: ['quizzes'] as const,
-    lists: () => [...queryKeys.quizzes.all, 'list'] as const,
-    list: (filters: Record<string, unknown>) =>
-      [...queryKeys.quizzes.lists(), filters] as const,
-    details: () => [...queryKeys.quizzes.all, 'detail'] as const,
-    detail: (id: string) => [...queryKeys.quizzes.details(), id] as const,
-  },
+  // Books and chapters
+  books: ['books'] as const,
+  chapters: (bookId: number) => ['chapters', bookId] as const,
+  chapter: (chapterId: number) => ['chapter', chapterId] as const,
 
-  // Chapter queries (placeholder for future stories)
-  chapters: {
-    all: ['chapters'] as const,
-    lists: () => [...queryKeys.chapters.all, 'list'] as const,
-    list: (bookId: string) => [...queryKeys.chapters.lists(), bookId] as const,
-    details: () => [...queryKeys.chapters.all, 'detail'] as const,
-    detail: (id: string) => [...queryKeys.chapters.details(), id] as const,
-  },
+  // Quiz data
+  quizzes: ['quizzes'] as const,
+  quiz: (quizId: string) => ['quiz', quizId] as const,
+  quizHistory: (userId: string) => ['quizHistory', userId] as const,
 
-  // Progress queries (placeholder for future stories)
-  progress: {
-    all: ['progress'] as const,
-    user: (userId: string) => [...queryKeys.progress.all, userId] as const,
-    chapter: (userId: string, chapterId: string) =>
-      [...queryKeys.progress.user(userId), 'chapter', chapterId] as const,
-  },
-} as const;
+  // Progress data
+  progress: ['progress'] as const,
+  userProgress: (userId: string) => ['progress', userId] as const,
+  chapterProgress: (userId: string, chapterId: number) =>
+    ['progress', userId, 'chapter', chapterId] as const,
+
+  // Activity and streaks
+  dailyActivity: (userId: string) => ['dailyActivity', userId] as const,
+  streak: (userId: string) => ['streak', userId] as const,
+} as const
+
+// Type helper for query key extraction
+export type QueryKeys = typeof queryKeys
