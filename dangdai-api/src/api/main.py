@@ -2,7 +2,8 @@
 
 from fastapi import FastAPI
 
-from src.api.routes import health
+from src.api.middleware import setup_middleware
+from src.api.routes import health, quizzes
 
 app = FastAPI(
     title="Dangdai API",
@@ -10,5 +11,9 @@ app = FastAPI(
     version="0.1.0",
 )
 
+# Setup middleware (CORS, error handling)
+setup_middleware(app)
+
 # Register routes
 app.include_router(health.router, tags=["health"])
+app.include_router(quizzes.router, tags=["quizzes"])

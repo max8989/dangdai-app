@@ -2,14 +2,16 @@
 
 from fastapi import APIRouter
 
+from src.api.schemas import HealthResponse
+
 router = APIRouter()
 
 
-@router.get("/health")
-async def health_check() -> dict[str, str]:
+@router.get("/health", response_model=HealthResponse)
+async def health_check() -> HealthResponse:
     """Health check endpoint for container orchestration.
 
     Returns:
-        dict: Health status response.
+        HealthResponse: Health status response.
     """
-    return {"status": "healthy"}
+    return HealthResponse(status="healthy")

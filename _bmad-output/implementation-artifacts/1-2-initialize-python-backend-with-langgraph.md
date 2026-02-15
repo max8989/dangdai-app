@@ -1,6 +1,6 @@
 # Story 1.2: Initialize Python Backend with LangGraph
 
-Status: review
+Status: done
 
 ## Story
 
@@ -314,6 +314,7 @@ claude-opus-4-5
 ### Change Log
 
 - 2026-02-15: Story implementation completed - Python backend scaffolded with LangGraph, FastAPI health endpoint, and full project structure
+- 2026-02-15: Code review completed - 6 issues found and fixed (2 HIGH, 4 MEDIUM)
 
 ### File List
 
@@ -352,10 +353,39 @@ claude-opus-4-5
 - dangdai-api/tests/unit_tests/test_configuration.py (fixed import path)
 
 **Files from scaffold (unmodified):**
-- dangdai-api/langgraph.json
 - dangdai-api/.gitignore
 - dangdai-api/README.md
 - dangdai-api/Makefile
 - dangdai-api/LICENSE
 - dangdai-api/src/agent/graph.py
-- dangdai-api/tests/conftest.py
+
+## Senior Developer Review (AI)
+
+**Review Date:** 2026-02-15
+**Reviewer:** claude-opus-4-5
+**Outcome:** APPROVED (after fixes)
+
+### Issues Found and Fixed
+
+| # | Severity | Issue | Resolution |
+|---|----------|-------|------------|
+| 1 | HIGH | Integration test failed - LangSmith API key not loaded by pytest | Added `load_dotenv()` to `tests/conftest.py` |
+| 2 | HIGH | CORS middleware not applied to FastAPI app | Added `setup_middleware(app)` call in `main.py` |
+| 3 | MEDIUM | langgraph.json missing quiz_generator graph alias | Added `quiz_generator` alias pointing to graph |
+| 4 | MEDIUM | Health endpoint not using Pydantic response model | Updated to use `HealthResponse` model from schemas |
+| 5 | MEDIUM | pytest not in optional-dependencies dev group | Added `pytest>=8.0.0` to `[project.optional-dependencies]` |
+| 6 | MEDIUM | Quizzes router not registered in main.py | Imported and registered `quizzes.router` |
+
+### Files Modified During Review
+
+- `dangdai-api/tests/conftest.py` - Added dotenv loading for tests
+- `dangdai-api/src/api/main.py` - Added middleware setup and quizzes router
+- `dangdai-api/src/api/routes/health.py` - Use Pydantic HealthResponse model
+- `dangdai-api/langgraph.json` - Added quiz_generator graph alias
+- `dangdai-api/pyproject.toml` - Added pytest to optional-dependencies
+
+### Verification
+
+- All 4 tests passing (including LangSmith integration test)
+- Ruff linting: All checks passed
+- All Acceptance Criteria verified as implemented
