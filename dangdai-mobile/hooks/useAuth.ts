@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { router } from 'expo-router'
 import { useToastController } from '@tamagui/toast'
 import { supabase } from '../lib/supabase'
+import { queryClient } from '../lib/queryClient'
+import { useUserStore } from '../stores/useUserStore'
+import { useQuizStore } from '../stores/useQuizStore'
 
 export interface AuthError {
   message: string
@@ -151,6 +154,7 @@ export function useAuth() {
     setError(null)
 
     try {
+      // Sign out from Supabase (clears session from AsyncStorage)
       const { error: signOutError } = await supabase.auth.signOut()
 
       if (signOutError) {
@@ -161,7 +165,15 @@ export function useAuth() {
         return false
       }
 
-      // Success - navigate to login
+      // Clear TanStack Query cache (server state)
+      queryClient.clear()
+
+      // Clear Zustand stores (user-specific local state)
+      // Note: Settings store is NOT cleared as theme/language preferences should persist
+      useUserStore.getState().clearUser()
+      useQuizStore.getState().resetQuiz()
+
+      // Success - navigate to login using replace to prevent back navigation
       toast.show('Signed out', {
         message: 'You have been signed out successfully.',
       })

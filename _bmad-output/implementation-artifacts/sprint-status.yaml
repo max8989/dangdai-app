@@ -56,7 +56,7 @@ development_status:
   2-1-email-registration-screen-and-flow: done
   2-2-email-login-screen-and-flow: done
   2-3-apple-sign-in-ios: done
-  2-4-sign-out: ready-for-dev
+  2-4-sign-out: review
   2-5-password-reset-via-email: ready-for-dev
   2-6-auth-state-persistence-and-session-management: ready-for-dev
   epic-2-retrospective: optional
