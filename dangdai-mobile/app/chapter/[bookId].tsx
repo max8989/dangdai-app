@@ -10,8 +10,9 @@
  * Story 3.3: Chapter Completion Status Display
  */
 
-import { YStack, Text, ScrollView } from 'tamagui'
+import { YStack, XStack, Text, ScrollView, Button } from 'tamagui'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
+import { AlertCircle, RefreshCw } from '@tamagui/lucide-icons'
 
 import { ChapterListItem } from '../../components/chapter/ChapterListItem'
 import { ChapterListSkeleton } from '../../components/chapter/ChapterListSkeleton'
@@ -28,7 +29,12 @@ export default function ChapterListScreen() {
   const chapters = useChapters(bookIdNum)
 
   // Fetch progress data for this book
-  const { data: progressMap, isLoading: isProgressLoading } = useChapterProgress(bookIdNum)
+  const {
+    data: progressMap,
+    isLoading: isProgressLoading,
+    error: progressError,
+    refetch: refetchProgress,
+  } = useChapterProgress(bookIdNum)
 
   const handleChapterPress = (chapterId: number) => {
     router.push(`/quiz/${chapterId}`)
@@ -57,7 +63,30 @@ export default function ChapterListScreen() {
         {/* Chapter List */}
         <ScrollView testID="chapter-scroll-view">
           <YStack padding="$4" gap="$3">
-            {isProgressLoading ? (
+            {progressError ? (
+              <YStack
+                padding="$4"
+                gap="$3"
+                alignItems="center"
+                testID="chapter-list-error"
+              >
+                <AlertCircle size={48} color="$orange9" />
+                <Text fontSize={16} fontWeight="500" textAlign="center">
+                  Oops! Couldn't load progress
+                </Text>
+                <Text fontSize={14} color="$gray11" textAlign="center">
+                  Check your connection and try again
+                </Text>
+                <Button
+                  size="$3"
+                  icon={RefreshCw}
+                  onPress={() => refetchProgress()}
+                  testID="retry-button"
+                >
+                  Try Again
+                </Button>
+              </YStack>
+            ) : isProgressLoading ? (
               <ChapterListSkeleton count={chapters.length} />
             ) : (
               chapters.map((chapter) => (

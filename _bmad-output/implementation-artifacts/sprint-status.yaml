@@ -65,7 +65,7 @@ development_status:
   epic-3: in-progress
   3-1-book-selection-screen: done
   3-2-chapter-list-screen: done
-  3-3-chapter-completion-status-display: review
+  3-3-chapter-completion-status-display: done
   3-4-open-chapter-navigation-no-gates: ready-for-dev
   epic-3-retrospective: optional
 

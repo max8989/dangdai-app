@@ -12,7 +12,15 @@ jest.mock('tamagui', () => {
   const { View } = require('react-native')
 
   return {
-    Card: ({ children, testID }: any) => <View testID={testID}>{children}</View>,
+    Card: ({ children, testID, accessibilityRole, accessibilityLabel }: any) => (
+      <View
+        testID={testID}
+        accessibilityRole={accessibilityRole}
+        accessibilityLabel={accessibilityLabel}
+      >
+        {children}
+      </View>
+    ),
     XStack: ({ children }: any) => <View>{children}</View>,
     YStack: ({ children, testID }: any) => <View testID={testID}>{children}</View>,
     Circle: ({ testID }: any) => <View testID={testID} />,
@@ -65,6 +73,30 @@ describe('ChapterListSkeleton', () => {
 
       const subtitles = getAllByTestId(/skeleton-subtitle-/)
       expect(subtitles).toHaveLength(3)
+    })
+  })
+
+  describe('accessibility', () => {
+    it('has progressbar role for screen readers', () => {
+      const { getByTestId } = render(<ChapterListSkeleton count={1} />)
+
+      const skeleton = getByTestId('chapter-skeleton-0')
+      expect(skeleton.props.accessibilityRole).toBe('progressbar')
+    })
+
+    it('has descriptive accessibility label', () => {
+      const { getByTestId } = render(<ChapterListSkeleton count={1} />)
+
+      const skeleton = getByTestId('chapter-skeleton-0')
+      expect(skeleton.props.accessibilityLabel).toBe('Loading chapter 1')
+    })
+
+    it('has correct accessibility labels for multiple items', () => {
+      const { getByTestId } = render(<ChapterListSkeleton count={3} />)
+
+      expect(getByTestId('chapter-skeleton-0').props.accessibilityLabel).toBe('Loading chapter 1')
+      expect(getByTestId('chapter-skeleton-1').props.accessibilityLabel).toBe('Loading chapter 2')
+      expect(getByTestId('chapter-skeleton-2').props.accessibilityLabel).toBe('Loading chapter 3')
     })
   })
 })

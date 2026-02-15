@@ -376,5 +376,36 @@ describe('ChapterListItem', () => {
         expect(queryByTestId('chapter-checkmark-105')).toBeNull()
       })
     })
+
+    describe('percentage bounds validation', () => {
+      it('clamps negative percentage to 0%', () => {
+        const progressNegative = { ...mockProgressInProgress, completionPercentage: -10 }
+        const { getByTestId } = render(
+          <ChapterListItem chapter={mockChapter} progress={progressNegative} onPress={mockOnPress} />
+        )
+
+        expect(getByTestId('chapter-progress-text-105')).toHaveTextContent('0%')
+      })
+
+      it('clamps percentage above 100 to 100%', () => {
+        const progressOver100 = { ...mockProgressInProgress, completionPercentage: 150 }
+        const { getByTestId } = render(
+          <ChapterListItem chapter={mockChapter} progress={progressOver100} onPress={mockOnPress} />
+        )
+
+        // 100% >= 80% so shows Mastered
+        expect(getByTestId('chapter-progress-text-105')).toHaveTextContent('Mastered')
+      })
+
+      it('shows mastered state for percentage exactly 100', () => {
+        const progressAt100 = { ...mockProgressMastered, completionPercentage: 100 }
+        const { getByTestId } = render(
+          <ChapterListItem chapter={mockChapter} progress={progressAt100} onPress={mockOnPress} />
+        )
+
+        expect(getByTestId('chapter-progress-text-105')).toHaveTextContent('Mastered')
+        expect(getByTestId('chapter-checkmark-105')).toBeTruthy()
+      })
+    })
   })
 })

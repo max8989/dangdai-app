@@ -24,6 +24,8 @@ export function ChapterListSkeleton({ count = 5 }: ChapterListSkeletonProps) {
           borderRadius="$3"
           opacity={0.5}
           testID={`chapter-skeleton-${index}`}
+          accessibilityRole="progressbar"
+          accessibilityLabel={`Loading chapter ${index + 1}`}
         >
           <XStack gap="$3" alignItems="center">
             {/* Badge Skeleton */}

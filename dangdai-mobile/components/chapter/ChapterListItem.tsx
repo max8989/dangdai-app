@@ -55,7 +55,9 @@ const badgeConfig = {
 } as const
 
 export function ChapterListItem({ chapter, progress, onPress }: ChapterListItemProps) {
-  const percentage = progress?.completionPercentage ?? 0
+  // Clamp percentage to valid range [0, 100] to handle potential data integrity issues
+  const rawPercentage = progress?.completionPercentage ?? 0
+  const percentage = Math.max(0, Math.min(100, rawPercentage))
   const status = getChapterStatus(percentage)
   const config = badgeConfig[status]
 
