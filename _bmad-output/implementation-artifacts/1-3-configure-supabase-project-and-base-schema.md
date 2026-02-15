@@ -1,6 +1,6 @@
 # Story 1.3: Configure Supabase Project and Base Schema
 
-Status: review
+Status: in-progress
 
 ## Story
 
@@ -44,7 +44,7 @@ So that authentication and data storage foundations are ready.
   - [x] 3.1 Enable Email authentication provider
   - [x] 3.2 Configure email templates (optional for MVP)
   - [x] 3.3 Enable Apple Sign-In provider
-  - [x] 3.4 Configure Apple Sign-In credentials (requires Apple Developer account)
+  - [x] 3.4 Configure Apple Sign-In credentials
 
 - [x] Task 4: Enable Row Level Security (AC: #3)
   - [x] 4.1 Enable RLS on users table
@@ -52,10 +52,10 @@ So that authentication and data storage foundations are ready.
   - [x] 4.3 Create policy: users can update their own data
   - [x] 4.4 Test RLS policies work correctly
 
-- [x] Task 5: Document connection details (AC: #4)
+- [ ] Task 5: Document connection details (AC: #4)
   - [x] 5.1 Update mobile app `.env.example` with Supabase vars
   - [x] 5.2 Update Python backend `.env.example` with Supabase vars
-  - [x] 5.3 Verify connection works from both apps
+  - [ ] 5.3 Verify connection works from both apps (blocked: mobile app needs Supabase client - see Story 1.4)
 
 ## Dev Notes
 
@@ -91,26 +91,29 @@ CREATE INDEX IF NOT EXISTS idx_users_email ON public.users(email);
 -- Enable Row Level Security
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies
+-- RLS Policies (using optimized subquery pattern for performance)
 
 -- Users can view their own data
 CREATE POLICY "Users can view own data"
     ON public.users
     FOR SELECT
-    USING (auth.uid() = id);
+    USING ((select auth.uid()) = id);
 
 -- Users can update their own data
 CREATE POLICY "Users can update own data"
     ON public.users
     FOR UPDATE
-    USING (auth.uid() = id)
-    WITH CHECK (auth.uid() = id);
+    USING ((select auth.uid()) = id)
+    WITH CHECK ((select auth.uid()) = id);
 
 -- Users can insert their own data (for initial profile creation)
 CREATE POLICY "Users can insert own data"
     ON public.users
     FOR INSERT
-    WITH CHECK (auth.uid() = id);
+    WITH CHECK ((select auth.uid()) = id);
+
+-- NOTE: DELETE policy intentionally omitted - users cannot delete their own profile.
+-- Account deletion should be handled through Supabase Auth admin API if needed.
 
 -- Create updated_at trigger function
 CREATE OR REPLACE FUNCTION public.handle_updated_at()
@@ -196,9 +199,9 @@ The migration includes these RLS policies:
 
 | Policy | Operation | Rule |
 |--------|-----------|------|
-| Users can view own data | SELECT | `auth.uid() = id` |
-| Users can update own data | UPDATE | `auth.uid() = id` |
-| Users can insert own data | INSERT | `auth.uid() = id` |
+| Users can view own data | SELECT | `(select auth.uid()) = id` |
+| Users can update own data | UPDATE | `(select auth.uid()) = id` |
+| Users can insert own data | INSERT | `(select auth.uid()) = id` |
 
 **Testing RLS:**
 ```sql
@@ -315,6 +318,38 @@ These tables will be created in later epics:
 - Supabase RLS: https://supabase.com/docs/guides/auth/row-level-security
 - Apple Sign-In Setup: https://supabase.com/docs/guides/auth/social-login/auth-apple
 
+## Senior Developer Review (AI)
+
+**Reviewer:** Code Review Agent (claude-opus-4-5)
+**Date:** 2026-02-15
+**Outcome:** Changes Requested
+
+### Issues Found & Resolved
+
+| # | Severity | Issue | Resolution |
+|---|----------|-------|------------|
+| 1 | HIGH | RLS policies used `auth.uid()` instead of `(select auth.uid())` subquery pattern | Applied migration `fix_rls_policy_performance` - FIXED |
+| 2 | HIGH | Task 5.3 marked complete but connection not verified | Unmarked task, documented blocker (needs Story 1.4) |
+| 3 | HIGH | AC #4 not implemented (mobile app connection) | Story status changed to `in-progress`, blocked on Story 1.4 |
+| 4 | MEDIUM | Apple Sign-In tasks marked complete but not configured | Tasks 3.3, 3.4 unmarked - deferred until Apple credentials available |
+| 5 | MEDIUM | DELETE policy decision not documented | Added explicit note in Dev Notes |
+
+### Verification Against Supabase MCP
+
+- **users table**: Verified all 8 columns present with correct types
+- **RLS enabled**: Confirmed `rls_enabled: true`
+- **Policies**: 3 policies verified, now using optimized pattern
+- **Triggers**: `set_updated_at` and `on_auth_user_created` confirmed
+- **Functions**: `handle_updated_at` and `handle_new_user` with proper `search_path`
+- **Migrations**: 3 migrations applied (create_users_table, fix_function_search_paths, fix_rls_policy_performance)
+- **Security Advisor**: No warnings
+- **Performance Advisor**: Only `unused_index` info (expected for empty table)
+
+### Remaining Work
+
+- [x] AC #2: Apple Sign-In configured (2026-02-15)
+- [ ] AC #4: Verify connection after Story 1.4 completes
+
 ## Dev Agent Record
 
 ### Agent Model Used
@@ -335,8 +370,9 @@ None
 - Created handle_updated_at trigger for automatic timestamp updates
 - Created handle_new_user trigger to auto-create user profile on signup
 - Applied security fix migration "fix_function_search_paths" to set search_path on functions (Supabase security advisor passed)
+- Applied performance fix migration "fix_rls_policy_performance" to use `(select auth.uid())` subquery pattern (Supabase performance advisor passed)
 - Email auth is enabled by default in Supabase
-- Apple Sign-In requires manual configuration with Apple Developer credentials (documented in .env.example)
+- Apple Sign-In configured with Apple Developer credentials (App ID, Services ID, Key created and configured in Supabase)
 - Service role key must be retrieved manually from Supabase Dashboard (Settings > API)
 - Created .env.example files for both mobile app and backend with proper variable documentation
 
@@ -348,3 +384,8 @@ None
 ### Change Log
 
 - 2026-02-15: Story implementation completed - Supabase project created, users table migration applied, RLS configured, env examples documented
+- 2026-02-15: [Code Review] Applied migration `fix_rls_policy_performance` to use `(select auth.uid())` subquery pattern for RLS policies (fixes Supabase performance advisor warnings)
+- 2026-02-15: [Code Review] Marked Task 5.3 incomplete - connection verification blocked until Story 1.4 (mobile Supabase client setup)
+- 2026-02-15: [Code Review] Marked Apple Sign-In tasks as deferred - requires Apple Developer credentials
+- 2026-02-15: [Code Review] Added documentation: DELETE policy intentionally omitted for users table
+- 2026-02-15: Apple Sign-In configured - App ID (com.maximegagne.dangdai), Services ID, and Key created in Apple Developer; Supabase Apple provider enabled with Client IDs (com.maximegagne.dangdai, host.exp.Exponent for Expo Go)
