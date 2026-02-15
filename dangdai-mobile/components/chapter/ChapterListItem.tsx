@@ -30,7 +30,7 @@ export function ChapterListItem({ chapter, onPress }: ChapterListItemProps) {
       animation="quick"
       testID={`chapter-list-item-${chapter.id}`}
       accessibilityRole="button"
-      accessibilityLabel={`Chapter ${chapter.chapterNumber}: ${chapter.titleEnglish}`}
+      accessibilityLabel={`Chapter ${chapter.chapterNumber}: ${chapter.titleEnglish}, ${chapter.titleChinese}`}
     >
       <XStack gap="$3" alignItems="center">
         {/* Chapter Number Badge */}

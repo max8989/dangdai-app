@@ -50,3 +50,6 @@ android
 # Test artifacts
 test-results/
 playwright-report/
+
+# Compiled Playwright test files (use .ts sources only)
+tests/*.js

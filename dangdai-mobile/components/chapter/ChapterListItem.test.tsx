@@ -150,13 +150,13 @@ describe('ChapterListItem', () => {
       expect(card.props.accessibilityRole).toBe('button')
     })
 
-    it('has descriptive accessibility label', () => {
+    it('has descriptive accessibility label with English and Chinese titles', () => {
       const { getByTestId } = render(
         <ChapterListItem chapter={mockChapter} onPress={mockOnPress} />
       )
 
       const card = getByTestId('chapter-list-item-105')
-      expect(card.props.accessibilityLabel).toBe('Chapter 5: Dates')
+      expect(card.props.accessibilityLabel).toBe('Chapter 5: Dates, 日期')
     })
 
     it('includes Chinese title in accessibility for bilingual context', () => {
@@ -165,7 +165,7 @@ describe('ChapterListItem', () => {
       )
 
       const card = getByTestId('chapter-list-item-101')
-      expect(card.props.accessibilityLabel).toBe('Chapter 1: Greetings')
+      expect(card.props.accessibilityLabel).toBe('Chapter 1: Greetings, 问候')
     })
   })
 
