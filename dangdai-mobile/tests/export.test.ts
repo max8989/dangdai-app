@@ -7,10 +7,11 @@ test('static export hydrates without Missing theme error', async ({ page }) => {
     errors.push(err.message)
   })
 
-  await page.goto('/', { waitUntil: 'networkidle' })
+  // Navigate to the login page (root redirects unauthenticated users to login)
+  await page.goto('/(auth)/login', { waitUntil: 'networkidle' })
 
-  // Wait for client hydration by checking for the main heading
-  const heading = page.getByText('Dangdai')
+  // Wait for client hydration by checking for the Sign In heading
+  const heading = page.getByRole('heading', { name: 'Sign In' })
   await expect(heading).toBeVisible({ timeout: 10000 })
 
   // should not show the error boundary

@@ -1,13 +1,14 @@
 import '../tamagui.generated.css'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useColorScheme } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native'
 import { useFonts } from 'expo-font'
-import { SplashScreen, Stack } from 'expo-router'
+import { SplashScreen, Stack, useRouter, useSegments } from 'expo-router'
 import { Provider } from 'components/Provider'
 import { useTheme } from 'tamagui'
+import { Session } from '@supabase/supabase-js'
 
 import { supabase } from '../lib/supabase'
 
@@ -72,9 +73,54 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
   return <Provider>{children}</Provider>
 }
 
+// Hook to handle auth-based navigation
+function useProtectedRoute(session: Session | null, isLoading: boolean) {
+  const segments = useSegments()
+  const router = useRouter()
+
+  useEffect(() => {
+    // Don't redirect while loading auth state
+    if (isLoading) return
+
+    // Check if the user is on an auth screen
+    const inAuthGroup = segments[0] === '(auth)'
+
+    if (!session && !inAuthGroup) {
+      // Redirect to login if not authenticated and not on auth screen
+      router.replace('/(auth)/login')
+    } else if (session && inAuthGroup) {
+      // Redirect to dashboard if authenticated and on auth screen
+      router.replace('/(tabs)')
+    }
+  }, [session, segments, isLoading])
+}
+
 function RootLayoutNav() {
   const colorScheme = useColorScheme()
   const theme = useTheme()
+  const [session, setSession] = useState<Session | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      setIsLoading(false)
+    })
+
+    // Listen for auth state changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  // Handle protected route navigation
+  useProtectedRoute(session, isLoading)
+
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />

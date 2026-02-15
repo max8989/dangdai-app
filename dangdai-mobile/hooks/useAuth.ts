@@ -83,12 +83,76 @@ export function useAuth() {
     }
   }
 
+  const signIn = async (email: string, password: string): Promise<boolean> => {
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (signInError) {
+        // Per security best practices, never reveal whether email exists or password was wrong
+        // Always show the same generic message for invalid credentials
+        const errorLower = signInError.message.toLowerCase()
+        
+        if (
+          errorLower.includes('invalid login credentials') ||
+          errorLower.includes('invalid email or password') ||
+          errorLower.includes('wrong password') ||
+          errorLower.includes('user not found')
+        ) {
+          setError({
+            message: 'Invalid email or password',
+            field: 'general',
+          })
+          return false
+        }
+
+        if (errorLower.includes('email not confirmed')) {
+          setError({
+            message: 'Please verify your email first',
+            field: 'email',
+          })
+          return false
+        }
+
+        // Generic error for any other case
+        setError({
+          message: 'Unable to sign in. Please try again.',
+          field: 'general',
+        })
+        return false
+      }
+
+      // Success - navigate to tabs (dashboard)
+      toast.show('Welcome back!', {
+        message: 'You have signed in successfully.',
+      })
+
+      router.replace('/(tabs)')
+
+      return true
+    } catch (err) {
+      setError({
+        message: 'An unexpected error occurred. Please try again.',
+        field: 'general',
+      })
+      return false
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const clearError = () => {
     setError(null)
   }
 
   return {
     signUp,
+    signIn,
     isLoading,
     error,
     clearError,

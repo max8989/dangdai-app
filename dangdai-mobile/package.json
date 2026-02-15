@@ -10,7 +10,8 @@
     "web": "expo start --web",
     "build:web": "expo export --platform web",
     "test": "npx playwright test",
-    "tsc": "tsc"
+    "tsc": "tsc",
+    "lint": "eslint . --ext .ts,.tsx"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.2.0",
@@ -48,6 +49,7 @@
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@babel/types": "^7.29.0",
+    "@eslint/js": "^9.0.0",
     "@expo/metro-config": "~54.0.2",
     "@expo/metro-runtime": "~6.1.2",
     "@playwright/test": "^1.49.1",
@@ -55,6 +57,9 @@
     "@types/node": "^25.2.3",
     "@types/react": "~19.1.10",
     "@types/react-native": "^0.73.0",
+    "@typescript-eslint/eslint-plugin": "^8.55.0",
+    "@typescript-eslint/parser": "^8.55.0",
+    "eslint": "^9.0.0",
     "serve": "^14.2.5",
     "typescript": "~5.9.2"
   }

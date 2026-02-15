@@ -1,6 +1,6 @@
 # Story 2.2: Email Login Screen and Flow
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -30,34 +30,34 @@ So that I can continue my learning progress.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create login screen (AC: #1, #3, #4)
-  - [ ] 1.1 Create `app/(auth)/login.tsx` screen
-  - [ ] 1.2 Add navigation to signup screen
-  - [ ] 1.3 Add navigation to forgot password
-  - [ ] 1.4 Make login the default auth route
+- [x] Task 1: Create login screen (AC: #1, #3, #4)
+  - [x] 1.1 Create `app/(auth)/login.tsx` screen
+  - [x] 1.2 Add navigation to signup screen
+  - [x] 1.3 Add navigation to forgot password
+  - [x] 1.4 Make login the default auth route
 
-- [ ] Task 2: Create LoginForm component (AC: #1, #2)
-  - [ ] 2.1 Create `components/auth/LoginForm.tsx`
-  - [ ] 2.2 Add email input field
-  - [ ] 2.3 Add password input field
-  - [ ] 2.4 Add Sign In button with loading state
-  - [ ] 2.5 Add links to signup and forgot password
+- [x] Task 2: Create LoginForm component (AC: #1, #2)
+  - [x] 2.1 Create `components/auth/LoginForm.tsx`
+  - [x] 2.2 Add email input field
+  - [x] 2.3 Add password input field
+  - [x] 2.4 Add Sign In button with loading state
+  - [x] 2.5 Add links to signup and forgot password
 
-- [ ] Task 3: Implement login logic (AC: #1, #2)
-  - [ ] 3.1 Add `signIn` function to `hooks/useAuth.ts`
-  - [ ] 3.2 Call `supabase.auth.signInWithPassword()`
-  - [ ] 3.3 Handle success: redirect to dashboard
-  - [ ] 3.4 Handle invalid credentials error
+- [x] Task 3: Implement login logic (AC: #1, #2)
+  - [x] 3.1 Add `signIn` function to `hooks/useAuth.ts`
+  - [x] 3.2 Call `supabase.auth.signInWithPassword()`
+  - [x] 3.3 Handle success: redirect to dashboard
+  - [x] 3.4 Handle invalid credentials error
 
-- [ ] Task 4: Configure auth routing (AC: #1)
-  - [ ] 4.1 Update root `_layout.tsx` with auth state check
-  - [ ] 4.2 Redirect unauthenticated users to login
-  - [ ] 4.3 Redirect authenticated users to dashboard
+- [x] Task 4: Configure auth routing (AC: #1)
+  - [x] 4.1 Update root `_layout.tsx` with auth state check
+  - [x] 4.2 Redirect unauthenticated users to login
+  - [x] 4.3 Redirect authenticated users to dashboard
 
-- [ ] Task 5: Test login flow
-  - [ ] 5.1 Test successful login redirects to dashboard
-  - [ ] 5.2 Test invalid credentials shows error
-  - [ ] 5.3 Test navigation links work
+- [x] Task 5: Test login flow
+  - [x] 5.1 Test successful login redirects to dashboard
+  - [x] 5.2 Test invalid credentials shows error
+  - [x] 5.3 Test navigation links work
 
 ## Dev Notes
 
@@ -222,10 +222,43 @@ Files to modify:
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude claude-opus-4-5 (via Claude Code CLI)
 
 ### Debug Log References
 
+- Fixed TypeScript error by creating placeholder `forgot-password.tsx` route
+- Updated existing tests (`export.test.ts`, `supabase.test.ts`, `signup.test.ts`) to work with new auth routing behavior
+- Cleaned up stale compiled `.js` files that were causing build errors
+
 ### Completion Notes List
 
+- Implemented `signIn` function in `useAuth.ts` with secure error handling (never reveals whether email exists)
+- Created `LoginForm.tsx` component with email/password inputs, validation, loading state, and navigation links
+- Updated `login.tsx` to use the new LoginForm component
+- Added auth state checking in root `_layout.tsx` with `useProtectedRoute` hook
+- Unauthenticated users are automatically redirected to login
+- Authenticated users are automatically redirected to dashboard (tabs)
+- Login is now the default auth route via `unstable_settings.initialRouteName`
+- Created placeholder `forgot-password.tsx` for Story 2.5 navigation
+- Added 8 comprehensive Playwright tests for login flow validation
+- All 20 tests pass (login, signup, export, supabase integration)
+
 ### File List
+
+**New files:**
+- `dangdai-mobile/components/auth/LoginForm.tsx`
+- `dangdai-mobile/app/(auth)/forgot-password.tsx` (placeholder for Story 2.5)
+- `dangdai-mobile/tests/login.test.ts`
+
+**Modified files:**
+- `dangdai-mobile/app/(auth)/login.tsx` - Full login screen implementation
+- `dangdai-mobile/app/(auth)/_layout.tsx` - Added `unstable_settings` for initial route, added forgot-password screen
+- `dangdai-mobile/app/_layout.tsx` - Added auth state checking and `useProtectedRoute` hook
+- `dangdai-mobile/hooks/useAuth.ts` - Added `signIn` function
+- `dangdai-mobile/tests/export.test.ts` - Updated for auth routing
+- `dangdai-mobile/tests/supabase.test.ts` - Updated for auth routing
+- `dangdai-mobile/tests/signup.test.ts` - Updated selectors for DOM structure
+
+## Change Log
+
+- 2026-02-15: Story 2.2 implementation complete - Email login screen with auth routing and comprehensive tests

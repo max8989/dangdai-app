@@ -1,21 +1,19 @@
-import { YStack, H1, Text, Paragraph } from 'tamagui'
+import { YStack, H1, Text } from 'tamagui'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { Link } from 'expo-router'
+import { LoginForm } from '../../components/auth/LoginForm'
 
-// Placeholder login screen - full implementation in Story 2.2
 export default function LoginScreen() {
   return (
     <SafeAreaView style={{ flex: 1 }}>
-      <YStack flex={1} p="$4" gap="$4" justify="center" items="center">
-        <H1>Sign In</H1>
-        <Paragraph color="$gray11">
-          Login functionality coming in Story 2.2
-        </Paragraph>
-        <Link href="/(auth)/signup" asChild>
-          <Text color="$blue10" fontWeight="600">
-            Don't have an account? Sign Up
+      <YStack flex={1} paddingHorizontal="$4" gap="$4">
+        <YStack gap="$2" paddingTop="$6" alignItems="center">
+          <H1>Sign In</H1>
+          <Text color="$gray11">
+            Welcome back to your Chinese learning journey
           </Text>
-        </Link>
+        </YStack>
+
+        <LoginForm />
       </YStack>
     </SafeAreaView>
   )

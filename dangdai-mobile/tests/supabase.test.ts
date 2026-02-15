@@ -15,10 +15,11 @@ test.describe('Supabase Integration', () => {
       consoleLogs.push(msg.text())
     })
 
-    await page.goto('/', { waitUntil: 'networkidle' })
+    // Navigate to login (root redirects unauthenticated users to login)
+    await page.goto('/(auth)/login', { waitUntil: 'networkidle' })
 
-    // Wait for the app to fully hydrate by checking for the main heading
-    const heading = page.getByText('Dangdai')
+    // Wait for the app to fully hydrate by checking for the Sign In heading
+    const heading = page.getByRole('heading', { name: 'Sign In' })
     await expect(heading).toBeVisible({ timeout: 10000 })
 
     // should not show error boundary
@@ -33,11 +34,11 @@ test.describe('Supabase Integration', () => {
   })
 
   test('environment variables are not exposed in client bundle source', async ({ page }) => {
-    // Navigate to the app and wait for full load
-    await page.goto('/', { waitUntil: 'networkidle' })
+    // Navigate to login (root redirects unauthenticated users to login)
+    await page.goto('/(auth)/login', { waitUntil: 'networkidle' })
 
     // Wait for the app to fully render
-    await expect(page.getByText('Dangdai')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Sign In' })).toBeVisible({ timeout: 10000 })
 
     // Get all script contents
     const scripts = await page.evaluate(() => {
@@ -53,7 +54,7 @@ test.describe('Supabase Integration', () => {
     expect(allScriptContent).not.toContain('service_role')
 
     // The app should still work (anon key is expected to be present)
-    const heading = page.getByText('Dangdai')
+    const heading = page.getByRole('heading', { name: 'Sign In' })
     await expect(heading).toBeVisible()
   })
 })

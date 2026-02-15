@@ -8,11 +8,12 @@ test.describe('Signup Flow', () => {
 
   test('signup screen renders with all required elements', async ({ page }) => {
     // Wait for the page to load
-    await expect(page.getByText('Create Account')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Create Account' })).toBeVisible({ timeout: 10000 })
     await expect(page.getByText('Start your Chinese learning journey')).toBeVisible()
 
-    // Verify form elements are present
-    await expect(page.getByPlaceholder('your@email.com')).toBeVisible()
+    // Verify form elements are present - use nth(1) to get visible signup form's elements
+    // (login form is hidden with index 0)
+    await expect(page.getByPlaceholder('your@email.com').nth(1)).toBeVisible()
     await expect(page.getByPlaceholder('At least 8 characters')).toBeVisible()
     await expect(page.getByPlaceholder('Re-enter your password')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Sign Up' })).toBeVisible()
@@ -20,10 +21,10 @@ test.describe('Signup Flow', () => {
   })
 
   test('shows validation error for invalid email format', async ({ page }) => {
-    await expect(page.getByText('Create Account')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Create Account' })).toBeVisible({ timeout: 10000 })
 
-    // Enter invalid email
-    const emailInput = page.getByPlaceholder('your@email.com')
+    // Enter invalid email (use .nth(1) for signup form's visible email input)
+    const emailInput = page.getByPlaceholder('your@email.com').nth(1)
     await emailInput.fill('invalidemail')
     await emailInput.blur()
 
@@ -32,7 +33,7 @@ test.describe('Signup Flow', () => {
   })
 
   test('shows validation error for short password', async ({ page }) => {
-    await expect(page.getByText('Create Account')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Create Account' })).toBeVisible({ timeout: 10000 })
 
     // Enter short password
     const passwordInput = page.getByPlaceholder('At least 8 characters')
@@ -44,7 +45,7 @@ test.describe('Signup Flow', () => {
   })
 
   test('accepts password at exactly 8 characters (boundary test)', async ({ page }) => {
-    await expect(page.getByText('Create Account')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Create Account' })).toBeVisible({ timeout: 10000 })
 
     // Enter password with exactly 8 characters
     const passwordInput = page.getByPlaceholder('At least 8 characters')
@@ -56,7 +57,7 @@ test.describe('Signup Flow', () => {
   })
 
   test('shows validation error for 7 character password (boundary test)', async ({ page }) => {
-    await expect(page.getByText('Create Account')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Create Account' })).toBeVisible({ timeout: 10000 })
 
     // Enter password with exactly 7 characters
     const passwordInput = page.getByPlaceholder('At least 8 characters')
@@ -68,7 +69,7 @@ test.describe('Signup Flow', () => {
   })
 
   test('shows validation error when passwords do not match', async ({ page }) => {
-    await expect(page.getByText('Create Account')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Create Account' })).toBeVisible({ timeout: 10000 })
 
     // Enter mismatched passwords
     const passwordInput = page.getByPlaceholder('At least 8 characters')
@@ -83,7 +84,7 @@ test.describe('Signup Flow', () => {
   })
 
   test('shows all validation errors when submitting empty form', async ({ page }) => {
-    await expect(page.getByText('Create Account')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Create Account' })).toBeVisible({ timeout: 10000 })
 
     // Click sign up without filling form
     await page.getByRole('button', { name: 'Sign Up' }).click()
@@ -95,10 +96,10 @@ test.describe('Signup Flow', () => {
   })
 
   test('clears validation errors when user corrects input', async ({ page }) => {
-    await expect(page.getByText('Create Account')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Create Account' })).toBeVisible({ timeout: 10000 })
 
-    // Enter invalid email
-    const emailInput = page.getByPlaceholder('your@email.com')
+    // Enter invalid email (use .nth(1) for signup form's visible email input)
+    const emailInput = page.getByPlaceholder('your@email.com').nth(1)
     await emailInput.fill('invalid')
     await emailInput.blur()
 
@@ -113,7 +114,7 @@ test.describe('Signup Flow', () => {
   })
 
   test('navigates to login screen when clicking sign in link', async ({ page }) => {
-    await expect(page.getByText('Create Account')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Create Account' })).toBeVisible({ timeout: 10000 })
 
     // Click on sign in link
     await page.getByText('Already have an account? Sign In').click()
@@ -123,10 +124,10 @@ test.describe('Signup Flow', () => {
   })
 
   test('form accepts valid input and attempts submission', async ({ page }) => {
-    await expect(page.getByText('Create Account')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Create Account' })).toBeVisible({ timeout: 10000 })
 
-    // Fill in valid form data
-    await page.getByPlaceholder('your@email.com').fill('test@example.com')
+    // Fill in valid form data (use .nth(1) for signup form's visible email input)
+    await page.getByPlaceholder('your@email.com').nth(1).fill('test@example.com')
     await page.getByPlaceholder('At least 8 characters').fill('testpassword123')
     await page.getByPlaceholder('Re-enter your password').fill('testpassword123')
 
