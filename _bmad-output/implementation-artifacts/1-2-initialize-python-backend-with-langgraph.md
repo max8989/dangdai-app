@@ -1,6 +1,6 @@
 # Story 1.2: Initialize Python Backend with LangGraph
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -28,36 +28,36 @@ So that I have a working FastAPI service ready for RAG and quiz generation.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Install LangGraph CLI (AC: #1)
-  - [ ] 1.1 Install langgraph-cli: `pip install -U "langgraph-cli[inmem]"`
-  - [ ] 1.2 Verify installation: `langgraph --version`
+- [x] Task 1: Install LangGraph CLI (AC: #1)
+  - [x] 1.1 Install langgraph-cli: `pip install -U "langgraph-cli[inmem]"`
+  - [x] 1.2 Verify installation: `langgraph --version`
 
-- [ ] Task 2: Scaffold the Python backend (AC: #1)
-  - [ ] 2.1 Run `langgraph new --template=new-langgraph-project-python dangdai-api`
-  - [ ] 2.2 Navigate into `dangdai-api/` directory
-  - [ ] 2.3 Verify `langgraph.json` exists with proper configuration
-  - [ ] 2.4 Verify `pyproject.toml` exists with dependencies
+- [x] Task 2: Scaffold the Python backend (AC: #1)
+  - [x] 2.1 Run `langgraph new --template=new-langgraph-project-python dangdai-api`
+  - [x] 2.2 Navigate into `dangdai-api/` directory
+  - [x] 2.3 Verify `langgraph.json` exists with proper configuration
+  - [x] 2.4 Verify `pyproject.toml` exists with dependencies
 
-- [ ] Task 3: Set up Python environment (AC: #2)
-  - [ ] 3.1 Create virtual environment or use uv/poetry
-  - [ ] 3.2 Install dependencies: `uv sync` or `pip install -e .`
-  - [ ] 3.3 Verify all dependencies install without errors
+- [x] Task 3: Set up Python environment (AC: #2)
+  - [x] 3.1 Create virtual environment or use uv/poetry
+  - [x] 3.2 Install dependencies: `uv sync` or `pip install -e .`
+  - [x] 3.3 Verify all dependencies install without errors
 
-- [ ] Task 4: Verify local service runs (AC: #2)
-  - [ ] 4.1 Run `uvicorn src.api.main:app --reload --port 8000`
-  - [ ] 4.2 Verify service starts without errors
-  - [ ] 4.3 Verify service is accessible at http://localhost:8000
+- [x] Task 4: Verify local service runs (AC: #2)
+  - [x] 4.1 Run `uvicorn src.api.main:app --reload --port 8000`
+  - [x] 4.2 Verify service starts without errors
+  - [x] 4.3 Verify service is accessible at http://localhost:8000
 
-- [ ] Task 5: Add health endpoint (AC: #3)
-  - [ ] 5.1 Create or verify `/health` endpoint exists
-  - [ ] 5.2 Endpoint returns `{"status": "healthy"}` with 200 OK
-  - [ ] 5.3 Test with curl: `curl http://localhost:8000/health`
+- [x] Task 5: Add health endpoint (AC: #3)
+  - [x] 5.1 Create or verify `/health` endpoint exists
+  - [x] 5.2 Endpoint returns `{"status": "healthy"}` with 200 OK
+  - [x] 5.3 Test with curl: `curl http://localhost:8000/health`
 
-- [ ] Task 6: Organize project structure (AC: #4)
-  - [ ] 6.1 Create directory structure matching Architecture spec
-  - [ ] 6.2 Create placeholder files for future modules
-  - [ ] 6.3 Set up `.env.example` with required environment variables
-  - [ ] 6.4 Ensure `.gitignore` includes venv, __pycache__, .env, etc.
+- [x] Task 6: Organize project structure (AC: #4)
+  - [x] 6.1 Create directory structure matching Architecture spec
+  - [x] 6.2 Create placeholder files for future modules
+  - [x] 6.3 Set up `.env.example` with required environment variables
+  - [x] 6.4 Ensure `.gitignore` includes venv, __pycache__, .env, etc.
 
 ## Dev Notes
 
@@ -290,10 +290,72 @@ python -m pytest tests/                # Run tests
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+claude-opus-4-5
 
 ### Debug Log References
 
+- Used uv package manager instead of pip due to externally-managed-environment on Arch Linux
+- Installed Python 3.12 via uv as Python 3.14 is too new for some dependencies
+- Fixed import paths in existing tests to use src.agent instead of agent
+
 ### Completion Notes List
 
+- Installed LangGraph CLI v0.4.12 via uv tool install
+- Scaffolded Python backend using `langgraph new --template=new-langgraph-project-python dangdai-api`
+- Created Python 3.12 virtual environment with uv and installed all dependencies
+- Added FastAPI and uvicorn as project dependencies
+- Created FastAPI application with health endpoint at /health returning {"status": "healthy"}
+- Organized project structure matching Architecture spec with all placeholder files
+- Created comprehensive .env.example with Supabase, LLM, LangSmith, and Server configuration
+- Added API tests for health endpoint (2 tests passing)
+- Fixed existing LangGraph tests import paths
+- All tests passing (3 total), linting passing
+
+### Change Log
+
+- 2026-02-15: Story implementation completed - Python backend scaffolded with LangGraph, FastAPI health endpoint, and full project structure
+
 ### File List
+
+**New files created:**
+- dangdai-api/.venv/ (virtual environment)
+- dangdai-api/src/__init__.py
+- dangdai-api/src/api/__init__.py
+- dangdai-api/src/api/main.py
+- dangdai-api/src/api/schemas.py
+- dangdai-api/src/api/dependencies.py
+- dangdai-api/src/api/middleware.py
+- dangdai-api/src/api/routes/__init__.py
+- dangdai-api/src/api/routes/health.py
+- dangdai-api/src/api/routes/quizzes.py
+- dangdai-api/src/services/__init__.py
+- dangdai-api/src/services/quiz_service.py
+- dangdai-api/src/services/rag_service.py
+- dangdai-api/src/services/auth_service.py
+- dangdai-api/src/repositories/__init__.py
+- dangdai-api/src/repositories/vector_store.py
+- dangdai-api/src/repositories/chapter_repo.py
+- dangdai-api/src/utils/__init__.py
+- dangdai-api/src/utils/config.py
+- dangdai-api/src/utils/supabase.py
+- dangdai-api/src/utils/llm.py
+- dangdai-api/src/agent/nodes.py
+- dangdai-api/src/agent/prompts.py
+- dangdai-api/src/agent/state.py
+- dangdai-api/tests/test_api.py
+
+**Modified files:**
+- dangdai-api/pyproject.toml (updated project name, added FastAPI/uvicorn dependencies)
+- dangdai-api/.env.example (added comprehensive environment variables)
+- dangdai-api/src/agent/__init__.py (fixed import path)
+- dangdai-api/tests/integration_tests/test_graph.py (fixed import path)
+- dangdai-api/tests/unit_tests/test_configuration.py (fixed import path)
+
+**Files from scaffold (unmodified):**
+- dangdai-api/langgraph.json
+- dangdai-api/.gitignore
+- dangdai-api/README.md
+- dangdai-api/Makefile
+- dangdai-api/LICENSE
+- dangdai-api/src/agent/graph.py
+- dangdai-api/tests/conftest.py
