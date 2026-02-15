@@ -8,7 +8,7 @@ export default function LoginScreen() {
       <YStack flex={1} paddingHorizontal="$4" gap="$4">
         <YStack gap="$2" paddingTop="$6" alignItems="center">
           <H1>Sign In</H1>
-          <Text color="$gray11">
+          <Text color="$colorSubtle">
             Welcome back to your Chinese learning journey
           </Text>
         </YStack>

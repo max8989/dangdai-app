@@ -53,7 +53,7 @@ export default function SettingsScreen() {
 
         {/* User Info Section */}
         <YStack marginBottom="$4" gap="$1">
-          <Text fontSize="$3" color="$gray11">
+          <Text fontSize="$3" color="$colorSubtle">
             Signed in as
           </Text>
           <Text fontSize="$5" fontWeight="600">
@@ -65,7 +65,7 @@ export default function SettingsScreen() {
 
         {/* Settings Options Placeholder */}
         <YStack gap="$3">
-          <Text color="$gray10" fontSize="$3">
+          <Text color="$colorSubtle" fontSize="$3">
             More settings coming soon...
           </Text>
           {/* Language, Theme, Sound settings - Story 9.x */}
@@ -77,12 +77,13 @@ export default function SettingsScreen() {
         {/* Error Message */}
         {error && (
           <XStack
-            backgroundColor="$red2"
+            backgroundColor="$errorBackground"
             padding="$3"
             borderRadius="$3"
             marginBottom="$3"
+            accessibilityRole="alert"
           >
-            <Text color="$red10">{error.message}</Text>
+            <Text color="$error">{error.message}</Text>
           </XStack>
         )}
 

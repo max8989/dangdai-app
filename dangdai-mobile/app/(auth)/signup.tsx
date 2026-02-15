@@ -8,7 +8,7 @@ export default function SignupScreen() {
       <YStack flex={1} paddingHorizontal="$4" gap="$4">
         <YStack gap="$2" paddingTop="$6" alignItems="center">
           <H1>Create Account</H1>
-          <Text color="$gray11">
+          <Text color="$colorSubtle">
             Start your Chinese learning journey
           </Text>
         </YStack>

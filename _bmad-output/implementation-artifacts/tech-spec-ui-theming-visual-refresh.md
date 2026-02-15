@@ -2,7 +2,7 @@
 title: 'UI Theming and Visual Refresh for Auth & Tab Screens'
 slug: 'ui-theming-visual-refresh'
 created: '2026-02-15'
-status: 'ready-for-dev'
+status: 'implementation-complete'
 stepsCompleted: [1, 2, 3, 4]
 tech_stack: ['tamagui@1.121.10', 'expo-router@6.0.14', 'react-native@0.81.5', '@tamagui/config@1.121.10']
 files_to_modify:
@@ -249,25 +249,25 @@ Create a custom Tamagui theme with the UX spec colors, update auth screens (logi
 ### Acceptance Criteria
 
 #### Theme Configuration
-- [ ] AC1: Given the app is launched on a device with light mode enabled, when viewing any screen, then the background should be off-white (`#FAFAF9`) and text should be dark (`#1C1917`)
-- [ ] AC2: Given the app is launched on a device with dark mode enabled, when viewing any screen, then the background should be near-black (`#0C0A09`) and text should be light (`#FAFAF9`)
-- [ ] AC3: Given the user changes system theme while app is open, when the theme change completes, then the app should immediately reflect the new theme colors without restart
+- [x] AC1: Given the app is launched on a device with light mode enabled, when viewing any screen, then the background should be off-white (`#FAFAF9`) and text should be dark (`#1C1917`)
+- [x] AC2: Given the app is launched on a device with dark mode enabled, when viewing any screen, then the background should be near-black (`#0C0A09`) and text should be light (`#FAFAF9`)
+- [x] AC3: Given the user changes system theme while app is open, when the theme change completes, then the app should immediately reflect the new theme colors without restart
 
 #### Auth Screens
-- [ ] AC4: Given I am on the login screen in light mode, when I view the primary button, then it should have a teal background (`#06B6D4`) with white text
-- [ ] AC5: Given I am on any auth screen, when I tap a navigation link (e.g., "Sign Up", "Forgot Password"), then the link should be teal colored (`#06B6D4` in light, `#22D3EE` in dark)
-- [ ] AC6: Given I submit a form with invalid data, when validation fails, then error messages should appear in gentle orange (`#FB923C`) not harsh red
-- [ ] AC7: Given I am on the forgot password screen and submit successfully, when the success message appears, then it should use green styling (`#22C55E`)
-- [ ] AC8: Given I am on iOS in light mode, when viewing the Apple Sign In button, then it should display with black styling
-- [ ] AC9: Given I am on iOS in dark mode, when viewing the Apple Sign In button, then it should display with white styling
+- [x] AC4: Given I am on the login screen in light mode, when I view the primary button, then it should have a teal background (`#06B6D4`) with white text
+- [x] AC5: Given I am on any auth screen, when I tap a navigation link (e.g., "Sign Up", "Forgot Password"), then the link should be teal colored (`#06B6D4` in light, `#22D3EE` in dark)
+- [x] AC6: Given I submit a form with invalid data, when validation fails, then error messages should appear in gentle orange (`#FB923C`) not harsh red
+- [x] AC7: Given I am on the forgot password screen and submit successfully, when the success message appears, then it should use green styling (`#22C55E`)
+- [x] AC8: Given I am on iOS in light mode, when viewing the Apple Sign In button, then it should display with black styling
+- [x] AC9: Given I am on iOS in dark mode, when viewing the Apple Sign In button, then it should display with white styling
 
 #### Tab Screens
-- [ ] AC10: Given I am viewing the tab bar, when I tap a tab, then the active tab icon should be teal (`#06B6D4` light / `#22D3EE` dark)
-- [ ] AC11: Given I am on the Settings screen, when I view the sign out button, then it should remain red-themed (destructive action styling)
+- [x] AC10: Given I am viewing the tab bar, when I tap a tab, then the active tab icon should be teal (`#06B6D4` light / `#22D3EE` dark)
+- [x] AC11: Given I am on the Settings screen, when I view the sign out button, then it should remain red-themed (destructive action styling)
 
 #### Visual Consistency
-- [ ] AC12: Given I navigate through all screens (login, signup, forgot-password, reset-password, home, settings), when comparing styling, then all screens should use consistent color tokens (no mix of old `$gray11` and new `$colorSubtle`)
-- [ ] AC13: Given I am viewing any input field, when focused or unfocused, then the input should have consistent border radius (12px per UX spec)
+- [x] AC12: Given I navigate through all screens (login, signup, forgot-password, reset-password, home, settings), when comparing styling, then all screens should use consistent color tokens (no mix of old `$gray11` and new `$colorSubtle`)
+- [x] AC13: Given I am viewing any input field, when focused or unfocused, then the input should have consistent border radius (12px per UX spec)
 
 ## Additional Context
 
@@ -323,3 +323,23 @@ Create a custom Tamagui theme with the UX spec colors, update auth screens (logi
 - Add theme toggle to settings for user override
 - Create reusable styled components (e.g., `PrimaryButton`, `ErrorMessage`)
 - Add animation to theme transitions
+
+## Review Notes
+
+- Adversarial review completed
+- Findings: 15 total, 11 fixed, 4 skipped (noise/undecided)
+- Resolution approach: auto-fix
+
+### Fixes Applied:
+- F1: Changed buttons from `backgroundColor="$primary" color="white"` to `theme="primary"`
+- F2: AppleSignInButton now uses Tamagui's `useThemeName()` instead of React Native's `useColorScheme()`
+- F3/F4: Added `$warning` color and used it for password strength hints
+- F12: Spinners now inherit color from button theme
+- F13: Added `opacity` prop for disabled button states
+- F14: Added `accessibilityRole="alert"` to error message containers
+
+### Skipped (noise/undecided):
+- F5: Orange error color intentional per UX spec
+- F7: `primaryDark` naming is clear
+- F9: Link press states not needed
+- F15: `$colorSubtle` consolidation intentional

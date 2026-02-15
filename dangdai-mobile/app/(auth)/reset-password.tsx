@@ -8,7 +8,7 @@ export default function ResetPasswordScreen() {
       <YStack flex={1} paddingHorizontal="$4" gap="$4">
         <YStack gap="$2" paddingTop="$6" alignItems="center">
           <H1>Set New Password</H1>
-          <Text color="$gray11" textAlign="center">
+          <Text color="$colorSubtle" textAlign="center">
             Enter your new password below
           </Text>
         </YStack>

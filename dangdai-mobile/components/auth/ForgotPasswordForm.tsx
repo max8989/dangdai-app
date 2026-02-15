@@ -85,27 +85,27 @@ export function ForgotPasswordForm() {
     return (
       <YStack gap="$6" flex={1} paddingTop="$4">
         <YStack
-          backgroundColor="$green2"
+          backgroundColor="$successBackground"
           padding="$4"
           borderRadius="$4"
           borderWidth={1}
-          borderColor="$green6"
+          borderColor="$successBorder"
           gap="$2"
         >
-          <Text color="$green11" fontWeight="600" fontSize="$5">
+          <Text color="$successText" fontWeight="600" fontSize="$5">
             Check your email
           </Text>
-          <Text color="$green10" fontSize="$3">
+          <Text color="$success" fontSize="$3">
             Reset link sent to your email
           </Text>
-          <Text color="$gray11" fontSize="$2" marginTop="$2">
+          <Text color="$colorSubtle" fontSize="$2" marginTop="$2">
             If an account exists with this email, you will receive password reset
             instructions shortly. Check your spam folder if you don't see it.
           </Text>
         </YStack>
 
         <Link href="/(auth)/login" asChild>
-          <Button size="$5" themeInverse>
+          <Button size="$5" theme="primary">
             Back to Login
           </Button>
         </Link>
@@ -126,13 +126,14 @@ export function ForgotPasswordForm() {
           {/* General error message */}
           {generalError && (
             <XStack
-              backgroundColor="$red2"
+              backgroundColor="$errorBackground"
               padding="$3"
               borderRadius="$4"
               borderWidth={1}
-              borderColor="$red6"
+              borderColor="$errorBorder"
+              accessibilityRole="alert"
             >
-              <Text color="$red10" fontSize="$3">
+              <Text color="$error" fontSize="$3">
                 {generalError}
               </Text>
             </XStack>
@@ -154,10 +155,10 @@ export function ForgotPasswordForm() {
               textContentType="emailAddress"
               autoComplete="email"
               size="$4"
-              borderColor={emailError ? '$red8' : undefined}
+              borderColor={emailError ? '$error' : undefined}
             />
             {emailError && (
-              <Text color="$red10" fontSize="$2">
+              <Text color="$error" fontSize="$2">
                 {emailError}
               </Text>
             )}
@@ -166,14 +167,15 @@ export function ForgotPasswordForm() {
           {/* Send Reset Link Button */}
           <Button
             size="$5"
-            themeInverse
+            theme="primary"
             onPress={handleSubmit}
             disabled={isLoading}
+            opacity={isLoading ? 0.7 : 1}
             marginTop="$2"
           >
             {isLoading ? (
               <XStack gap="$2" alignItems="center">
-                <Spinner size="small" color="$color" />
+                <Spinner size="small" />
                 <Text>Sending...</Text>
               </XStack>
             ) : (
@@ -184,7 +186,7 @@ export function ForgotPasswordForm() {
           {/* Back to Login Link */}
           <XStack justifyContent="center" marginTop="$4">
             <Link href="/(auth)/login" asChild>
-              <Text color="$blue10" fontWeight="600">
+              <Text color="$primary" fontWeight="600">
                 Back to Login
               </Text>
             </Link>

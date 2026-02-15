@@ -154,13 +154,14 @@ export function ResetPasswordForm() {
           {/* General error message */}
           {generalError && (
             <XStack
-              backgroundColor="$red2"
+              backgroundColor="$errorBackground"
               padding="$3"
               borderRadius="$4"
               borderWidth={1}
-              borderColor="$red6"
+              borderColor="$errorBorder"
+              accessibilityRole="alert"
             >
-              <Text color="$red10" fontSize="$3">
+              <Text color="$error" fontSize="$3">
                 {generalError}
               </Text>
             </XStack>
@@ -180,10 +181,10 @@ export function ResetPasswordForm() {
               textContentType="newPassword"
               autoComplete="new-password"
               size="$4"
-              borderColor={passwordError ? '$red8' : undefined}
+              borderColor={passwordError ? '$error' : undefined}
             />
             {passwordError && (
-              <Text color="$red10" fontSize="$2">
+              <Text color="$error" fontSize="$2">
                 {passwordError}
               </Text>
             )}
@@ -192,12 +193,12 @@ export function ResetPasswordForm() {
               <YStack gap="$1">
                 {passwordStrengthErrors.length > 0 ? (
                   passwordStrengthErrors.map((err, i) => (
-                    <Text key={i} color="$orange10" fontSize="$2">
+                    <Text key={i} color="$warning" fontSize="$2">
                       {err}
                     </Text>
                   ))
                 ) : (
-                  <Text color="$green10" fontSize="$2">
+                  <Text color="$success" fontSize="$2">
                     Password meets requirements
                   </Text>
                 )}
@@ -219,10 +220,10 @@ export function ResetPasswordForm() {
               textContentType="newPassword"
               autoComplete="new-password"
               size="$4"
-              borderColor={confirmPasswordError ? '$red8' : undefined}
+              borderColor={confirmPasswordError ? '$error' : undefined}
             />
             {confirmPasswordError && (
-              <Text color="$red10" fontSize="$2">
+              <Text color="$error" fontSize="$2">
                 {confirmPasswordError}
               </Text>
             )}
@@ -231,14 +232,15 @@ export function ResetPasswordForm() {
           {/* Update Password Button */}
           <Button
             size="$5"
-            themeInverse
+            theme="primary"
             onPress={handleSubmit}
             disabled={isLoading || !passwordIsValid}
+            opacity={isLoading || !passwordIsValid ? 0.7 : 1}
             marginTop="$2"
           >
             {isLoading ? (
               <XStack gap="$2" alignItems="center">
-                <Spinner size="small" color="$color" />
+                <Spinner size="small" />
                 <Text>Updating...</Text>
               </XStack>
             ) : (

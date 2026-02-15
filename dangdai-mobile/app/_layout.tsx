@@ -3,15 +3,41 @@ import '../tamagui.generated.css'
 import { useEffect } from 'react'
 import { useColorScheme } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native'
+import { ThemeProvider, DefaultTheme, DarkTheme } from '@react-navigation/native'
 import { useFonts } from 'expo-font'
 import { SplashScreen, Stack } from 'expo-router'
-import { useTheme } from 'tamagui'
 
 import { Provider } from 'components/Provider'
 import { AuthProvider, useAuth } from '../providers/AuthProvider'
 import { SplashScreen as AppSplashScreen } from '../components/SplashScreen'
 import { supabase } from '../lib/supabase'
+
+// Custom navigation themes matching UX spec colors
+const customLightTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: '#06B6D4',
+    background: '#FAFAF9',
+    card: '#FAFAF9',
+    text: '#1C1917',
+    border: '#D6D3D1',
+    notification: '#FB923C',
+  },
+}
+
+const customDarkTheme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    primary: '#22D3EE',
+    background: '#0C0A09',
+    card: '#0C0A09',
+    text: '#FAFAF9',
+    border: '#44403C',
+    notification: '#FDBA74',
+  },
+}
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -83,7 +109,6 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme()
-  const theme = useTheme()
   const { loading } = useAuth()
 
   // Show splash screen while loading auth state
@@ -92,7 +117,7 @@ function RootLayoutNav() {
   }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <ThemeProvider value={colorScheme === 'dark' ? customDarkTheme : customLightTheme}>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <Stack>
         <Stack.Screen
@@ -117,9 +142,6 @@ function RootLayoutNav() {
             animation: 'slide_from_right',
             gestureEnabled: true,
             gestureDirection: 'horizontal',
-            contentStyle: {
-              backgroundColor: theme.background.val,
-            },
           }}
         />
       </Stack>

@@ -1,13 +1,21 @@
 import { Platform, StyleSheet } from 'react-native'
 import * as AppleAuthentication from 'expo-apple-authentication'
+import { useThemeName } from 'tamagui'
 import { supabase } from '../../lib/supabase'
 
 export function AppleSignInButton() {
+  // Use Tamagui's theme context to stay in sync with app theme
+  const themeName = useThemeName()
+
   if (Platform.OS === 'ios')
     return (
       <AppleAuthentication.AppleAuthenticationButton
         buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-        buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+        buttonStyle={
+          themeName === 'dark'
+            ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+            : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+        }
         cornerRadius={8}
         style={styles.button}
         onPress={async () => {

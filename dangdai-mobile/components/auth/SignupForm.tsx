@@ -160,13 +160,14 @@ export function SignupForm() {
       {/* General error message */}
       {generalError && (
         <XStack
-          backgroundColor="$red2"
+          backgroundColor="$errorBackground"
           padding="$3"
           borderRadius="$4"
           borderWidth={1}
-          borderColor="$red6"
+          borderColor="$errorBorder"
+          accessibilityRole="alert"
         >
-          <Text color="$red10" fontSize="$3">
+          <Text color="$error" fontSize="$3">
             {generalError}
           </Text>
         </XStack>
@@ -188,10 +189,10 @@ export function SignupForm() {
           textContentType="emailAddress"
           autoComplete="email"
           size="$4"
-          borderColor={emailError ? '$red8' : undefined}
+          borderColor={emailError ? '$error' : undefined}
         />
         {emailError && (
-          <Text color="$red10" fontSize="$2">
+          <Text color="$error" fontSize="$2">
             {emailError}
           </Text>
         )}
@@ -211,10 +212,10 @@ export function SignupForm() {
           textContentType="newPassword"
           autoComplete="new-password"
           size="$4"
-          borderColor={passwordError ? '$red8' : undefined}
+          borderColor={passwordError ? '$error' : undefined}
         />
         {passwordError && (
-          <Text color="$red10" fontSize="$2">
+          <Text color="$error" fontSize="$2">
             {passwordError}
           </Text>
         )}
@@ -234,10 +235,10 @@ export function SignupForm() {
           textContentType="newPassword"
           autoComplete="new-password"
           size="$4"
-          borderColor={confirmPasswordError ? '$red8' : undefined}
+          borderColor={confirmPasswordError ? '$error' : undefined}
         />
         {confirmPasswordError && (
-          <Text color="$red10" fontSize="$2">
+          <Text color="$error" fontSize="$2">
             {confirmPasswordError}
           </Text>
         )}
@@ -246,14 +247,15 @@ export function SignupForm() {
       {/* Sign Up Button */}
       <Button
         size="$5"
-        themeInverse
+        theme="primary"
         onPress={handleSubmit}
         disabled={isLoading}
+        opacity={isLoading ? 0.7 : 1}
         marginTop="$2"
       >
         {isLoading ? (
           <XStack gap="$2" alignItems="center">
-            <Spinner size="small" color="$color" />
+            <Spinner size="small" />
             <Text>Creating account...</Text>
           </XStack>
         ) : (
@@ -264,7 +266,7 @@ export function SignupForm() {
       {/* Link to Login */}
       <XStack justifyContent="center" marginTop="$4">
         <Link href="/(auth)/login" asChild>
-          <Text color="$blue10" fontWeight="600">
+          <Text color="$primary" fontWeight="600">
             Already have an account? Sign In
           </Text>
         </Link>
