@@ -42,7 +42,7 @@ export default function RootLayout() {
   useEffect(() => {
     const testSupabaseConnection = async () => {
       try {
-        const { data, error } = await supabase.from('users').select('count')
+        const { error } = await supabase.from('users').select('count')
         if (error) {
           console.log('[Supabase] Connection test - Error:', error.message)
         } else {

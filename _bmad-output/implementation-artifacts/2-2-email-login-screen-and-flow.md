@@ -1,6 +1,6 @@
 # Story 2.2: Email Login Screen and Flow
 
-Status: review
+Status: done
 
 ## Story
 
@@ -243,22 +243,35 @@ Claude claude-opus-4-5 (via Claude Code CLI)
 - Added 8 comprehensive Playwright tests for login flow validation
 - All 20 tests pass (login, signup, export, supabase integration)
 
+**Code Review Fixes (2026-02-15):**
+- Added `KeyboardAvoidingView` and `ScrollView` wrapper to `LoginForm.tsx` for better mobile keyboard UX
+- Added `signOut` function to `useAuth.ts` hook for complete auth flow
+- Updated File List to include all config files that were changed
+
 ### File List
 
 **New files:**
 - `dangdai-mobile/components/auth/LoginForm.tsx`
 - `dangdai-mobile/app/(auth)/forgot-password.tsx` (placeholder for Story 2.5)
 - `dangdai-mobile/tests/login.test.ts`
+- `dangdai-mobile/eas.json` - EAS Build configuration
+- `dangdai-mobile/eslint.config.mjs` - ESLint flat config
+- `dangdai-mobile/playwright.config.js` - Playwright test configuration
+- `dangdai-mobile/tamagui.build.js` - Tamagui build config
+- `dangdai-mobile/tamagui.config.js` - Tamagui runtime config
 
 **Modified files:**
 - `dangdai-mobile/app/(auth)/login.tsx` - Full login screen implementation
 - `dangdai-mobile/app/(auth)/_layout.tsx` - Added `unstable_settings` for initial route, added forgot-password screen
 - `dangdai-mobile/app/_layout.tsx` - Added auth state checking and `useProtectedRoute` hook
-- `dangdai-mobile/hooks/useAuth.ts` - Added `signIn` function
+- `dangdai-mobile/hooks/useAuth.ts` - Added `signIn` and `signOut` functions
 - `dangdai-mobile/tests/export.test.ts` - Updated for auth routing
 - `dangdai-mobile/tests/supabase.test.ts` - Updated for auth routing
 - `dangdai-mobile/tests/signup.test.ts` - Updated selectors for DOM structure
+- `dangdai-mobile/package.json` - Added dependencies
+- `dangdai-mobile/yarn.lock` - Updated lockfile
 
 ## Change Log
 
 - 2026-02-15: Story 2.2 implementation complete - Email login screen with auth routing and comprehensive tests
+- 2026-02-15: Code review fixes - Added KeyboardAvoidingView to LoginForm, added signOut to useAuth, updated File List documentation

@@ -18,7 +18,7 @@ export function useAuth() {
     setError(null)
 
     try {
-      const { data, error: signUpError } = await supabase.auth.signUp({
+      const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
       })
@@ -72,7 +72,7 @@ export function useAuth() {
       router.replace('/(tabs)')
 
       return true
-    } catch (err) {
+    } catch (_err) {
       setError({
         message: 'An unexpected error occurred. Please try again.',
         field: 'general',
@@ -88,7 +88,7 @@ export function useAuth() {
     setError(null)
 
     try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+      const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
@@ -135,7 +135,41 @@ export function useAuth() {
       router.replace('/(tabs)')
 
       return true
-    } catch (err) {
+    } catch (_err) {
+      setError({
+        message: 'An unexpected error occurred. Please try again.',
+        field: 'general',
+      })
+      return false
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const signOut = async (): Promise<boolean> => {
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const { error: signOutError } = await supabase.auth.signOut()
+
+      if (signOutError) {
+        setError({
+          message: 'Unable to sign out. Please try again.',
+          field: 'general',
+        })
+        return false
+      }
+
+      // Success - navigate to login
+      toast.show('Signed out', {
+        message: 'You have been signed out successfully.',
+      })
+
+      router.replace('/(auth)/login')
+
+      return true
+    } catch (_err) {
       setError({
         message: 'An unexpected error occurred. Please try again.',
         field: 'general',
@@ -153,6 +187,7 @@ export function useAuth() {
   return {
     signUp,
     signIn,
+    signOut,
     isLoading,
     error,
     clearError,
