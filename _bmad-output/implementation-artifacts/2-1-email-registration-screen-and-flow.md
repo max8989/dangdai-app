@@ -1,6 +1,6 @@
 # Story 2.1: Email Registration Screen and Flow
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -35,36 +35,36 @@ So that I can start my personalized Chinese learning journey.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create auth route group and signup screen (AC: #1, #5)
-  - [ ] 1.1 Create `app/(auth)/_layout.tsx` with auth group layout
-  - [ ] 1.2 Create `app/(auth)/signup.tsx` screen
-  - [ ] 1.3 Add navigation link to login screen
+- [x] Task 1: Create auth route group and signup screen (AC: #1, #5)
+  - [x] 1.1 Create `app/(auth)/_layout.tsx` with auth group layout
+  - [x] 1.2 Create `app/(auth)/signup.tsx` screen
+  - [x] 1.3 Add navigation link to login screen
 
-- [ ] Task 2: Create SignupForm component (AC: #1, #2, #3, #4)
-  - [ ] 2.1 Create `components/auth/SignupForm.tsx`
-  - [ ] 2.2 Add email input with validation
-  - [ ] 2.3 Add password input with requirements
-  - [ ] 2.4 Add confirm password input
-  - [ ] 2.5 Add Sign Up button with loading state
-  - [ ] 2.6 Add link to login screen
+- [x] Task 2: Create SignupForm component (AC: #1, #2, #3, #4)
+  - [x] 2.1 Create `components/auth/SignupForm.tsx`
+  - [x] 2.2 Add email input with validation
+  - [x] 2.3 Add password input with requirements
+  - [x] 2.4 Add confirm password input
+  - [x] 2.5 Add Sign Up button with loading state
+  - [x] 2.6 Add link to login screen
 
-- [ ] Task 3: Implement signup logic with Supabase (AC: #1, #2)
-  - [ ] 3.1 Create `hooks/useAuth.ts` with signup function
-  - [ ] 3.2 Call `supabase.auth.signUp()` with email/password
-  - [ ] 3.3 Handle success: redirect to books screen
-  - [ ] 3.4 Handle "email already registered" error
-  - [ ] 3.5 Display welcome toast on success
+- [x] Task 3: Implement signup logic with Supabase (AC: #1, #2)
+  - [x] 3.1 Create `hooks/useAuth.ts` with signup function
+  - [x] 3.2 Call `supabase.auth.signUp()` with email/password
+  - [x] 3.3 Handle success: redirect to books screen
+  - [x] 3.4 Handle "email already registered" error
+  - [x] 3.5 Display welcome toast on success
 
-- [ ] Task 4: Implement form validation (AC: #3, #4)
-  - [ ] 4.1 Add email format validation
-  - [ ] 4.2 Add password strength validation (min 8 chars)
-  - [ ] 4.3 Add password confirmation match validation
-  - [ ] 4.4 Display inline validation errors
+- [x] Task 4: Implement form validation (AC: #3, #4)
+  - [x] 4.1 Add email format validation
+  - [x] 4.2 Add password strength validation (min 8 chars)
+  - [x] 4.3 Add password confirmation match validation
+  - [x] 4.4 Display inline validation errors
 
-- [ ] Task 5: Test signup flow
-  - [ ] 5.1 Test successful registration creates user
-  - [ ] 5.2 Test duplicate email shows error
-  - [ ] 5.3 Test invalid inputs show validation
+- [x] Task 5: Test signup flow
+  - [x] 5.1 Test successful registration creates user
+  - [x] 5.2 Test duplicate email shows error
+  - [x] 5.3 Test invalid inputs show validation
 
 ## Dev Notes
 
@@ -190,10 +190,10 @@ const errorMessages: Record<string, string> = {
 ### File Checklist
 
 New files to create:
-- [ ] `dangdai-mobile/app/(auth)/_layout.tsx`
-- [ ] `dangdai-mobile/app/(auth)/signup.tsx`
-- [ ] `dangdai-mobile/components/auth/SignupForm.tsx`
-- [ ] `dangdai-mobile/hooks/useAuth.ts`
+- [x] `dangdai-mobile/app/(auth)/_layout.tsx`
+- [x] `dangdai-mobile/app/(auth)/signup.tsx`
+- [x] `dangdai-mobile/components/auth/SignupForm.tsx`
+- [x] `dangdai-mobile/hooks/useAuth.ts`
 
 ### Testing Approach
 
@@ -219,10 +219,48 @@ New files to create:
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude claude-opus-4-5 (anthropic/claude-opus-4-5)
 
 ### Debug Log References
 
+- TypeScript compilation passed with no errors
+- All 11 Playwright tests pass (including 9 new signup tests)
+
 ### Completion Notes List
 
+- Implemented complete email registration screen and flow
+- Created auth route group with `(auth)/_layout.tsx` for unauthenticated user flows
+- Built `SignupForm` component with full form validation (email format, password length, password match)
+- Created `useAuth` hook with Supabase integration for signup
+- Added inline validation errors with Tamagui styling (`$red10` for errors)
+- Implemented loading state on submit button with Spinner
+- Added welcome toast notification on successful signup
+- Navigation to login screen via "Already have an account? Sign In" link
+- Redirect to main app `/(tabs)` on successful registration
+- Error handling for "email already registered" and other Supabase errors
+- Updated Tamagui config to allow full CSS property names (`onlyAllowShorthands: false`)
+- Created placeholder login screen for navigation testing (full implementation in Story 2.2)
+- Added 9 Playwright e2e tests covering all validation scenarios
+
 ### File List
+
+New files:
+- dangdai-mobile/app/(auth)/_layout.tsx
+- dangdai-mobile/app/(auth)/signup.tsx
+- dangdai-mobile/app/(auth)/login.tsx (placeholder for Story 2.2)
+- dangdai-mobile/components/auth/SignupForm.tsx
+- dangdai-mobile/hooks/useAuth.ts
+- dangdai-mobile/tests/signup.test.ts
+
+Modified files:
+- dangdai-mobile/app/_layout.tsx (added auth route group to Stack)
+- dangdai-mobile/tamagui.config.ts (enabled full CSS property names)
+
+## Change Log
+
+- 2026-02-15: Implemented Story 2.1 - Email Registration Screen and Flow
+  - Created auth route group and signup screen
+  - Built SignupForm component with validation
+  - Integrated Supabase Auth signup
+  - Added comprehensive e2e tests
+  - All acceptance criteria satisfied
