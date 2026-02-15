@@ -1,0 +1,1548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dangdai App - Design Directions</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --primary: #06B6D4;
+            --primary-dark: #0891B2;
+            --secondary: #F97316;
+            --success: #22C55E;
+            --error: #FB923C;
+            --warning: #FBBF24;
+            --bg: #FAFAF9;
+            --surface: #FFFFFF;
+            --text-primary: #1C1917;
+            --text-secondary: #78716C;
+            --page-bg: #f1f5f9;
+            --header-border: #e2e8f0;
+            --card-shadow: rgba(0,0,0,0.1);
+            --progress-track: #e5e7eb;
+            --cal-empty: #e5e7eb;
+            --cal-light: #a5f3fc;
+            --traits-bg: #f8fafc;
+        }
+        
+        [data-theme="dark"] {
+            --primary: #22D3EE;
+            --primary-dark: #06B6D4;
+            --secondary: #FB923C;
+            --success: #4ADE80;
+            --error: #FDBA74;
+            --warning: #FCD34D;
+            --bg: #1C1917;
+            --surface: #292524;
+            --text-primary: #FAFAF9;
+            --text-secondary: #A8A29E;
+            --page-bg: #0C0A09;
+            --header-border: #44403C;
+            --card-shadow: rgba(0,0,0,0.3);
+            --progress-track: #44403C;
+            --cal-empty: #44403C;
+            --cal-light: #164E63;
+            --traits-bg: #1C1917;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--page-bg);
+            color: var(--text-primary);
+            line-height: 1.5;
+            transition: background 0.3s, color 0.3s;
+        }
+        
+        .header {
+            background: var(--surface);
+            padding: 20px 40px;
+            border-bottom: 1px solid var(--header-border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            transition: background 0.3s, border-color 0.3s;
+        }
+        
+        .theme-toggle {
+            position: absolute;
+            top: 20px;
+            right: 40px;
+            background: var(--bg);
+            border: 1px solid var(--header-border);
+            border-radius: 8px;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+        
+        .theme-toggle:hover {
+            background: var(--surface);
+            border-color: var(--primary);
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            color: var(--text-primary);
+        }
+        
+        .header p {
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+        
+        .nav-tabs {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+        
+        .nav-tab {
+            padding: 8px 16px;
+            border: none;
+            background: var(--bg);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .nav-tab:hover {
+            background: var(--progress-track);
+        }
+        
+        .nav-tab.active {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .content {
+            padding: 40px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .direction {
+            display: none;
+        }
+        
+        .direction.active {
+            display: block;
+        }
+        
+        .direction-header {
+            margin-bottom: 32px;
+        }
+        
+        .direction-header h2 {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+        
+        .direction-header p {
+            color: var(--text-secondary);
+            font-size: 16px;
+        }
+        
+        .phone-frame {
+            width: 375px;
+            height: 812px;
+            background: var(--surface);
+            border-radius: 40px;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+            overflow: hidden;
+            position: relative;
+            border: 8px solid #1C1917;
+        }
+        
+        .phone-notch {
+            width: 150px;
+            height: 30px;
+            background: #1C1917;
+            border-radius: 0 0 20px 20px;
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+        }
+        
+        .phone-screen {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            padding-top: 44px;
+        }
+        
+        .mockup-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 40px;
+        }
+        
+        .mockup-card {
+            background: var(--surface);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 4px 6px -1px var(--card-shadow);
+            transition: background 0.3s, box-shadow 0.3s;
+        }
+        
+        .mockup-card h3 {
+            margin-bottom: 16px;
+            font-size: 18px;
+        }
+        
+        /* Direction 1: Clean & Minimal */
+        .d1-screen {
+            background: var(--bg);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .d1-header {
+            padding: 16px 20px;
+            background: var(--surface);
+        }
+        
+        .d1-greeting {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+        
+        .d1-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-top: 4px;
+        }
+        
+        .d1-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .d1-card {
+            background: var(--surface);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 1px 3px var(--card-shadow);
+        }
+        
+        .d1-progress-ring {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: conic-gradient(var(--primary) 65%, var(--progress-track) 0);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .d1-progress-inner {
+            width: 64px;
+            height: 64px;
+            background: var(--surface);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 18px;
+        }
+        
+        .d1-calendar {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+            margin-top: 12px;
+        }
+        
+        .d1-cal-day {
+            aspect-ratio: 1;
+            border-radius: 4px;
+            background: var(--cal-empty);
+        }
+        
+        .d1-cal-day.active {
+            background: var(--primary);
+        }
+        
+        .d1-cal-day.light {
+            background: var(--cal-light);
+        }
+        
+        .d1-continue-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 16px 24px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            width: 100%;
+            cursor: pointer;
+            margin-top: 16px;
+        }
+        
+        .d1-nav {
+            display: flex;
+            justify-content: space-around;
+            padding: 12px 20px 28px;
+            background: var(--surface);
+            border-top: 1px solid var(--progress-track);
+        }
+        
+        .d1-nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+        
+        .d1-nav-item.active {
+            color: var(--primary);
+        }
+        
+        .d1-nav-icon {
+            width: 24px;
+            height: 24px;
+            background: currentColor;
+            border-radius: 4px;
+            opacity: 0.5;
+        }
+        
+        .d1-nav-item.active .d1-nav-icon {
+            opacity: 1;
+        }
+        
+        /* Direction 2: Vibrant & Playful */
+        .d2-screen {
+            background: linear-gradient(180deg, #06B6D4 0%, #0891B2 100%);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .d2-header {
+            padding: 20px;
+            color: white;
+        }
+        
+        .d2-stats {
+            display: flex;
+            gap: 16px;
+            margin-top: 12px;
+        }
+        
+        .d2-stat {
+            background: rgba(255,255,255,0.2);
+            padding: 12px 16px;
+            border-radius: 12px;
+            flex: 1;
+        }
+        
+        .d2-stat-value {
+            font-size: 24px;
+            font-weight: 700;
+        }
+        
+        .d2-stat-label {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+        
+        .d2-content {
+            flex: 1;
+            background: var(--bg);
+            border-radius: 24px 24px 0 0;
+            padding: 24px 20px;
+            margin-top: 20px;
+        }
+        
+        .d2-chapter-card {
+            background: var(--surface);
+            border-radius: 16px;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px var(--card-shadow);
+        }
+        
+        .d2-chapter-icon {
+            width: 56px;
+            height: 56px;
+            background: linear-gradient(135deg, var(--secondary) 0%, #ea580c 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        
+        .d2-chapter-info {
+            flex: 1;
+        }
+        
+        .d2-chapter-title {
+            font-weight: 600;
+            font-size: 16px;
+        }
+        
+        .d2-chapter-subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+        
+        .d2-chapter-progress {
+            height: 6px;
+            background: var(--progress-track);
+            border-radius: 3px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+        
+        .d2-chapter-progress-fill {
+            height: 100%;
+            background: var(--success);
+            border-radius: 3px;
+        }
+        
+        /* Direction 3: Card-Based Quiz Focus */
+        .d3-screen {
+            background: var(--bg);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .d3-header {
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .d3-progress-bar {
+            flex: 1;
+            height: 8px;
+            background: var(--progress-track);
+            border-radius: 4px;
+            margin: 0 16px;
+            overflow: hidden;
+        }
+        
+        .d3-progress-fill {
+            height: 100%;
+            background: var(--primary);
+            border-radius: 4px;
+            width: 40%;
+        }
+        
+        .d3-close {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--progress-track);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: var(--text-secondary);
+        }
+        
+        .d3-question-count {
+            font-size: 14px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        
+        .d3-content {
+            flex: 1;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .d3-question-card {
+            background: var(--surface);
+            border-radius: 24px;
+            padding: 32px 24px;
+            text-align: center;
+            box-shadow: 0 4px 12px var(--card-shadow);
+            margin-bottom: 24px;
+        }
+        
+        .d3-question-type {
+            font-size: 14px;
+            color: var(--primary);
+            font-weight: 500;
+            margin-bottom: 16px;
+        }
+        
+        .d3-character {
+            font-size: 72px;
+            font-weight: 400;
+            margin-bottom: 8px;
+        }
+        
+        .d3-pinyin {
+            font-size: 20px;
+            color: var(--text-secondary);
+        }
+        
+        .d3-answers {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            flex: 1;
+        }
+        
+        .d3-answer {
+            background: var(--surface);
+            border: 2px solid var(--progress-track);
+            border-radius: 16px;
+            padding: 20px 16px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: var(--text-primary);
+        }
+        
+        .d3-answer:hover {
+            border-color: var(--primary);
+            background: var(--bg);
+        }
+        
+        .d3-answer.correct {
+            border-color: var(--success);
+            background: #dcfce7;
+        }
+        
+        [data-theme="dark"] .d3-answer.correct {
+            background: #14532D;
+        }
+        
+        .d3-answer.incorrect {
+            border-color: var(--error);
+            background: #ffedd5;
+        }
+        
+        [data-theme="dark"] .d3-answer.incorrect {
+            background: #7C2D12;
+        }
+        
+        /* Direction 4: Completion Celebration */
+        .d4-screen {
+            background: linear-gradient(180deg, #22C55E 0%, #16a34a 100%);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: white;
+            padding: 40px 20px;
+        }
+        
+        .d4-trophy {
+            width: 120px;
+            height: 120px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 56px;
+            margin-bottom: 24px;
+        }
+        
+        .d4-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        
+        .d4-subtitle {
+            font-size: 16px;
+            opacity: 0.9;
+            margin-bottom: 32px;
+        }
+        
+        .d4-stats-row {
+            display: flex;
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+        
+        .d4-stat-item {
+            text-align: center;
+        }
+        
+        .d4-stat-value {
+            font-size: 32px;
+            font-weight: 700;
+        }
+        
+        .d4-stat-label {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+        
+        .d4-summary-card {
+            background: rgba(255,255,255,0.15);
+            border-radius: 16px;
+            padding: 20px;
+            width: 100%;
+            text-align: left;
+            margin-bottom: 24px;
+        }
+        
+        .d4-summary-title {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 12px;
+        }
+        
+        .d4-weak-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 0;
+        }
+        
+        .d4-weak-char {
+            font-size: 24px;
+        }
+        
+        .d4-continue-btn {
+            background: white;
+            color: var(--success);
+            border: none;
+            padding: 16px 48px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        /* Direction 5: Dashboard Focus */
+        .d5-screen {
+            background: var(--bg);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .d5-header {
+            padding: 20px;
+            background: var(--surface);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .d5-avatar {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            border-radius: 50%;
+        }
+        
+        .d5-points-badge {
+            background: var(--secondary);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .d5-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .d5-calendar-card {
+            background: var(--surface);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        
+        .d5-calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .d5-calendar-title {
+            font-weight: 600;
+        }
+        
+        .d5-calendar-count {
+            color: var(--primary);
+            font-weight: 600;
+        }
+        
+        .d5-calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 6px;
+        }
+        
+        .d5-cal-day {
+            aspect-ratio: 1;
+            border-radius: 6px;
+            background: var(--cal-empty);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .d5-cal-day.filled {
+            background: var(--primary);
+            color: white;
+        }
+        
+        [data-theme="dark"] .d5-cal-day.filled {
+            color: #0C0A09;
+        }
+        
+        .d5-cal-day.light {
+            background: var(--cal-light);
+            color: var(--primary-dark);
+        }
+        
+        .d5-book-section {
+            margin-top: 8px;
+        }
+        
+        .d5-section-title {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            font-weight: 500;
+        }
+        
+        .d5-book-card {
+            background: var(--surface);
+            border-radius: 16px;
+            padding: 16px;
+            display: flex;
+            gap: 16px;
+            margin-bottom: 12px;
+        }
+        
+        .d5-book-cover {
+            width: 60px;
+            height: 80px;
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            font-size: 14px;
+        }
+        
+        .d5-book-info {
+            flex: 1;
+        }
+        
+        .d5-book-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .d5-book-subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        
+        .d5-book-progress {
+            height: 8px;
+            background: var(--progress-track);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .d5-book-progress-fill {
+            height: 100%;
+            background: var(--primary);
+            border-radius: 4px;
+        }
+        
+        /* Direction 6: Chapter Selection */
+        .d6-screen {
+            background: var(--bg);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .d6-header {
+            padding: 20px;
+            background: var(--surface);
+        }
+        
+        .d6-back {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--primary);
+            font-weight: 500;
+            margin-bottom: 12px;
+        }
+        
+        .d6-book-title {
+            font-size: 24px;
+            font-weight: 600;
+        }
+        
+        .d6-book-subtitle {
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+        
+        .d6-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .d6-chapter-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .d6-chapter {
+            background: var(--surface);
+            border-radius: 16px;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .d6-chapter-num {
+            width: 48px;
+            height: 48px;
+            background: var(--bg);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 18px;
+            color: var(--text-secondary);
+        }
+        
+        .d6-chapter.completed .d6-chapter-num {
+            background: var(--success);
+            color: white;
+        }
+        
+        .d6-chapter.current .d6-chapter-num {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .d6-chapter-info {
+            flex: 1;
+        }
+        
+        .d6-chapter-name {
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+        
+        .d6-chapter-name-cn {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+        
+        .d6-chapter-progress {
+            font-size: 14px;
+            color: var(--primary);
+            font-weight: 500;
+        }
+        
+        .d6-chapter.completed .d6-chapter-progress {
+            color: var(--success);
+        }
+        
+        /* Traits list */
+        .traits-list {
+            margin-top: 24px;
+            padding: 20px;
+            background: var(--traits-bg);
+            border-radius: 12px;
+        }
+        
+        .traits-list h4 {
+            margin-bottom: 12px;
+            color: var(--text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .trait {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        .trait-icon {
+            color: var(--primary);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <button class="theme-toggle" onclick="toggleTheme()">
+            <span id="theme-icon">🌙</span>
+            <span id="theme-label">Dark Mode</span>
+        </button>
+        <h1>Dangdai App - Design Direction Exploration</h1>
+        <p>Explore different visual approaches for the app. Click tabs to see each screen type. Toggle dark mode to preview both themes.</p>
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="showDirection('d1')">1. Dashboard (Clean)</button>
+            <button class="nav-tab" onclick="showDirection('d2')">2. Dashboard (Vibrant)</button>
+            <button class="nav-tab" onclick="showDirection('d3')">3. Quiz Screen</button>
+            <button class="nav-tab" onclick="showDirection('d4')">4. Completion</button>
+            <button class="nav-tab" onclick="showDirection('d5')">5. Progress Focus</button>
+            <button class="nav-tab" onclick="showDirection('d6')">6. Chapter Select</button>
+        </div>
+    </div>
+    
+    <div class="content">
+        <!-- Direction 1: Clean Dashboard -->
+        <div class="direction active" id="d1">
+            <div class="direction-header">
+                <h2>Direction 1: Clean & Minimal Dashboard</h2>
+                <p>Simple, focused interface with clear hierarchy. Noji-inspired calmness with subtle playfulness.</p>
+            </div>
+            <div class="mockup-grid">
+                <div class="mockup-card">
+                    <h3>Home Dashboard</h3>
+                    <div class="phone-frame">
+                        <div class="phone-notch"></div>
+                        <div class="phone-screen">
+                            <div class="d1-screen">
+                                <div class="d1-header">
+                                    <div class="d1-greeting">Good morning, Maxime</div>
+                                    <div class="d1-title">Continue Learning</div>
+                                </div>
+                                <div class="d1-content">
+                                    <div class="d1-card">
+                                        <div style="display: flex; align-items: center; gap: 20px;">
+                                            <div class="d1-progress-ring">
+                                                <div class="d1-progress-inner">65%</div>
+                                            </div>
+                                            <div>
+                                                <div style="font-weight: 600; font-size: 18px;">Book 2, Chapter 12</div>
+                                                <div style="color: var(--text-secondary); margin-top: 4px;">我的家人</div>
+                                                <div style="color: var(--primary); font-size: 14px; margin-top: 8px;">8 of 12 exercises done</div>
+                                            </div>
+                                        </div>
+                                        <button class="d1-continue-btn">Continue Exercise</button>
+                                    </div>
+                                    
+                                    <div class="d1-card">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                            <span style="font-weight: 600;">This Week</span>
+                                            <span style="color: var(--primary); font-weight: 600;">4 days</span>
+                                        </div>
+                                        <div class="d1-calendar">
+                                            <div class="d1-cal-day active"></div>
+                                            <div class="d1-cal-day active"></div>
+                                            <div class="d1-cal-day"></div>
+                                            <div class="d1-cal-day active"></div>
+                                            <div class="d1-cal-day active"></div>
+                                            <div class="d1-cal-day light"></div>
+                                            <div class="d1-cal-day"></div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="d1-card">
+                                        <div style="font-weight: 600; margin-bottom: 12px;">Quick Stats</div>
+                                        <div style="display: flex; justify-content: space-around; text-align: center;">
+                                            <div>
+                                                <div style="font-size: 24px; font-weight: 700; color: var(--secondary);">1,240</div>
+                                                <div style="font-size: 12px; color: var(--text-secondary);">Points</div>
+                                            </div>
+                                            <div>
+                                                <div style="font-size: 24px; font-weight: 700; color: var(--primary);">12</div>
+                                                <div style="font-size: 12px; color: var(--text-secondary);">Exercises</div>
+                                            </div>
+                                            <div>
+                                                <div style="font-size: 24px; font-weight: 700; color: var(--success);">85%</div>
+                                                <div style="font-size: 12px; color: var(--text-secondary);">Accuracy</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="d1-nav">
+                                    <div class="d1-nav-item active">
+                                        <div class="d1-nav-icon"></div>
+                                        Home
+                                    </div>
+                                    <div class="d1-nav-item">
+                                        <div class="d1-nav-icon"></div>
+                                        Books
+                                    </div>
+                                    <div class="d1-nav-item">
+                                        <div class="d1-nav-icon"></div>
+                                        Progress
+                                    </div>
+                                    <div class="d1-nav-item">
+                                        <div class="d1-nav-icon"></div>
+                                        Settings
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mockup-card">
+                    <div class="traits-list">
+                        <h4>KEY CHARACTERISTICS</h4>
+                        <div class="trait"><span class="trait-icon">✓</span> Clean white cards on subtle background</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Circular progress indicator (familiar pattern)</div>
+                        <div class="trait"><span class="trait-icon">✓</span> GitHub-style weekly calendar</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Prominent "Continue" CTA</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Bottom tab navigation</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Minimal visual noise</div>
+                    </div>
+                    <div class="traits-list" style="margin-top: 16px;">
+                        <h4>BEST FOR</h4>
+                        <div class="trait"><span class="trait-icon">→</span> Users who prefer calm, focused interfaces</div>
+                        <div class="trait"><span class="trait-icon">→</span> Quick "get in, learn, get out" sessions</div>
+                        <div class="trait"><span class="trait-icon">→</span> Reducing cognitive load</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Direction 2: Vibrant Dashboard -->
+        <div class="direction" id="d2">
+            <div class="direction-header">
+                <h2>Direction 2: Vibrant & Playful Dashboard</h2>
+                <p>Bold teal header with stats, more Duolingo-like energy. Gamification front and center.</p>
+            </div>
+            <div class="mockup-grid">
+                <div class="mockup-card">
+                    <h3>Home Dashboard</h3>
+                    <div class="phone-frame">
+                        <div class="phone-notch"></div>
+                        <div class="phone-screen">
+                            <div class="d2-screen">
+                                <div class="d2-header">
+                                    <div style="font-size: 14px; opacity: 0.9;">Welcome back!</div>
+                                    <div style="font-size: 24px; font-weight: 700; margin-top: 4px;">Maxime</div>
+                                    <div class="d2-stats">
+                                        <div class="d2-stat">
+                                            <div class="d2-stat-value">1,240</div>
+                                            <div class="d2-stat-label">Points</div>
+                                        </div>
+                                        <div class="d2-stat">
+                                            <div class="d2-stat-value">4</div>
+                                            <div class="d2-stat-label">This Week</div>
+                                        </div>
+                                        <div class="d2-stat">
+                                            <div class="d2-stat-value">85%</div>
+                                            <div class="d2-stat-label">Accuracy</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="d2-content">
+                                    <div style="font-weight: 600; margin-bottom: 16px;">Continue Learning</div>
+                                    
+                                    <div class="d2-chapter-card">
+                                        <div class="d2-chapter-icon">📖</div>
+                                        <div class="d2-chapter-info">
+                                            <div class="d2-chapter-title">Chapter 12: 我的家人</div>
+                                            <div class="d2-chapter-subtitle">My Family</div>
+                                            <div class="d2-chapter-progress">
+                                                <div class="d2-chapter-progress-fill" style="width: 65%;"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div style="font-weight: 600; margin: 20px 0 16px;">Your Books</div>
+                                    
+                                    <div class="d2-chapter-card">
+                                        <div class="d2-chapter-icon" style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);">1</div>
+                                        <div class="d2-chapter-info">
+                                            <div class="d2-chapter-title">Book 1: 當代中文課程</div>
+                                            <div class="d2-chapter-subtitle">15 chapters • 100% complete</div>
+                                            <div class="d2-chapter-progress">
+                                                <div class="d2-chapter-progress-fill" style="width: 100%;"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="d2-chapter-card">
+                                        <div class="d2-chapter-icon" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);">2</div>
+                                        <div class="d2-chapter-info">
+                                            <div class="d2-chapter-title">Book 2: 當代中文課程</div>
+                                            <div class="d2-chapter-subtitle">15 chapters • 65% complete</div>
+                                            <div class="d2-chapter-progress">
+                                                <div class="d2-chapter-progress-fill" style="width: 65%;"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mockup-card">
+                    <div class="traits-list">
+                        <h4>KEY CHARACTERISTICS</h4>
+                        <div class="trait"><span class="trait-icon">✓</span> Bold colored header with stats</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Gamification metrics prominent</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Card-based chapter navigation</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Progress bars on each item</div>
+                        <div class="trait"><span class="trait-icon">✓</span> More visual hierarchy with color</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Emoji icons for personality</div>
+                    </div>
+                    <div class="traits-list" style="margin-top: 16px;">
+                        <h4>BEST FOR</h4>
+                        <div class="trait"><span class="trait-icon">→</span> Users motivated by visible progress</div>
+                        <div class="trait"><span class="trait-icon">→</span> More playful, game-like feel</div>
+                        <div class="trait"><span class="trait-icon">→</span> Stronger visual engagement</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Direction 3: Quiz Screen -->
+        <div class="direction" id="d3">
+            <div class="direction-header">
+                <h2>Direction 3: Quiz Experience</h2>
+                <p>The core interaction - answering questions. Clean, focused, with clear feedback states.</p>
+            </div>
+            <div class="mockup-grid">
+                <div class="mockup-card">
+                    <h3>Quiz Question</h3>
+                    <div class="phone-frame">
+                        <div class="phone-notch"></div>
+                        <div class="phone-screen">
+                            <div class="d3-screen">
+                                <div class="d3-header">
+                                    <div class="d3-close">×</div>
+                                    <div class="d3-progress-bar">
+                                        <div class="d3-progress-fill"></div>
+                                    </div>
+                                    <div class="d3-question-count">4/10</div>
+                                </div>
+                                <div class="d3-content">
+                                    <div class="d3-question-card">
+                                        <div class="d3-question-type">What does this mean?</div>
+                                        <div class="d3-character">喜歡</div>
+                                        <div class="d3-pinyin">xǐhuān</div>
+                                    </div>
+                                    <div class="d3-answers">
+                                        <div class="d3-answer">To eat</div>
+                                        <div class="d3-answer">To like</div>
+                                        <div class="d3-answer">To go</div>
+                                        <div class="d3-answer">To drink</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mockup-card">
+                    <h3>Correct Answer State</h3>
+                    <div class="phone-frame">
+                        <div class="phone-notch"></div>
+                        <div class="phone-screen">
+                            <div class="d3-screen">
+                                <div class="d3-header">
+                                    <div class="d3-close">×</div>
+                                    <div class="d3-progress-bar">
+                                        <div class="d3-progress-fill" style="width: 50%;"></div>
+                                    </div>
+                                    <div class="d3-question-count">5/10</div>
+                                </div>
+                                <div class="d3-content">
+                                    <div class="d3-question-card" style="border: 3px solid var(--success);">
+                                        <div class="d3-question-type" style="color: var(--success);">Correct! +10 points</div>
+                                        <div class="d3-character">喜歡</div>
+                                        <div class="d3-pinyin">xǐhuān</div>
+                                    </div>
+                                    <div class="d3-answers">
+                                        <div class="d3-answer" style="opacity: 0.5;">To eat</div>
+                                        <div class="d3-answer correct">To like ✓</div>
+                                        <div class="d3-answer" style="opacity: 0.5;">To go</div>
+                                        <div class="d3-answer" style="opacity: 0.5;">To drink</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="mockup-grid" style="margin-top: 24px;">
+                <div class="mockup-card">
+                    <div class="traits-list">
+                        <h4>QUIZ UX PATTERNS</h4>
+                        <div class="trait"><span class="trait-icon">✓</span> Large, centered Chinese character</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Pinyin shown below character</div>
+                        <div class="trait"><span class="trait-icon">✓</span> 2x2 grid for answer options</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Progress bar at top</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Question count visible</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Close button for exit</div>
+                    </div>
+                </div>
+                <div class="mockup-card">
+                    <div class="traits-list">
+                        <h4>FEEDBACK STATES</h4>
+                        <div class="trait"><span class="trait-icon" style="color: var(--success);">✓</span> Correct: Green border + checkmark</div>
+                        <div class="trait"><span class="trait-icon" style="color: var(--error);">✓</span> Incorrect: Orange border (gentle)</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Points shown on correct</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Wrong answers shown correct answer</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Sound plays on feedback</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Direction 4: Completion -->
+        <div class="direction" id="d4">
+            <div class="direction-header">
+                <h2>Direction 4: Exercise Completion Celebration</h2>
+                <p>The big payoff moment - exercise complete with points, summary, and calendar update.</p>
+            </div>
+            <div class="mockup-grid">
+                <div class="mockup-card">
+                    <h3>Completion Screen</h3>
+                    <div class="phone-frame">
+                        <div class="phone-notch"></div>
+                        <div class="phone-screen">
+                            <div class="d4-screen">
+                                <div class="d4-trophy">🎉</div>
+                                <div class="d4-title">Exercise Complete!</div>
+                                <div class="d4-subtitle">Chapter 12: 我的家人</div>
+                                
+                                <div class="d4-stats-row">
+                                    <div class="d4-stat-item">
+                                        <div class="d4-stat-value">+85</div>
+                                        <div class="d4-stat-label">Points</div>
+                                    </div>
+                                    <div class="d4-stat-item">
+                                        <div class="d4-stat-value">8/10</div>
+                                        <div class="d4-stat-label">Correct</div>
+                                    </div>
+                                    <div class="d4-stat-item">
+                                        <div class="d4-stat-value">80%</div>
+                                        <div class="d4-stat-label">Accuracy</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="d4-summary-card">
+                                    <div class="d4-summary-title">Review these words:</div>
+                                    <div class="d4-weak-item">
+                                        <div class="d4-weak-char">會</div>
+                                        <div>huì - can/will</div>
+                                    </div>
+                                    <div class="d4-weak-item">
+                                        <div class="d4-weak-char">可以</div>
+                                        <div>kěyǐ - can/may</div>
+                                    </div>
+                                </div>
+                                
+                                <button class="d4-continue-btn">Continue</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mockup-card">
+                    <div class="traits-list">
+                        <h4>CELEBRATION ELEMENTS</h4>
+                        <div class="trait"><span class="trait-icon">✓</span> Full-screen success state</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Large celebratory emoji</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Points prominently displayed</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Stats summary (correct, accuracy)</div>
+                        <div class="trait"><span class="trait-icon">✓</span> "Review these words" summary</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Gradient background (success green)</div>
+                    </div>
+                    <div class="traits-list" style="margin-top: 16px;">
+                        <h4>EMOTIONAL IMPACT</h4>
+                        <div class="trait"><span class="trait-icon">→</span> Feels like an achievement</div>
+                        <div class="trait"><span class="trait-icon">→</span> Points animation creates satisfaction</div>
+                        <div class="trait"><span class="trait-icon">→</span> Review summary is helpful, not shaming</div>
+                        <div class="trait"><span class="trait-icon">→</span> Clear path forward with "Continue"</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Direction 5: Progress Focus -->
+        <div class="direction" id="d5">
+            <div class="direction-header">
+                <h2>Direction 5: Progress-Focused Dashboard</h2>
+                <p>Calendar and book progress front and center. Weekly activity emphasis over streaks.</p>
+            </div>
+            <div class="mockup-grid">
+                <div class="mockup-card">
+                    <h3>Progress Dashboard</h3>
+                    <div class="phone-frame">
+                        <div class="phone-notch"></div>
+                        <div class="phone-screen">
+                            <div class="d5-screen">
+                                <div class="d5-header">
+                                    <div class="d5-avatar"></div>
+                                    <div class="d5-points-badge">🔥 1,240 pts</div>
+                                </div>
+                                <div class="d5-content">
+                                    <div class="d5-calendar-card">
+                                        <div class="d5-calendar-header">
+                                            <span class="d5-calendar-title">February 2026</span>
+                                            <span class="d5-calendar-count">12 days this month</span>
+                                        </div>
+                                        <div class="d5-calendar-grid">
+                                            <div class="d5-cal-day">S</div>
+                                            <div class="d5-cal-day">M</div>
+                                            <div class="d5-cal-day">T</div>
+                                            <div class="d5-cal-day">W</div>
+                                            <div class="d5-cal-day">T</div>
+                                            <div class="d5-cal-day">F</div>
+                                            <div class="d5-cal-day">S</div>
+                                            
+                                            <div class="d5-cal-day"></div>
+                                            <div class="d5-cal-day"></div>
+                                            <div class="d5-cal-day"></div>
+                                            <div class="d5-cal-day"></div>
+                                            <div class="d5-cal-day"></div>
+                                            <div class="d5-cal-day"></div>
+                                            <div class="d5-cal-day filled">1</div>
+                                            
+                                            <div class="d5-cal-day filled">2</div>
+                                            <div class="d5-cal-day filled">3</div>
+                                            <div class="d5-cal-day">4</div>
+                                            <div class="d5-cal-day filled">5</div>
+                                            <div class="d5-cal-day filled">6</div>
+                                            <div class="d5-cal-day">7</div>
+                                            <div class="d5-cal-day filled">8</div>
+                                            
+                                            <div class="d5-cal-day filled">9</div>
+                                            <div class="d5-cal-day">10</div>
+                                            <div class="d5-cal-day filled">11</div>
+                                            <div class="d5-cal-day filled">12</div>
+                                            <div class="d5-cal-day filled">13</div>
+                                            <div class="d5-cal-day light">14</div>
+                                            <div class="d5-cal-day"></div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="d5-book-section">
+                                        <div class="d5-section-title">YOUR BOOKS</div>
+                                        <div class="d5-book-card">
+                                            <div class="d5-book-cover">當代 1</div>
+                                            <div class="d5-book-info">
+                                                <div class="d5-book-title">Book 1</div>
+                                                <div class="d5-book-subtitle">15/15 chapters • Complete</div>
+                                                <div class="d5-book-progress">
+                                                    <div class="d5-book-progress-fill" style="width: 100%;"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="d5-book-card">
+                                            <div class="d5-book-cover" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);">當代 2</div>
+                                            <div class="d5-book-info">
+                                                <div class="d5-book-title">Book 2</div>
+                                                <div class="d5-book-subtitle">12/15 chapters • In progress</div>
+                                                <div class="d5-book-progress">
+                                                    <div class="d5-book-progress-fill" style="width: 80%;"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mockup-card">
+                    <div class="traits-list">
+                        <h4>PROGRESS PATTERNS</h4>
+                        <div class="trait"><span class="trait-icon">✓</span> Full month calendar view</div>
+                        <div class="trait"><span class="trait-icon">✓</span> "X days this month" (not streak)</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Today highlighted differently</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Book covers with Chinese text</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Progress bars per book</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Points badge in header</div>
+                    </div>
+                    <div class="traits-list" style="margin-top: 16px;">
+                        <h4>NON-GUILT APPROACH</h4>
+                        <div class="trait"><span class="trait-icon">→</span> Focus on total activity, not consecutive</div>
+                        <div class="trait"><span class="trait-icon">→</span> No "streak will break" messaging</div>
+                        <div class="trait"><span class="trait-icon">→</span> Gaps in calendar are just gaps</div>
+                        <div class="trait"><span class="trait-icon">→</span> Celebrates effort frequency</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Direction 6: Chapter Selection -->
+        <div class="direction" id="d6">
+            <div class="direction-header">
+                <h2>Direction 6: Chapter Selection</h2>
+                <p>Browsing chapters within a book. Clear progress states and open navigation.</p>
+            </div>
+            <div class="mockup-grid">
+                <div class="mockup-card">
+                    <h3>Chapter List</h3>
+                    <div class="phone-frame">
+                        <div class="phone-notch"></div>
+                        <div class="phone-screen">
+                            <div class="d6-screen">
+                                <div class="d6-header">
+                                    <div class="d6-back">← Back</div>
+                                    <div class="d6-book-title">Book 2: 當代中文課程</div>
+                                    <div class="d6-book-subtitle">A Course in Contemporary Chinese</div>
+                                </div>
+                                <div class="d6-content">
+                                    <div class="d6-chapter-list">
+                                        <div class="d6-chapter completed">
+                                            <div class="d6-chapter-num">✓</div>
+                                            <div class="d6-chapter-info">
+                                                <div class="d6-chapter-name">Chapter 10</div>
+                                                <div class="d6-chapter-name-cn">天氣怎麼樣?</div>
+                                            </div>
+                                            <div class="d6-chapter-progress">100%</div>
+                                        </div>
+                                        <div class="d6-chapter completed">
+                                            <div class="d6-chapter-num">✓</div>
+                                            <div class="d6-chapter-info">
+                                                <div class="d6-chapter-name">Chapter 11</div>
+                                                <div class="d6-chapter-name-cn">你會說中文嗎?</div>
+                                            </div>
+                                            <div class="d6-chapter-progress">100%</div>
+                                        </div>
+                                        <div class="d6-chapter current">
+                                            <div class="d6-chapter-num">12</div>
+                                            <div class="d6-chapter-info">
+                                                <div class="d6-chapter-name">Chapter 12</div>
+                                                <div class="d6-chapter-name-cn">我的家人</div>
+                                            </div>
+                                            <div class="d6-chapter-progress">65%</div>
+                                        </div>
+                                        <div class="d6-chapter">
+                                            <div class="d6-chapter-num">13</div>
+                                            <div class="d6-chapter-info">
+                                                <div class="d6-chapter-name">Chapter 13</div>
+                                                <div class="d6-chapter-name-cn">我住在學校附近</div>
+                                            </div>
+                                            <div class="d6-chapter-progress">0%</div>
+                                        </div>
+                                        <div class="d6-chapter">
+                                            <div class="d6-chapter-num">14</div>
+                                            <div class="d6-chapter-info">
+                                                <div class="d6-chapter-name">Chapter 14</div>
+                                                <div class="d6-chapter-name-cn">生日快樂</div>
+                                            </div>
+                                            <div class="d6-chapter-progress">0%</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mockup-card">
+                    <div class="traits-list">
+                        <h4>CHAPTER LIST PATTERNS</h4>
+                        <div class="trait"><span class="trait-icon">✓</span> Chapter number badges</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Chinese chapter titles</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Completion checkmarks</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Current chapter highlighted</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Percentage progress shown</div>
+                        <div class="trait"><span class="trait-icon">✓</span> All chapters accessible (open nav)</div>
+                    </div>
+                    <div class="traits-list" style="margin-top: 16px;">
+                        <h4>NAVIGATION APPROACH</h4>
+                        <div class="trait"><span class="trait-icon">→</span> No locked chapters (matches PRD)</div>
+                        <div class="trait"><span class="trait-icon">→</span> Can jump to any chapter</div>
+                        <div class="trait"><span class="trait-icon">→</span> Visual distinction for current</div>
+                        <div class="trait"><span class="trait-icon">→</span> Back navigation to books list</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function showDirection(id) {
+            // Hide all directions
+            document.querySelectorAll('.direction').forEach(d => d.classList.remove('active'));
+            // Show selected
+            document.getElementById(id).classList.add('active');
+            // Update tabs
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+        
+        function toggleTheme() {
+            const html = document.documentElement;
+            const isDark = html.getAttribute('data-theme') === 'dark';
+            
+            if (isDark) {
+                html.removeAttribute('data-theme');
+                document.getElementById('theme-icon').textContent = '🌙';
+                document.getElementById('theme-label').textContent = 'Dark Mode';
+            } else {
+                html.setAttribute('data-theme', 'dark');
+                document.getElementById('theme-icon').textContent = '☀️';
+                document.getElementById('theme-label').textContent = 'Light Mode';
+            }
+            
+            // Save preference
+            localStorage.setItem('theme', isDark ? 'light' : 'dark');
+        }
+        
+        // Load saved theme preference
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                document.getElementById('theme-icon').textContent = '☀️';
+                document.getElementById('theme-label').textContent = 'Light Mode';
+            }
+        })();
+    </script>
+</body>
+</html>
