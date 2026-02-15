@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2, 3, 4, 5, 6, 7, 8]
+stepsCompleted: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 inputDocuments:
   - '/home/maxime/repos/dangdai-app/_bmad-output/planning-artifacts/prd.md'
   - '/home/maxime/repos/dangdai-app/_bmad-output/brainstorming/brainstorming-session-20260214.md'
@@ -431,3 +431,239 @@ The satisfaction comes at **exercise completion**, not individual questions. Ind
 - Color is never the only indicator (icons + color for correct/incorrect)
 - Touch targets minimum 48x48px
 - Support for system font scaling
+
+## Design Direction Decision
+
+### Design Directions Explored
+
+Six design direction mockups were created exploring different visual approaches:
+
+1. **Dashboard (Clean)** - Minimal, Noji-inspired with progress ring and card-based layout
+2. **Dashboard (Vibrant)** - Bold teal header with stats, more Duolingo-like energy
+3. **Quiz Screen** - Question/answer flow with large Chinese characters and 2x2 answer grid
+4. **Completion Screen** - Celebration moment with points tally, accuracy stats, and review summary
+5. **Progress Focus** - Monthly calendar view with book progress cards
+6. **Chapter Selection** - Chapter list with progress states and open navigation
+
+Interactive mockups available at: `_bmad-output/planning-artifacts/ux-design-directions.html`
+
+### Chosen Direction
+
+**Approach:** Hybrid combining elements from multiple directions
+
+**Key Design Decisions:**
+- Clean card-based layout (Direction 1) for dashboard clarity
+- Vibrant gamification elements (Direction 2) for engagement
+- Large-character quiz cards (Direction 3) for readability
+- Full-screen celebration (Direction 4) for completion satisfaction
+- Monthly calendar with "X days this month" (Direction 5) for guilt-free tracking
+- Open chapter navigation (Direction 6) for flexibility
+
+**Theme Support:** Both light and dark mode supported
+- Light mode: Off-white background, white cards, teal accents
+- Dark mode: Dark gray backgrounds, elevated dark cards, adjusted accent colors
+
+### Design Rationale
+
+| Decision | Rationale |
+|----------|-----------|
+| Clean + Vibrant hybrid | Balance between Noji calm and Duolingo fun |
+| Large Chinese characters | Critical for readability and learning |
+| Full-screen completion | Maximizes celebration moment impact |
+| Monthly calendar (not streak) | Aligns with "no guilt" emotional goal |
+| Dark mode support | Modern app expectation, reduces eye strain |
+| Card-based layout | Clear visual hierarchy, familiar pattern |
+
+### Implementation Approach
+
+**Phase 1 (MVP):**
+- Implement core screens: Dashboard, Quiz, Completion, Chapter Select
+- Light mode first, dark mode as fast-follow
+- Focus on quiz feedback animations and sounds
+
+**Component Priority:**
+1. Quiz question/answer cards with feedback states
+2. Progress ring and progress bars
+3. GitHub-style activity calendar
+4. Points counter with animation
+5. Completion celebration screen
+
+**Theme Implementation:**
+- Use Tamagui theme tokens for all colors
+- CSS variables approach for easy theme switching
+- Respect system preference with manual override option
+
+## User Journey Flows
+
+### Journey 1: First-Time User (Onboarding)
+
+**Goal:** Get new user from signup to first quiz completion as fast as possible.
+
+**Flow Summary:** Signup → Book Selection → Chapter Selection → First Quiz → Completion Celebration
+
+```mermaid
+flowchart TD
+    A[Receives Invite Link] --> B[Opens App]
+    B --> C{Has Account?}
+    C -->|No| D[Sign Up Screen]
+    C -->|Yes| E[Sign In]
+    D --> F[Email / Apple Sign-In]
+    F --> G[Account Created]
+    E --> G
+    G --> H[Book Selection Screen]
+    H --> I[Select Book 1 or 2]
+    I --> J[Chapter Selection Screen]
+    J --> K[Select Any Chapter]
+    K --> L[Quiz Starts Immediately]
+    L --> M[Complete 10-15 Questions]
+    M --> N[Completion Celebration]
+    N --> O[Return to Dashboard]
+    O --> P[Calendar Shows First Day!]
+```
+
+**Key Design Decisions:**
+- No tutorial/intro - get to learning immediately
+- Book/chapter selection is required (no default)
+- All chapters accessible from day one
+- First completion = first calendar square filled
+
+**Success Moment:** "Day 1 started! +X points" with calendar visual
+
+---
+
+### Journey 2: Daily Quiz Session (Core Loop)
+
+**Goal:** Minimal friction from app open to learning.
+
+**Flow Summary:** Open App → Dashboard → Continue → Quiz → Completion → Dashboard
+
+```mermaid
+flowchart TD
+    A[Open App] --> B[Dashboard]
+    B --> C{Previous Chapter in Progress?}
+    C -->|Yes| D[Show Continue Card]
+    C -->|No| E[Show Book Selection]
+    D --> F[Tap Continue Button]
+    F --> G[Quiz Starts Immediately]
+    G --> H[Question Appears]
+    H --> I[User Taps Answer]
+    I --> J{Correct?}
+    J -->|Yes| K[Green Flash + Ding + Points]
+    J -->|No| L[Orange Highlight + Show Correct]
+    K --> M{More Questions?}
+    L --> M
+    M -->|Yes| H
+    M -->|No| N[Completion Screen]
+    N --> O[Points Tally Animation]
+    O --> P[Show Weak Areas Summary]
+    P --> Q[Tap Continue]
+    Q --> R[Return to Dashboard]
+    R --> S[Calendar Updated]
+```
+
+**Key Design Decisions:**
+- One tap from dashboard to quiz (no confirmation screens)
+- Auto-advance between questions after feedback
+- Completion screen shows: points, accuracy, weak areas
+- Dashboard updates immediately with new calendar state
+
+**Timing:**
+- Question feedback: ~1 second display
+- Completion animation: ~2-3 seconds
+- Total session: ~10-15 minutes for 10-15 questions
+
+---
+
+### Journey 3: Chapter Navigation
+
+**Goal:** Allow flexible navigation to any chapter in any book.
+
+**Flow Summary:** Dashboard → Books → Select Book → Chapters → Select Any Chapter → Quiz
+
+```mermaid
+flowchart TD
+    A[Dashboard] --> B[Tap Books Tab]
+    B --> C[Books List Screen]
+    C --> D[Select Book 1 or 2]
+    D --> E[Chapter List Screen]
+    E --> F[View All Chapters]
+    F --> G{Chapter Status}
+    G -->|Completed ✓| H[Shows 100% - Can Redo]
+    G -->|In Progress| I[Shows X% - Continue]
+    G -->|Not Started| J[Shows 0% - Start]
+    H --> K[Tap to Start Quiz]
+    I --> K
+    J --> K
+    K --> L[Quiz Starts Immediately]
+```
+
+**Key Design Decisions:**
+- All chapters visible and accessible (no locks)
+- Clear visual states: Completed (✓), In Progress (%), Not Started
+- Can redo completed chapters anytime
+- Back navigation always available
+
+---
+
+### Journey 4: Chapter Completion (Mastery)
+
+**Goal:** Celebrate chapter mastery when reaching 80%+.
+
+```mermaid
+flowchart TD
+    A[Complete Exercise] --> B{Chapter Progress >= 80%?}
+    B -->|No| C[Normal Completion Screen]
+    B -->|Yes, First Time| D[Chapter Mastery Celebration!]
+    D --> E[Special Animation + Sound]
+    E --> F[Show Badge Earned]
+    F --> G[Chapter 12 Mastered!]
+    G --> H[Tap Continue]
+    H --> I[Return to Dashboard]
+    C --> I
+    I --> J[Chapter Shows ✓ in List]
+```
+
+**Key Design Decisions:**
+- 80% threshold triggers mastery celebration
+- Extra celebration for first-time mastery (not on redo)
+- Badge/achievement earned
+- Return to dashboard (no auto-prompt for next chapter)
+
+---
+
+### Journey Patterns
+
+**Navigation Patterns:**
+
+| Pattern | Usage |
+|---------|-------|
+| One-tap action | Continue button → Quiz starts |
+| Back navigation | Always available, returns to previous screen |
+| Tab navigation | Home, Books, Progress, Settings |
+| Open access | All content accessible, no gates |
+
+**Feedback Patterns:**
+
+| Pattern | Usage |
+|---------|-------|
+| Immediate feedback | <100ms response to tap |
+| Sound + Visual | Correct/incorrect always paired |
+| Progress indication | Bar updates after each question |
+| Celebration | Full-screen for completion |
+
+**Error Handling:**
+
+| Scenario | Recovery |
+|----------|----------|
+| Network error during quiz | Save progress locally, retry on reconnect |
+| App crash mid-quiz | Resume from last saved question |
+| Quiz generation fails | Show friendly error, offer retry |
+
+### Flow Optimization Principles
+
+1. **Minimize taps to value** - One tap from dashboard to learning
+2. **No confirmation dialogs** - Trust user intent, allow easy undo
+3. **Progressive disclosure** - Show only relevant info at each step
+4. **Always show progress** - User always knows where they are
+5. **Graceful degradation** - Handle errors without losing progress
+6. **Celebrate milestones** - Mark achievements clearly
