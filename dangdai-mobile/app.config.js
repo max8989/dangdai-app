@@ -18,6 +18,8 @@ export default {
     assetBundlePatterns: ['**/*'],
     ios: {
       supportsTablet: true,
+      bundleIdentifier: 'com.maximegagne.dangdai',
+      usesAppleSignIn: true,
     },
     android: {
       adaptiveIcon: {
@@ -45,6 +47,7 @@ export default {
         },
       ],
       'expo-web-browser',
+      'expo-apple-authentication',
     ],
     experiments: {
       typedRoutes: true,

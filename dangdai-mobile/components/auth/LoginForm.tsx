@@ -1,8 +1,9 @@
 import { useState, useCallback } from 'react'
 import { KeyboardAvoidingView, Platform, ScrollView } from 'react-native'
-import { YStack, XStack, Input, Button, Text, Spinner } from 'tamagui'
+import { YStack, XStack, Input, Button, Text, Spinner, Separator } from 'tamagui'
 import { Link } from 'expo-router'
 import { useAuth } from '../../hooks/useAuth'
+import { AppleSignInButton } from './AppleSignInButton'
 
 interface ValidationErrors {
   email?: string
@@ -217,6 +218,23 @@ export function LoginForm() {
               'Sign In'
             )}
           </Button>
+
+          {/* Social Sign-In Options - Only show on iOS */}
+          {Platform.OS === 'ios' && (
+            <YStack gap="$4" marginTop="$4">
+              {/* Divider with "or" text */}
+              <XStack alignItems="center" gap="$3">
+                <Separator flex={1} />
+                <Text color="$gray10" fontSize="$2">
+                  or continue with
+                </Text>
+                <Separator flex={1} />
+              </XStack>
+
+              {/* Apple Sign-In Button */}
+              <AppleSignInButton />
+            </YStack>
+          )}
 
           {/* Link to Sign Up */}
           <XStack justifyContent="center" marginTop="$4">
