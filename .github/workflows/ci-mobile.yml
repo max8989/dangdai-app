@@ -1,0 +1,44 @@
+name: Mobile App CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'dangdai-mobile/**'
+      - '.github/workflows/ci-mobile.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'dangdai-mobile/**'
+
+defaults:
+  run:
+    working-directory: dangdai-mobile
+
+jobs:
+  lint-and-test:
+    name: Lint, Type Check, Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+          cache-dependency-path: dangdai-mobile/yarn.lock
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Run ESLint
+        run: yarn lint
+
+      - name: Run TypeScript check
+        run: yarn tsc --noEmit
+
+      - name: Run tests
+        run: yarn test --passWithNoTests

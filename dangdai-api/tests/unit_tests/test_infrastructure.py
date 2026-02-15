@@ -1,6 +1,5 @@
 """Tests for infrastructure configuration files."""
 
-import os
 from pathlib import Path
 
 

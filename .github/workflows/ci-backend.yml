@@ -1,0 +1,48 @@
+name: Python Backend CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'dangdai-api/**'
+      - '.github/workflows/ci-backend.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'dangdai-api/**'
+
+defaults:
+  run:
+    working-directory: dangdai-api
+
+jobs:
+  lint-and-test:
+    name: Lint, Type Check, Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run Ruff linter
+        run: ruff check src/ tests/
+
+      - name: Run Ruff formatter check
+        run: ruff format --check src/ tests/
+
+      - name: Run mypy type check
+        run: mypy src/
+
+      - name: Run pytest
+        run: pytest tests/ -v --tb=short
