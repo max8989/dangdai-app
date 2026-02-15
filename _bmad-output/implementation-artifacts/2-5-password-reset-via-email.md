@@ -1,6 +1,6 @@
 # Story 2.5: Password Reset via Email
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -30,36 +30,36 @@ So that I can regain access to my account.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create forgot password screen (AC: #1, #4)
-  - [ ] 1.1 Create `app/(auth)/forgot-password.tsx` screen
-  - [ ] 1.2 Add email input field
-  - [ ] 1.3 Add "Send Reset Link" button
-  - [ ] 1.4 Add "Back to Login" link
-  - [ ] 1.5 Add success state view
+- [x] Task 1: Create forgot password screen (AC: #1, #4)
+  - [x] 1.1 Create `app/(auth)/forgot-password.tsx` screen
+  - [x] 1.2 Add email input field
+  - [x] 1.3 Add "Send Reset Link" button
+  - [x] 1.4 Add "Back to Login" link
+  - [x] 1.5 Add success state view
 
-- [ ] Task 2: Implement reset email logic (AC: #1, #3)
-  - [ ] 2.1 Add `resetPassword` function to `hooks/useAuth.ts`
-  - [ ] 2.2 Call `supabase.auth.resetPasswordForEmail()`
-  - [ ] 2.3 Configure redirect URL for password reset
-  - [ ] 2.4 Show success message (regardless of email existence)
+- [x] Task 2: Implement reset email logic (AC: #1, #3)
+  - [x] 2.1 Add `resetPassword` function to `hooks/useAuth.ts`
+  - [x] 2.2 Call `supabase.auth.resetPasswordForEmail()`
+  - [x] 2.3 Configure redirect URL for password reset
+  - [x] 2.4 Show success message (regardless of email existence)
 
-- [ ] Task 3: Create reset password screen (AC: #2)
-  - [ ] 3.1 Create `app/(auth)/reset-password.tsx` screen
-  - [ ] 3.2 Add new password input
-  - [ ] 3.3 Add confirm password input
-  - [ ] 3.4 Add password strength validation
-  - [ ] 3.5 Implement password update logic
+- [x] Task 3: Create reset password screen (AC: #2)
+  - [x] 3.1 Create `app/(auth)/reset-password.tsx` screen
+  - [x] 3.2 Add new password input
+  - [x] 3.3 Add confirm password input
+  - [x] 3.4 Add password strength validation
+  - [x] 3.5 Implement password update logic
 
-- [ ] Task 4: Configure deep linking (AC: #2)
-  - [ ] 4.1 Configure Expo deep linking scheme
-  - [ ] 4.2 Handle Supabase reset password callback
-  - [ ] 4.3 Navigate to reset-password screen with token
+- [x] Task 4: Configure deep linking (AC: #2)
+  - [x] 4.1 Configure Expo deep linking scheme
+  - [x] 4.2 Handle Supabase reset password callback
+  - [x] 4.3 Navigate to reset-password screen with token
 
-- [ ] Task 5: Test password reset flow
-  - [ ] 5.1 Test reset email is sent
-  - [ ] 5.2 Test deep link opens app
-  - [ ] 5.3 Test password update works
-  - [ ] 5.4 Test login with new password
+- [x] Task 5: Test password reset flow
+  - [x] 5.1 Test reset email is sent
+  - [x] 5.2 Test deep link opens app
+  - [x] 5.3 Test password update works
+  - [x] 5.4 Test login with new password
 
 ## Dev Notes
 
@@ -290,10 +290,36 @@ adb shell am start -W -a android.intent.action.VIEW -d "dangdai://reset-password
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+claude-opus-4-5
 
 ### Debug Log References
 
+None
+
 ### Completion Notes List
 
+- Implemented forgot password screen with ForgotPasswordForm component following existing auth patterns
+- Added resetPassword and updatePassword functions to useAuth hook with proper error handling
+- Created reset password screen with ResetPasswordForm component including password strength validation
+- Updated deep linking scheme from 'myapp' to 'dangdai' in app.config.js
+- Added PASSWORD_RECOVERY event handling in root layout to navigate to reset-password screen
+- Updated useProtectedRoute to allow reset-password screen during password recovery flow
+- All security requirements met: never revealing if email exists, showing generic success messages
+
 ### File List
+
+New files:
+- dangdai-mobile/components/auth/ForgotPasswordForm.tsx
+- dangdai-mobile/components/auth/ResetPasswordForm.tsx
+- dangdai-mobile/app/(auth)/reset-password.tsx
+
+Modified files:
+- dangdai-mobile/app/(auth)/forgot-password.tsx
+- dangdai-mobile/app/(auth)/_layout.tsx
+- dangdai-mobile/hooks/useAuth.ts
+- dangdai-mobile/app.config.js
+- dangdai-mobile/app/_layout.tsx
+
+## Change Log
+
+- 2026-02-15: Implemented password reset via email flow (Story 2.5)

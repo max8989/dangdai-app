@@ -74,7 +74,7 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
 }
 
 // Hook to handle auth-based navigation
-function useProtectedRoute(session: Session | null, isLoading: boolean) {
+function useProtectedRoute(session: Session | null, isLoading: boolean, isPasswordRecovery: boolean) {
   const segments = useSegments()
   const router = useRouter()
 
@@ -84,22 +84,30 @@ function useProtectedRoute(session: Session | null, isLoading: boolean) {
 
     // Check if the user is on an auth screen
     const inAuthGroup = segments[0] === '(auth)'
+    const onResetPasswordScreen = segments[1] === 'reset-password'
+
+    // Allow reset-password screen during password recovery flow
+    if (isPasswordRecovery && onResetPasswordScreen) {
+      return
+    }
 
     if (!session && !inAuthGroup) {
       // Redirect to login if not authenticated and not on auth screen
       router.replace('/(auth)/login')
-    } else if (session && inAuthGroup) {
-      // Redirect to dashboard if authenticated and on auth screen
+    } else if (session && inAuthGroup && !isPasswordRecovery) {
+      // Redirect to dashboard if authenticated and on auth screen (but not in password recovery)
       router.replace('/(tabs)')
     }
-  }, [session, segments, isLoading])
+  }, [session, segments, isLoading, isPasswordRecovery])
 }
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme()
   const theme = useTheme()
+  const router = useRouter()
   const [session, setSession] = useState<Session | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false)
 
   useEffect(() => {
     // Get initial session
@@ -111,15 +119,26 @@ function RootLayoutNav() {
     // Listen for auth state changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session)
+
+      // Handle password recovery flow - navigate to reset password screen
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsPasswordRecovery(true)
+        router.push('/(auth)/reset-password')
+      }
+
+      // Clear password recovery flag after successful password update
+      if (event === 'USER_UPDATED' && isPasswordRecovery) {
+        setIsPasswordRecovery(false)
+      }
     })
 
     return () => subscription.unsubscribe()
-  }, [])
+  }, [router, isPasswordRecovery])
 
   // Handle protected route navigation
-  useProtectedRoute(session, isLoading)
+  useProtectedRoute(session, isLoading, isPasswordRecovery)
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
