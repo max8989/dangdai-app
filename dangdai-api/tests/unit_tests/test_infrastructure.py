@@ -42,6 +42,13 @@ class TestTerraformConfiguration:
         """Get the terraform directory path."""
         return Path(__file__).parent.parent.parent.parent / "terraform"
 
+    def _read_all_tf_files(self) -> str:
+        """Read all .tf files in terraform directory and return combined content."""
+        content = ""
+        for tf_file in self.terraform_dir.glob("*.tf"):
+            content += tf_file.read_text() + "\n"
+        return content
+
     def test_terraform_directory_exists(self):
         """Test that terraform directory exists at project root."""
         assert self.terraform_dir.exists(), (
@@ -86,50 +93,44 @@ class TestTerraformConfiguration:
         content = main_tf.read_text()
         assert "azurerm_resource_group" in content, "Should create resource group"
 
-    def test_main_tf_has_container_app_environment(self):
-        """Test that main.tf creates Container Apps environment."""
-        main_tf = self.terraform_dir / "main.tf"
-        content = main_tf.read_text()
+    def test_terraform_has_container_app_environment(self):
+        """Test that Terraform creates Container Apps environment."""
+        content = self._read_all_tf_files()
         assert "azurerm_container_app_environment" in content, (
             "Should create Container Apps environment"
         )
 
-    def test_main_tf_has_container_app(self):
-        """Test that main.tf creates container app."""
-        main_tf = self.terraform_dir / "main.tf"
-        content = main_tf.read_text()
+    def test_terraform_has_container_app(self):
+        """Test that Terraform creates container app."""
+        content = self._read_all_tf_files()
         assert "azurerm_container_app" in content, "Should create container app"
         assert "dangdai-api" in content, "Should name container app dangdai-api"
 
-    def test_main_tf_has_scale_to_zero(self):
-        """Test that main.tf configures scale-to-zero."""
-        main_tf = self.terraform_dir / "main.tf"
-        content = main_tf.read_text()
+    def test_terraform_has_scale_to_zero(self):
+        """Test that Terraform configures scale-to-zero."""
+        content = self._read_all_tf_files()
         assert "min_replicas = 0" in content, (
             "Should configure scale-to-zero with min_replicas = 0"
         )
         assert "max_replicas = 10" in content, "Should configure max_replicas = 10"
 
-    def test_main_tf_has_correct_resource_limits(self):
-        """Test that main.tf configures correct resource limits."""
-        main_tf = self.terraform_dir / "main.tf"
-        content = main_tf.read_text()
+    def test_terraform_has_correct_resource_limits(self):
+        """Test that Terraform configures correct resource limits."""
+        content = self._read_all_tf_files()
         assert "cpu    = 0.5" in content, "Should configure 0.5 vCPU"
         assert '"1Gi"' in content, "Should configure 1GB memory"
 
-    def test_main_tf_has_secrets_configuration(self):
-        """Test that main.tf configures secrets for sensitive values."""
-        main_tf = self.terraform_dir / "main.tf"
-        content = main_tf.read_text()
+    def test_terraform_has_secrets_configuration(self):
+        """Test that Terraform configures secrets for sensitive values."""
+        content = self._read_all_tf_files()
         assert "supabase-service-key" in content, (
             "Should configure supabase service key secret"
         )
         assert "llm-api-key" in content, "Should configure LLM API key secret"
 
-    def test_main_tf_has_environment_variables(self):
-        """Test that main.tf configures required environment variables."""
-        main_tf = self.terraform_dir / "main.tf"
-        content = main_tf.read_text()
+    def test_terraform_has_environment_variables(self):
+        """Test that Terraform configures required environment variables."""
+        content = self._read_all_tf_files()
         assert "SUPABASE_URL" in content, "Should configure SUPABASE_URL env var"
         assert "SUPABASE_SERVICE_KEY" in content, (
             "Should configure SUPABASE_SERVICE_KEY env var"
@@ -144,10 +145,9 @@ class TestTerraformConfiguration:
             "Should create Log Analytics workspace"
         )
 
-    def test_main_tf_has_external_ingress(self):
-        """Test that main.tf configures external ingress."""
-        main_tf = self.terraform_dir / "main.tf"
-        content = main_tf.read_text()
+    def test_terraform_has_external_ingress(self):
+        """Test that Terraform configures external ingress."""
+        content = self._read_all_tf_files()
         assert "external_enabled = true" in content, "Should enable external ingress"
         assert "target_port      = 8000" in content, "Should target port 8000"
 

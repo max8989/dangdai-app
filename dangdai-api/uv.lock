@@ -321,6 +321,7 @@ dependencies = [
 [package.optional-dependencies]
 dev = [
     { name = "mypy" },
+    { name = "pytest" },
     { name = "ruff" },
 ]
 
@@ -339,6 +340,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "langgraph", specifier = ">=1.0.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.11.1" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6.1" },
     { name = "uvicorn", specifier = ">=0.32.0" },

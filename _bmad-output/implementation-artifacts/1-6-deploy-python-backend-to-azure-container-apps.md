@@ -1,6 +1,6 @@
 # Story 1.6: Deploy Python Backend to Azure Container Apps
 
-Status: review
+Status: done
 
 ## Story
 
@@ -513,6 +513,7 @@ None
 ### File List
 
 - terraform/main.tf (new)
+- terraform/container_apps.tf (new - Container Apps configuration per architecture spec)
 - terraform/variables.tf (new)
 - terraform/outputs.tf (new)
 - terraform/terraform.tfvars.example (new)
@@ -522,3 +523,24 @@ None
 - dangdai-api/Dockerfile (new)
 - dangdai-api/tests/unit_tests/test_infrastructure.py (new)
 - dangdai-mobile/.env.example (modified - added production API URL)
+
+### Senior Developer Review (AI)
+
+**Reviewed by:** claude-opus-4-5 | **Date:** 2026-02-15
+
+**Issues Found:** 2 HIGH, 4 MEDIUM, 3 LOW
+
+**Fixes Applied:**
+1. **[HIGH]** Removed `tfplan` from git tracking and added to `.gitignore` - plan files can contain sensitive data
+2. **[HIGH]** Extracted hardcoded `subscription_id` from `main.tf` to variable - improves portability and security
+3. **[MEDIUM]** Added non-root USER directive to Dockerfile - security best practice
+4. **[MEDIUM]** Added HEALTHCHECK directive to Dockerfile - improves container orchestration
+5. **[MEDIUM]** Added optional `LANGSMITH_API_KEY` environment variable to Terraform - per architecture spec
+6. **[MEDIUM]** Split Container Apps resources into `container_apps.tf` - matches architecture doc structure
+
+**Not Fixed (LOW):**
+- Default `image_tag` is "latest" - acceptable for MVP, should use specific versions in production
+- Commit messages lack detail - informational only
+- `.terraform.lock.hcl` in gitignore - team preference, can be adjusted
+
+**Outcome:** APPROVED with fixes applied. All HIGH and MEDIUM issues resolved.

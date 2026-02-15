@@ -2,7 +2,10 @@
 *.tfstate
 *.tfstate.*
 .terraform/
-.terraform.lock.hcl
+
+# Plan files (may contain sensitive data)
+tfplan
+*.tfplan
 
 # Variable files with secrets
 terraform.tfvars
