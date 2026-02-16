@@ -12,6 +12,6 @@ async def health_check() -> HealthResponse:
     """Health check endpoint for container orchestration.
 
     Returns:
-        HealthResponse: Health status response.
+        HealthResponse: Health status response test.
     """
     return HealthResponse(status="healthy")
