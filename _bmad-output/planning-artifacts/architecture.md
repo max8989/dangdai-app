@@ -12,7 +12,11 @@ lastStep: 8
 status: 'complete'
 completedAt: '2026-02-14'
 updatedAt: '2026-02-20'
-updateReason: 'Added Tamagui Theme & Animation Architecture section to align with enriched UX Design Specification'
+updateHistory:
+  - date: '2026-02-20'
+    changes: 'Added Tamagui Theme & Animation Architecture section to align with enriched UX Design Specification'
+  - date: '2026-02-20'
+    changes: 'Major update for PRD v2.0: 50 FRs, 31 NFRs, 7 exercise types, adaptive learning with performance memory, hybrid answer validation, weakness profiles, new data schema (question_results, exercise_type_progress), updated API endpoints, revised project structure, re-validated requirements coverage'
 ---
 
 # Architecture Decision Document
@@ -24,28 +28,32 @@ _This document builds collaboratively through step-by-step discovery. Sections a
 ### Requirements Overview
 
 **Functional Requirements:**
-35 functional requirements across 8 domains:
+50 functional requirements across 10 domains:
 - User Authentication (FR1-FR6): Email/Apple Sign-In via Supabase
 - Content Navigation (FR7-FR10): Open book/chapter browsing
-- Vocabulary Quizzes (FR11-FR15): AI-generated with immediate feedback
-- Grammar Quizzes (FR16-FR20): Pattern-based exercises via RAG+LLM
-- Chapter Assessment (FR21-FR22): Combined vocabulary/grammar tests
-- Progress Tracking (FR23-FR26): Scores, completion %, history
-- Gamification (FR27-FR31): Points, streaks, rewards
-- Dashboard (FR32-FR35): Activity summary, quick continue
+- RAG-Powered Quiz Generation (FR11-FR14): AI-generated via LangGraph with RAG retrieval, validation node, pre-generated explanations
+- Exercise Types - 7 MVP Types (FR15-FR22): Vocabulary, Grammar, Fill-in-the-Blank, Matching, Dialogue Completion, Sentence Construction, Reading Comprehension + "Mixed" mode
+- Quiz Interaction (FR23-FR26): Immediate feedback with source citations, quiz results, review incorrect answers
+- Chapter Assessment (FR27-FR30): Multi-type chapter tests with cumulative review and adaptive generation
+- Performance Memory & Adaptive Learning (FR31-FR36): Per-question tracking, weakness profiles, adaptive quiz biasing, weakness dashboard
+- Progress Tracking (FR37-FR40): Per-exercise-type scores, chapter completion factoring type coverage, quiz history
+- Gamification (FR41-FR45): Points (scaled by difficulty), streaks
+- Dashboard & Home (FR46-FR50): Activity summary, weakness summary, quick continue, areas needing review
 
 **Non-Functional Requirements:**
-21 NFRs driving architectural decisions:
-- Performance: 5s quiz generation, 500ms navigation, 3s app launch
-- Security: Supabase Auth only, secure API key storage, HTTPS
-- Reliability: Crash-safe progress, cross-device sync
+31 NFRs driving architectural decisions:
+- Performance: 8s quiz generation (10 questions), 500ms navigation, 3s app launch, 2s weakness profile calculation
+- Security: Supabase Auth only, secure API key storage, HTTPS, per-user data isolation
+- Reliability: Crash-safe progress, cross-device sync, no empty RAG results for any exercise type
+- Integration: Graceful LLM degradation, RAG fallback to broader content
 - Localization: 4 UI languages (EN, FR, JP, KR)
-- Scalability: 100 concurrent users target
+- Scalability: 100 concurrent users, ~100 question_results rows/user/week
+- AI & RAG Quality: 90%+ curriculum alignment, 90%+ RAG relevance, 30-50% adaptive targeting, workbook format compliance, <$0.05/quiz LLM cost
 
 **Scale & Complexity:**
-- Primary domain: Cross-platform Mobile App with Python AI Backend
-- Complexity level: Medium
-- Estimated architectural components: ~18-22 (mobile app layers + Python API service)
+- Primary domain: Cross-platform Mobile App with Python AI Backend + Adaptive Learning System
+- Complexity level: Medium-High (upgraded from Medium due to 7 exercise types, hybrid validation, adaptive learning)
+- Estimated architectural components: ~25-30 (mobile app layers + Python API + LangGraph agent + adaptive learning pipeline)
 
 ### Technical Constraints & Dependencies
 
@@ -66,26 +74,44 @@ _This document builds collaboratively through step-by-step discovery. Sections a
 ### System Architecture Overview
 
 ```
-Mobile App (Expo) ──┬──▶ Supabase (Auth, Progress, User Data)
+Mobile App (Expo) ──┬──▶ Supabase (Auth, Progress, User Data, Performance Memory)
                     │
-                    └──▶ Python Backend (Flask + LangChain)
+                    └──▶ Python Backend (FastAPI + LangGraph)
                               │
-                              ├──▶ pgvector (RAG retrieval)
-                              └──▶ LLM API (quiz generation)
+                              ├──▶ Supabase pgvector (RAG retrieval by chapter + exercise type)
+                              ├──▶ Supabase question_results (weakness profile query)
+                              ├──▶ LLM API (quiz generation + complex answer validation)
+                              └──▶ LangGraph Validation Node (self-check before response)
+```
+
+**Quiz Generation Flow (Detailed):**
+```
+1. Mobile: POST /api/quizzes { chapter_id, exercise_type, user_jwt }
+2. Agent: Verify JWT → Query weakness profile from question_results (aggregation)
+3. Agent: RAG retrieve from pgvector filtered by (book, lesson, exercise_type)
+4. Agent: LLM generates quiz with pre-generated explanations, biased 30-50% toward weak areas
+5. Agent: Self-check validation node (correct answers exist, options distinct, curriculum-aligned)
+6. Agent: Return structured quiz payload with answer keys + explanations + source citations
+7. Mobile: Local validation for simple types (Vocabulary, Grammar, Matching, Fill-in-Blank, Reading)
+8. Mobile: LLM call via agent for complex types (Sentence Construction, Dialogue Completion) when answer differs from key
+9. Mobile: Save per-question results to question_results + update exercise_type_progress
 ```
 
 ### Cross-Cutting Concerns Identified
 
 1. **Authentication State**: Supabase JWT shared between mobile and Python backend
-2. **Progress Persistence**: Real-time sync of quiz answers, chapter progress, streaks
-3. **Error Handling**: Network failures, LLM timeouts, Python backend errors
-4. **Loading States**: Critical for 5-second AI quiz generation via Python backend
+2. **Progress Persistence**: Real-time sync of quiz answers, chapter progress, streaks, per-question performance memory
+3. **Error Handling**: Network failures, LLM timeouts, Python backend errors, RAG insufficient content fallback
+4. **Loading States**: Critical for 8-second AI quiz generation via Python backend (progressive loading: show first question ASAP)
 5. **Localization**: UI text in 4 languages, Chinese content unchanged
-6. **Sound/Haptics**: Consistent feedback patterns across interactions
+6. **Sound/Haptics**: Consistent feedback patterns across all 7 exercise types
 7. **Theme Support**: Light/dark mode with Tamagui semantic tokens, sub-themes (primary/success/error/warning), and interaction state variants
 8. **Animation System**: `@tamagui/animations-moti` driver with 5 named spring presets; `AnimatePresence` for conditional rendering; declarative `enterStyle`/`exitStyle`/`pressStyle` props
-9. **API Layer**: Mobile ↔ Python backend communication patterns
+9. **API Layer**: Mobile ↔ Python backend communication patterns (REST + hybrid validation calls)
 10. **Backend Deployment**: Python service hosting strategy
+11. **Adaptive Learning Pipeline**: Weakness profile computation → quiz bias → performance tracking → profile update loop
+12. **Hybrid Answer Validation**: Local validation for structured answers, LLM validation for open-ended answers (Sentence Construction, Dialogue Completion)
+13. **Exercise Type System**: 7 distinct exercise types with type-specific UI interactions, generation prompts, validation rules, and progress tracking
 
 ## Starter Template Evaluation
 
@@ -173,15 +199,43 @@ Project initialization should be the first implementation task, creating:
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| **Data Modeling** | Hybrid (normalized + aggregates) | Raw data in `quiz_attempts`, `chapter_progress` for accuracy; cached aggregates on `users` table for fast dashboard loads |
+| **Data Modeling** | Hybrid (normalized + aggregates + JSONB) | Normalized `question_results` for fast weakness queries; `quiz_attempts` with JSONB for full quiz replay; cached aggregates on `users` for dashboard; dedicated `exercise_type_progress` for per-type tracking |
 | **Database** | Supabase PostgreSQL | Already chosen; handles auth, data, and pgvector |
 | **Migrations** | Supabase migrations | Built-in migration system |
+| **Weakness Profile** | Computed on request via SQL aggregation | Agent queries `question_results` directly; works at MVP scale (100 users, ~100 rows/user/week); avoids extra materialized table |
 
 **Schema Approach:**
 - `users` - Profile + cached aggregates (total_points, current_streak, streak_updated_at)
-- `quiz_attempts` - Individual quiz records with answers and scores
-- `chapter_progress` - Per-chapter completion percentage
+- `quiz_attempts` - Individual quiz records with JSONB `answers_json` for full quiz replay (includes per-question detail for history display)
+- `question_results` - **NEW**: Normalized per-question performance data (user_id, chapter_id, exercise_type, vocabulary_item, grammar_pattern, correct, time_spent_ms, created_at). Indexed on (user_id, exercise_type) and (user_id, vocabulary_item) for fast weakness aggregation. This is the source of truth for the adaptive learning system.
+- `exercise_type_progress` - **NEW**: Per exercise type per chapter progress (user_id, chapter_id, exercise_type, best_score, attempts_count, mastered_at). Directly feeds the Exercise Type Selection UI. Chapter mastery requires ≥4 of 7 types attempted with ≥80% average.
+- `chapter_progress` - Per-chapter overall completion percentage (calculated from `exercise_type_progress`)
 - `daily_activity` - Streak tracking (one row per active day)
+
+**Weakness Profile Query (agent calls via Supabase service key):**
+```sql
+-- Weak vocabulary items: items with <70% accuracy over last N attempts
+SELECT vocabulary_item, exercise_type,
+       COUNT(*) FILTER (WHERE correct) AS correct_count,
+       COUNT(*) AS total_count,
+       ROUND(COUNT(*) FILTER (WHERE correct)::decimal / COUNT(*) * 100) AS accuracy_pct
+FROM question_results
+WHERE user_id = $1 AND vocabulary_item IS NOT NULL
+GROUP BY vocabulary_item, exercise_type
+HAVING ROUND(COUNT(*) FILTER (WHERE correct)::decimal / COUNT(*) * 100) < 70
+ORDER BY accuracy_pct ASC
+LIMIT 20;
+
+-- Weak exercise types: types with <70% accuracy
+SELECT exercise_type,
+       COUNT(*) FILTER (WHERE correct) AS correct_count,
+       COUNT(*) AS total_count,
+       ROUND(COUNT(*) FILTER (WHERE correct)::decimal / COUNT(*) * 100) AS accuracy_pct
+FROM question_results
+WHERE user_id = $1
+GROUP BY exercise_type
+HAVING ROUND(COUNT(*) FILTER (WHERE correct)::decimal / COUNT(*) * 100) < 70;
+```
 
 ### State Management (Mobile)
 
@@ -204,9 +258,32 @@ Project initialization should be the first implementation task, creating:
 | **Auth Token Passing** | Supabase JWT in Authorization header | Python backend verifies JWT with Supabase |
 
 **Endpoints (Python Backend):**
-- `POST /api/quiz/generate` - Generate quiz for chapter
-- `GET /api/quiz/{quiz_id}` - Retrieve generated quiz
-- `POST /api/quiz/{quiz_id}/validate` - Validate answer (optional)
+- `POST /api/quizzes/generate` - Generate quiz for chapter + exercise type. Accepts `{ chapter_id, book_id, exercise_type, user_jwt }`. Agent queries weakness profile, retrieves RAG content, generates quiz with pre-generated explanations. Returns structured quiz payload.
+- `POST /api/quizzes/validate-answer` - **Hybrid validation endpoint** for complex exercise types (Sentence Construction, Dialogue Completion). Accepts `{ question, user_answer, correct_answer, exercise_type }`. LLM evaluates whether the answer is valid (correct/incorrect + alternative answers shown). Only called when local validation is insufficient.
+- `GET /api/health` - Health check
+
+**Answer Validation Strategy (Hybrid):**
+
+| Exercise Type | Validation Method | Latency |
+|---------------|-------------------|---------|
+| Vocabulary | Local (exact match from answer key) | <100ms |
+| Grammar | Local (exact match from answer key) | <100ms |
+| Fill-in-the-Blank | Local (exact match from answer key) | <100ms |
+| Matching | Local (pair comparison from answer key) | <100ms |
+| Reading Comprehension | Local (exact match from answer key) | <100ms |
+| Sentence Construction | **LLM via agent** (multiple valid orderings possible) | ~1-3s |
+| Dialogue Completion | **LLM via agent** (multiple valid responses possible) | ~1-3s |
+
+For Sentence Construction and Dialogue Completion:
+1. Mobile first checks against the pre-generated correct answer locally
+2. If the user's answer matches → instant correct feedback
+3. If the user's answer differs → call `POST /api/quizzes/validate-answer` for LLM evaluation
+4. LLM returns: `{ is_correct: bool, explanation: string, alternatives: string[] }`
+5. If `is_correct`: show "Your answer is also valid!" with alternatives
+6. If not correct: show correct answer + explanation
+
+**Pre-Generated Explanations:**
+Every question in the quiz payload includes a `explanation` field and `source_citation` field, generated by the LLM at quiz creation time. These are displayed on the feedback card after each answer (correct or incorrect). No additional LLM call needed at answer time for explanations.
 
 ### Infrastructure & Deployment
 
@@ -235,15 +312,19 @@ Azure Container Apps
 
 | Scenario | Strategy |
 |----------|----------|
-| **Quiz Generation Timeout** | Retry once automatically, then show "Couldn't load questions - Try Again" |
+| **Quiz Generation Timeout (>8s)** | Retry once automatically, then show "Couldn't generate [Exercise Type] exercise - Try Again" |
 | **Network Failure** | Show "Check your connection" with retry button |
 | **Auth Error** | Redirect to login |
 | **Supabase Sync Failure** | Queue locally, retry on reconnect |
+| **RAG Insufficient Content** | Agent falls back to broader chapter content (NFR17). If still insufficient: "Not enough content for [Exercise Type] in this chapter. Try another type." |
+| **LLM Validation Timeout (Sentence Construction/Dialogue)** | Fall back to local validation against answer key. Show result without LLM explanation. |
+| **Weakness Profile Query Failure** | Generate quiz without adaptive biasing (use random selection). Silent degradation, no user error. |
 
 **Implementation:**
 - TanStack Query `retry: 1` for API calls
 - Custom error boundary for React components
 - Toast notifications for recoverable errors
+- Progressive quiz loading: show first question ASAP while remaining generate in background
 
 ### Tamagui Theme & Animation Architecture
 
@@ -568,6 +649,9 @@ const queryKeys = {
   chapter: (chapterId: number) => ['chapter', chapterId] as const,
   quiz: (quizId: string) => ['quiz', quizId] as const,
   progress: (userId: string) => ['progress', userId] as const,
+  exerciseTypeProgress: (chapterId: number) => ['exerciseTypeProgress', chapterId] as const,
+  weaknessProfile: (userId: string) => ['weaknessProfile', userId] as const,
+  quizHistory: (userId: string) => ['quizHistory', userId] as const,
 };
 ```
 
@@ -738,28 +822,40 @@ dangdai-mobile/
 │   │
 │   ├── (tabs)/                       # Main tab navigator
 │   │   ├── _layout.tsx               # Tab bar configuration
-│   │   ├── index.tsx                 # Dashboard/Home
+│   │   ├── index.tsx                 # Dashboard/Home (with weakness summary)
 │   │   ├── books.tsx                 # Book selection
 │   │   ├── progress.tsx              # Progress & calendar view
 │   │   └── settings.tsx              # Settings screen
 │   │
 │   ├── chapter/
-│   │   └── [bookId].tsx              # Chapter list for book
+│   │   └── [bookId].tsx              # Chapter list for book (with per-type indicators)
 │   │
-│   └── quiz/
-│       └── [chapterId].tsx           # Quiz screen
+│   ├── exercise-type/
+│   │   └── [chapterId].tsx           # Exercise type selection screen
+│   │
+│   ├── quiz/
+│   │   └── [chapterId].tsx           # Quiz screen (handles all 7 exercise types)
+│   │
+│   └── weakness/
+│       └── index.tsx                 # Weakness dashboard screen
 │
 ├── components/
 │   ├── quiz/
-│   │   ├── QuizCard.tsx              # Question display
+│   │   ├── QuizCard.tsx              # Question display (handles all exercise types)
 │   │   ├── QuizCard.test.tsx
 │   │   ├── AnswerOption.tsx          # Answer button
 │   │   ├── AnswerOption.test.tsx
 │   │   ├── AnswerGrid.tsx            # 2x2 answer layout
 │   │   ├── TextInputAnswer.tsx       # Text input for answers
-│   │   ├── FeedbackOverlay.tsx       # Correct/incorrect feedback
+│   │   ├── FeedbackOverlay.tsx       # Correct/incorrect feedback with explanation
 │   │   ├── QuizProgress.tsx          # Progress bar
-│   │   └── CompletionScreen.tsx      # Quiz completion celebration
+│   │   ├── CompletionScreen.tsx      # Quiz completion with per-type breakdown + weakness update
+│   │   ├── MatchingExercise.tsx      # Tap-to-pair matching interaction
+│   │   ├── SentenceBuilder.tsx       # Word tile reordering interaction
+│   │   ├── DialogueCard.tsx          # Conversation bubble layout
+│   │   ├── WordBankSelector.tsx      # Horizontal word bank for fill-in-the-blank
+│   │   ├── ReadingPassageCard.tsx    # Scrollable passage + comprehension questions
+│   │   └── ExerciseTypeSelector.tsx  # Grid of exercise type cards with per-type progress
 │   │
 │   ├── progress/
 │   │   ├── ActivityCalendar.tsx      # GitHub-style calendar
@@ -769,14 +865,20 @@ dangdai-mobile/
 │   │   └── StreakBadge.tsx           # Current streak display
 │   │
 │   ├── chapter/
-│   │   ├── ChapterListItem.tsx       # Chapter in list
+│   │   ├── ChapterListItem.tsx       # Chapter in list (with per-exercise-type indicator dots)
 │   │   ├── BookCard.tsx              # Book selection card
 │   │   └── ChapterListSkeleton.tsx   # Loading skeleton
 │   │
 │   ├── dashboard/
-│   │   ├── ContinueCard.tsx          # "Continue learning" CTA
+│   │   ├── ContinueCard.tsx          # "Continue learning" CTA (last exercise type + chapter)
 │   │   ├── StatsRow.tsx              # Points, streak summary
-│   │   └── RecentActivity.tsx        # Recent quiz attempts
+│   │   ├── RecentActivity.tsx        # Recent quiz attempts
+│   │   └── WeaknessSummaryCard.tsx   # Weakness summary on dashboard (links to full dashboard)
+│   │
+│   ├── weakness/
+│   │   ├── WeaknessDashboard.tsx     # Full weakness dashboard (vocab, grammar, exercise type accuracy)
+│   │   ├── WeakAreaDrillCard.tsx     # Tappable card to launch focused drill
+│   │   └── AccuracyBar.tsx           # Horizontal accuracy bar with color levels
 │   │
 │   ├── ui/                           # Shared UI components (Tamagui)
 │   │   ├── Button.tsx
@@ -792,13 +894,16 @@ dangdai-mobile/
 │
 ├── hooks/
 │   ├── useAuth.ts                    # Auth state & actions
-│   ├── useQuiz.ts                    # Quiz data fetching (TanStack Query)
+│   ├── useQuiz.ts                    # Quiz data fetching + generation (TanStack Query)
 │   ├── useProgress.ts                # Progress data fetching
 │   ├── useChapters.ts                # Chapter list fetching
+│   ├── useExerciseTypes.ts           # Exercise type progress per chapter
+│   ├── useWeaknessProfile.ts         # Weakness profile data fetching
+│   ├── useAnswerValidation.ts        # Local + hybrid LLM answer validation logic
 │   └── useSound.ts                   # Sound effect management
 │
 ├── stores/
-│   ├── useQuizStore.ts               # Current quiz state (Zustand)
+│   ├── useQuizStore.ts               # Current quiz state (Zustand) - handles all 7 exercise types
 │   ├── useUserStore.ts               # User preferences, cached data
 │   └── useSettingsStore.ts           # App settings (theme, language)
 │
@@ -813,10 +918,12 @@ dangdai-mobile/
 │       └── sounds.ts                 # Sound file references
 │
 ├── types/
-│   ├── quiz.ts                       # Quiz, Question, Answer types
+│   ├── quiz.ts                       # Quiz, Question, Answer types (all 7 exercise types)
+│   ├── exercise.ts                   # ExerciseType enum, ExerciseTypeProgress, MatchingPair, SentenceTile, DialogueBubble
+│   ├── weakness.ts                   # WeaknessProfile, WeakVocabItem, WeakGrammarPattern, ExerciseTypeAccuracy
 │   ├── user.ts                       # User, Progress types
 │   ├── chapter.ts                    # Book, Chapter types
-│   └── api.ts                        # API request/response types
+│   └── api.ts                        # API request/response types (including validation endpoint)
 │
 ├── constants/
 │   ├── colors.ts                     # Color tokens (from Tamagui)
@@ -868,36 +975,39 @@ dangdai-api/
 │   │
 │   ├── agent/                        # LangGraph quiz generation
 │   │   ├── __init__.py
-│   │   ├── graph.py                  # Main quiz generation graph
-│   │   ├── nodes.py                  # Graph nodes (retrieve, generate, validate)
-│   │   ├── prompts.py                # LLM prompt templates
-│   │   └── state.py                  # Graph state definitions
+│   │   ├── graph.py                  # Main quiz generation graph (retrieve → generate → validate → respond)
+│   │   ├── nodes.py                  # Graph nodes (retrieve_content, query_weakness, generate_quiz, validate_quiz, validate_answer)
+│   │   ├── prompts.py                # LLM prompt templates (per exercise type + validation + explanation generation)
+│   │   └── state.py                  # Graph state definitions (includes weakness profile, exercise type)
 │   │
 │   ├── api/                          # FastAPI routes
 │   │   ├── __init__.py
 │   │   ├── main.py                   # FastAPI app entry point
 │   │   ├── routes/
 │   │   │   ├── __init__.py
-│   │   │   ├── quizzes.py            # POST /api/quizzes, GET /api/quizzes/{id}
+│   │   │   ├── quizzes.py            # POST /api/quizzes/generate, POST /api/quizzes/validate-answer
 │   │   │   └── health.py             # GET /health
-│   │   ├── schemas.py                # Pydantic request/response models
+│   │   ├── schemas.py                # Pydantic request/response models (quiz payload, validation request/response, exercise types)
 │   │   ├── dependencies.py           # FastAPI dependencies (auth, etc.)
 │   │   └── middleware.py             # CORS, error handling
 │   │
 │   ├── services/
 │   │   ├── __init__.py
-│   │   ├── quiz_service.py           # Quiz business logic
-│   │   ├── rag_service.py            # RAG retrieval logic
+│   │   ├── quiz_service.py           # Quiz business logic (generation orchestration)
+│   │   ├── rag_service.py            # RAG retrieval logic (filtered by exercise type)
+│   │   ├── weakness_service.py       # Weakness profile query and aggregation from question_results
+│   │   ├── validation_service.py     # LLM-based answer validation for complex exercise types
 │   │   └── auth_service.py           # Supabase JWT verification
 │   │
 │   ├── repositories/
 │   │   ├── __init__.py
-│   │   ├── vector_store.py           # pgvector operations
-│   │   └── chapter_repo.py           # Chapter content retrieval
+│   │   ├── vector_store.py           # pgvector operations (filtered by book, lesson, exercise_type)
+│   │   ├── chapter_repo.py           # Chapter content retrieval
+│   │   └── performance_repo.py       # Query question_results for weakness profile aggregation
 │   │
 │   └── utils/
 │       ├── __init__.py
-│       ├── supabase.py               # Supabase client
+│       ├── supabase.py               # Supabase client (service key for agent DB access)
 │       ├── llm.py                    # LLM client configuration
 │       └── config.py                 # Environment configuration
 │
@@ -977,10 +1087,13 @@ terraform/
 | Data Type | Storage | Access Pattern |
 |-----------|---------|----------------|
 | User profile | Supabase `users` | Direct from mobile via Supabase JS |
-| Quiz attempts | Supabase `quiz_attempts` | Direct from mobile |
-| Chapter progress | Supabase `chapter_progress` | Direct from mobile |
+| Quiz attempts | Supabase `quiz_attempts` | Direct from mobile (write), direct from mobile (read history) |
+| Question results | Supabase `question_results` | Direct from mobile (write per-question), Python agent (read for weakness profile) |
+| Exercise type progress | Supabase `exercise_type_progress` | Direct from mobile (read/write per exercise type per chapter) |
+| Chapter progress | Supabase `chapter_progress` | Direct from mobile (calculated from exercise_type_progress) |
+| Weakness profile | Computed from `question_results` | Python agent queries on each quiz generation request |
 | Generated quizzes | In-memory (Python) | Generated per request, not persisted |
-| Dangdai content | Supabase pgvector | Python backend RAG retrieval |
+| Dangdai content | Supabase pgvector | Python backend RAG retrieval (filtered by exercise type) |
 
 ### Integration Points
 
@@ -1003,32 +1116,57 @@ terraform/
 | Azure | Python backend hosting | Terraform config |
 | LangSmith | Observability (optional) | `LANGSMITH_API_KEY` |
 
-**Data Flow (Quiz Generation):**
+**Data Flow (Quiz Generation - Full Adaptive Loop):**
 
 ```
-1. User taps "Start Quiz" for Chapter 10
+1. User selects Chapter 12 → Exercise Type Selection screen loads
+   │  Mobile fetches exercise_type_progress for Chapter 12 from Supabase
    │
-2. Mobile calls POST /api/quizzes { chapter_id: 10 }
-   │  (Authorization: Bearer <supabase_jwt>)
+2. User taps "Matching" (or "Mixed" for AI-selected)
    │
-3. Python API verifies JWT with Supabase
+3. Mobile calls POST /api/quizzes/generate {
+   │    chapter_id: 12, book_id: 2, exercise_type: "matching"
+   │  }  (Authorization: Bearer <supabase_jwt>)
    │
-4. RAG Service retrieves Chapter 10 content from pgvector
+4. Python API verifies JWT → extracts user_id
    │
-5. LangGraph generates quiz questions via LLM
+5. Weakness Service queries question_results for user's weakness profile
+   │  (aggregation query: weak vocab items, weak grammar patterns, weak exercise types)
    │
-6. API returns { quiz_id, questions: [...] }
+6. RAG Service retrieves Chapter 12 content from pgvector
+   │  FILTERED by: book=2, lesson=12, exercise_type="matching"
    │
-7. Mobile stores quiz in useQuizStore
+7. LangGraph generates quiz biased toward weak areas (30-50% of questions)
+   │  Each question includes: answer_key, explanation, source_citation
    │
-8. User completes quiz → answers stored locally
+8. Validation Node self-checks: correct answers exist, options distinct,
+   │  vocabulary/grammar items from chapter, no duplicates
+   │  Bad questions → regenerated individually
    │
-9. On completion, Mobile calls Supabase to save:
-   │  - quiz_attempts record
-   │  - chapter_progress update
-   │  - user aggregates update (points, streak)
+9. API returns { quiz_id, exercise_type, questions: [{
+   │    question, options, correct_answer, explanation, source_citation, ...
+   │  }] }
    │
-10. TanStack Query invalidates progress queries
+10. Mobile stores quiz in useQuizStore, renders MatchingExercise component
+    │
+11. User answers each question:
+    │  - Matching/Vocabulary/Grammar/Fill-in-Blank/Reading: LOCAL validation
+    │    (compare against answer_key in payload, instant feedback with explanation)
+    │  - Sentence Construction/Dialogue Completion: LOCAL check first,
+    │    then LLM call via POST /api/quizzes/validate-answer if answer differs from key
+    │
+12. Per-question: Mobile saves result to question_results via Supabase
+    │  { user_id, chapter_id, exercise_type, vocabulary_item, correct, time_spent_ms }
+    │
+13. On quiz completion, Mobile saves to Supabase:
+    │  - quiz_attempts record (with JSONB answers for replay)
+    │  - exercise_type_progress update (best_score, attempts_count, mastered_at)
+    │  - chapter_progress update (recalculated from exercise_type_progress)
+    │  - user aggregates update (points, streak)
+    │
+14. CompletionScreen shows: score, per-exercise-type breakdown, weakness update
+    │
+15. TanStack Query invalidates: progress, exercise type progress, weakness profile
 ```
 
 ### Development Workflow Integration
@@ -1104,21 +1242,27 @@ All technology choices validated as compatible:
 ### Requirements Coverage Validation
 
 **Functional Requirements Coverage:**
-All 35 FRs mapped to architectural components:
+All 50 FRs mapped to architectural components:
 - FR1-FR6 (Auth): `app/(auth)/`, `lib/supabase.ts`, `hooks/useAuth.ts`
 - FR7-FR10 (Navigation): `app/(tabs)/books.tsx`, `app/chapter/[bookId].tsx`
-- FR11-FR22 (Quizzes): `app/quiz/[chapterId].tsx`, `components/quiz/`, Python API
-- FR23-FR26 (Progress): `hooks/useProgress.ts`, `stores/useUserStore.ts`
-- FR27-FR31 (Gamification): `components/progress/`, Supabase aggregates
-- FR32-FR35 (Dashboard): `app/(tabs)/index.tsx`, `components/dashboard/`
+- FR11-FR14 (RAG Quiz Generation): Python API `agent/graph.py`, `services/rag_service.py`, `services/weakness_service.py`, validation node
+- FR15-FR22 (Exercise Types): `app/quiz/[chapterId].tsx`, `components/quiz/` (7 type-specific components), `app/exercise-type/[chapterId].tsx`
+- FR23-FR26 (Quiz Interaction): `components/quiz/FeedbackOverlay.tsx` (with pre-generated explanations), `CompletionScreen.tsx`
+- FR27-FR30 (Chapter Assessment): `app/quiz/[chapterId].tsx` (chapter test mode), `exercise_type_progress` table, mastery calculation
+- FR31-FR36 (Performance Memory & Adaptive): `question_results` table, `services/weakness_service.py`, `hooks/useWeaknessProfile.ts`, `components/weakness/`
+- FR37-FR40 (Progress): `hooks/useProgress.ts`, `hooks/useExerciseTypes.ts`, `exercise_type_progress` table
+- FR41-FR45 (Gamification): `components/progress/`, Supabase aggregates
+- FR46-FR50 (Dashboard): `app/(tabs)/index.tsx`, `components/dashboard/` (with `WeaknessSummaryCard.tsx`), `app/weakness/index.tsx`
 
 **Non-Functional Requirements Coverage:**
-All 21 NFRs addressed architecturally:
-- Performance: Loading states, retry patterns, optimized queries
-- Security: Supabase Auth, JWT verification, service keys
-- Reliability: TanStack Query caching, crash-safe progress sync
-- Scalability: Azure Container Apps auto-scaling
+All 31 NFRs addressed architecturally:
+- Performance: 8s quiz generation with progressive loading, 500ms nav, 3s launch, 2s weakness calc
+- Security: Supabase Auth, JWT verification, service keys, per-user data isolation (RLS)
+- Reliability: TanStack Query caching, crash-safe progress sync, no empty RAG results, graceful degradation
+- Integration: RAG fallback to broader content (NFR17), LLM validation timeout fallback
+- Scalability: Azure Container Apps auto-scaling, ~100 question_results rows/user/week
 - Localization: i18n folder with 4 language files
+- AI & RAG Quality: Self-check validation node, exercise-type-specific prompts, workbook format compliance
 
 ### Implementation Readiness Validation
 
@@ -1146,22 +1290,26 @@ All 21 NFRs addressed architecturally:
 
 | Gap | Resolution |
 |-----|------------|
-| Database schema details | First migration will define tables |
-| LLM prompt templates | Iterate during quiz generation development |
+| Database schema details | First migration will define 6 tables (users, quiz_attempts, question_results, exercise_type_progress, chapter_progress, daily_activity) |
+| LLM prompt templates per exercise type | 7 distinct prompt templates needed (one per exercise type). Iterate during quiz generation development |
+| LLM validation prompts | Prompts for Sentence Construction and Dialogue Completion answer evaluation |
 | Sound asset files | Use placeholder sounds, replace with final |
+| Weakness profile query optimization | Start with simple aggregation; add indexes if slow at scale |
 
 **Nice-to-Have (Post-MVP):**
 - Storybook component documentation
 - E2E testing with Detox/Maestro
 - Performance monitoring (Sentry, LangSmith)
+- Materialized weakness_profiles table if aggregation queries become slow
+- Supabase RPC function for weakness profile (encapsulate SQL)
 
 ### Architecture Completeness Checklist
 
 **Requirements Analysis**
 - [x] Project context thoroughly analyzed
-- [x] Scale and complexity assessed (Medium, 100 users)
+- [x] Scale and complexity assessed (Medium-High, 100 users, 7 exercise types, adaptive learning)
 - [x] Technical constraints identified (Online-only, iOS 13+, Android 21+)
-- [x] Cross-cutting concerns mapped (9 concerns identified)
+- [x] Cross-cutting concerns mapped (13 concerns identified including adaptive learning, hybrid validation, exercise type system)
 
 **Architectural Decisions**
 - [x] Critical decisions documented with versions
@@ -1190,15 +1338,18 @@ All 21 NFRs addressed architecturally:
 **Key Strengths:**
 1. Clear technology choices with verified compatibility
 2. Comprehensive implementation patterns with examples
-3. Complete project structure for both mobile and backend
-4. Full requirements coverage with traceability
+3. Complete project structure for both mobile and backend (including 7 exercise type components)
+4. Full requirements coverage with traceability (50 FRs, 31 NFRs)
 5. Well-defined integration boundaries
+6. Hybrid answer validation strategy balances UX quality with cost
+7. Adaptive learning pipeline fully specified (weakness profile → quiz biasing → performance tracking → profile update)
 
 **Areas for Future Enhancement:**
 1. Database schema refinement based on usage patterns
-2. Caching strategy optimization post-MVP
+2. Caching strategy optimization post-MVP (materialized weakness profiles)
 3. E2E testing infrastructure
 4. Performance monitoring integration
+5. Supabase RPC function for weakness profile aggregation (if direct SQL queries become slow)
 
 ### Implementation Handoff
 
@@ -1220,7 +1371,8 @@ pip install -U "langgraph-cli[inmem]"
 langgraph new --template=new-langgraph-project-python dangdai-api
 
 # 3. Set up Supabase schema
-# (Create tables: users, quiz_attempts, chapter_progress, daily_activity)
+# (Create tables: users, quiz_attempts, question_results, exercise_type_progress, chapter_progress, daily_activity)
+# (Add indexes on question_results for weakness profile queries)
 
 # 4. Configure Azure infrastructure
 cd terraform && terraform init && terraform plan

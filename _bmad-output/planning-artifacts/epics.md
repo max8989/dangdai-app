@@ -3,7 +3,11 @@ stepsCompleted: ['step-01-validate-prerequisites', 'step-02-design-epics', 'step
 workflowComplete: true
 completedAt: 2026-02-15
 updatedAt: 2026-02-20
-updateReason: 'Added Story 1.1b (Tamagui Theme & Animation Configuration) and updated UX requirements to align with enriched UX Design Specification'
+updateHistory:
+  - date: '2026-02-20'
+    changes: 'Added Story 1.1b (Tamagui Theme & Animation Configuration) and updated UX requirements to align with enriched UX Design Specification'
+  - date: '2026-02-20'
+    changes: 'Major rewrite for PRD v2.0: Remapped 50 FRs and 31 NFRs, expanded Epic 4 for 7 exercise types with hybrid validation and pre-generated explanations, updated Epic 5 for multi-type mastery, added Epic 10 (Performance Memory & Adaptive Learning), updated Epics 3/6/8 for exercise type progress and weakness dashboard, reorganized epic structure to 10 epics'
 inputDocuments:
   - '/home/maxime/repos/dangdai-app/_bmad-output/planning-artifacts/prd.md'
   - '/home/maxime/repos/dangdai-app/_bmad-output/planning-artifacts/architecture.md'
@@ -18,67 +22,126 @@ This document provides the complete epic and story breakdown for dangdai-app, de
 
 ## Requirements Inventory
 
-### Functional Requirements
+### Functional Requirements (PRD v2.0)
 
+**User Authentication & Identity:**
 - **FR1:** User can create account using email
 - **FR2:** User can sign in using email
 - **FR3:** User can sign in using Apple ID (iOS)
 - **FR4:** User can sign out
 - **FR5:** User can reset password (email accounts)
 - **FR6:** System persists identity across sessions
+
+**Content Navigation:**
 - **FR7:** User can view available textbooks (Books 1-2)
 - **FR8:** User can view chapters within a book
 - **FR9:** User can select any chapter (open navigation, no gates)
 - **FR10:** User can see chapter completion status at a glance
-- **FR11:** User can start vocabulary quiz for selected chapter
-- **FR12:** System generates questions via RAG + LLM using chapter content
-- **FR13:** User answers questions (character ↔ pinyin ↔ meaning)
-- **FR14:** User receives immediate feedback per answer
-- **FR15:** User sees quiz results with score upon completion
-- **FR16:** User can start grammar quiz for selected chapter
-- **FR17:** System generates grammar questions via RAG + LLM
-- **FR18:** User answers grammar questions (sentence completion, pattern recognition)
-- **FR19:** User receives immediate feedback per answer
-- **FR20:** User sees quiz results with score upon completion
-- **FR21:** User can take chapter test combining vocabulary and grammar
-- **FR22:** User sees chapter mastery status after assessment
-- **FR23:** System tracks quiz scores per chapter
-- **FR24:** System calculates chapter completion percentage
-- **FR25:** User can view progress across all chapters
-- **FR26:** User can view quiz history
-- **FR27:** System awards points for correct answers
-- **FR28:** System tracks daily streak (consecutive active days)
-- **FR29:** User can view current streak
-- **FR30:** User can view total points
-- **FR31:** System resets streak after missed day
-- **FR32:** User can view dashboard with recent activity
-- **FR33:** User can see book/chapter progress on dashboard
-- **FR34:** User can see streak and points on dashboard
-- **FR35:** User can quickly continue where they left off
 
-### NonFunctional Requirements
+**RAG-Powered Quiz Generation:**
+- **FR11:** System retrieves chapter-specific content from vector DB filtered by book, lesson, and exercise type
+- **FR12:** System generates quiz questions via LangGraph agent using RAG-retrieved content
+- **FR13:** System validates generated questions for accuracy and curriculum alignment before presenting
+- **FR14:** System returns structured quiz with questions, answer options, correct answers, and source citations
 
-- **NFR1:** Quiz generation completes within 5 seconds (loading indicator displayed)
+**Exercise Types (MVP - 7 Types):**
+- **FR15:** User can select exercise type per chapter (7 types + "Mixed")
+- **FR16:** Vocabulary Quiz - character ↔ pinyin ↔ meaning (multiple choice, typed input)
+- **FR17:** Grammar Quiz - sentence patterns, grammar usage, grammar rules
+- **FR18:** Fill-in-the-Blank - select/type correct word to complete sentences
+- **FR19:** Matching - connect related items (character ↔ pinyin, question ↔ response)
+- **FR20:** Dialogue Completion - complete conversation exchanges
+- **FR21:** Sentence Construction - rearrange words into correct order
+- **FR22:** Reading Comprehension - read passage and answer questions
+
+**Quiz Interaction:**
+- **FR23:** User receives immediate feedback per answer with correct answer shown
+- **FR24:** Feedback includes explanation and source citation (pre-generated)
+- **FR25:** User sees quiz results with score, time, and per-question breakdown
+- **FR26:** User can review incorrect answers after quiz completion
+
+**Chapter Assessment:**
+- **FR27:** User can take chapter test combining multiple exercise types
+- **FR28:** Chapter test includes cumulative review from previous chapters
+- **FR29:** Chapter test uses adaptive generation to target documented weak areas
+- **FR30:** User sees chapter mastery status and per-exercise-type breakdown
+
+**Performance Memory & Adaptive Learning:**
+- **FR31:** System saves per-question performance (correct/incorrect, exercise type, vocabulary/grammar item, time)
+- **FR32:** System maintains learner weakness profile (missed vocab, weak grammar, low-accuracy exercise types)
+- **FR33:** System uses weakness profile to bias quiz generation (30-50% target weak areas)
+- **FR34:** User can view weakness dashboard (weak vocab, grammar patterns, exercise type accuracy)
+- **FR35:** Weakness profile updates in real-time after each quiz completion
+- **FR36:** System distinguishes between "never practiced" and "practiced but weak" items
+
+**Progress Tracking:**
+- **FR37:** System tracks quiz scores per chapter per exercise type
+- **FR38:** System calculates chapter completion factoring exercise type coverage
+- **FR39:** User can view progress across all chapters with per-exercise-type breakdown
+- **FR40:** User can view quiz history with exercise type, score, and date
+
+**Gamification:**
+- **FR41:** System awards points for correct answers (scaled by difficulty)
+- **FR42:** System tracks daily streak (consecutive active days)
+- **FR43:** User can view current streak
+- **FR44:** User can view total points
+- **FR45:** System resets streak after missed day
+
+**Dashboard & Home:**
+- **FR46:** User can view dashboard with recent activity and weakness summary
+- **FR47:** User can see book/chapter progress with exercise type coverage
+- **FR48:** User can see streak and points on dashboard
+- **FR49:** User can quickly continue where they left off (last exercise type + chapter)
+- **FR50:** Dashboard highlights areas needing review based on weakness profile
+
+### NonFunctional Requirements (PRD v2.0)
+
+**Performance:**
+- **NFR1:** RAG retrieval + LLM quiz generation completes within 8 seconds (10 questions), loading indicator with progress
 - **NFR2:** Screen navigation completes within 500ms
 - **NFR3:** App launches to usable state within 3 seconds
-- **NFR4:** Authentication via Supabase Auth only
-- **NFR5:** Apple Sign-In follows Apple security guidelines
-- **NFR6:** API keys stored securely (not in client bundle)
-- **NFR7:** All data transmitted over HTTPS
-- **NFR8:** Quiz progress saved after each answer (crash-safe)
-- **NFR9:** Progress persists across app restarts and devices
-- **NFR10:** Data synced to server within 5 seconds of activity
-- **NFR11:** Supabase connection required for core functionality
-- **NFR12:** LLM API failures display user-friendly error
-- **NFR13:** Apple Sign-In available on iOS devices
-- **NFR14:** "No connection" displayed immediately when offline
-- **NFR15:** No cached content or offline functionality in MVP
-- **NFR16:** System supports 100 concurrent users (12-month target)
-- **NFR17:** Supabase handles scaling (no special infrastructure for MVP)
-- **NFR18:** UI supports English, French, Japanese, Korean
-- **NFR19:** Quiz instructions generated in user's selected language
-- **NFR20:** User can change display language in settings
-- **NFR21:** Chinese content unchanged regardless of UI language
+- **NFR4:** Weakness profile calculation completes within 2 seconds after quiz submission
+
+**Security:**
+- **NFR5:** Authentication via Supabase Auth only
+- **NFR6:** Apple Sign-In follows Apple security guidelines
+- **NFR7:** API keys stored securely (not in client bundle)
+- **NFR8:** All data transmitted over HTTPS
+- **NFR9:** Performance data accessible only to the authenticated user who generated it
+
+**Reliability:**
+- **NFR10:** Quiz progress saved after each answer (crash-safe)
+- **NFR11:** Progress and performance memory persist across app restarts and devices
+- **NFR12:** Data synced to server within 5 seconds of activity
+- **NFR13:** RAG retrieval returns relevant content for all 7 MVP exercise types per chapter
+
+**Integration:**
+- **NFR14:** Supabase connection required for core functionality
+- **NFR15:** LLM API failures display user-friendly error with retry option
+- **NFR16:** Apple Sign-In available on iOS devices
+- **NFR17:** LangGraph agent gracefully degrades if RAG returns insufficient content (falls back to broader chapter content)
+
+**Offline Behavior:**
+- **NFR18:** "No connection" displayed immediately when offline
+- **NFR19:** No cached content or offline functionality in MVP
+
+**Scalability:**
+- **NFR20:** System supports 100 concurrent users (12-month target)
+- **NFR21:** Supabase handles scaling (no special infrastructure for MVP)
+- **NFR22:** Performance memory storage scales linearly (~100 rows/user/week)
+
+**Localization:**
+- **NFR23:** UI supports English, French, Japanese, Korean
+- **NFR24:** Quiz instructions generated in user's selected language
+- **NFR25:** User can change display language in settings
+- **NFR26:** Chinese content unchanged regardless of UI language
+
+**AI & RAG Quality:**
+- **NFR27:** Generated quiz questions are curriculum-aligned: 90%+ use vocabulary/grammar from specified chapter
+- **NFR28:** RAG retrieval relevance: 90%+ of retrieved chunks match requested book, lesson, exercise type
+- **NFR29:** Adaptive quiz content: 30-50% of generated questions target documented weak areas
+- **NFR30:** Generated exercises follow workbook formatting patterns
+- **NFR31:** LLM cost per quiz generation stays under $0.05 per 10-question quiz
 
 ### Additional Requirements
 
@@ -87,32 +150,43 @@ This document provides the complete epic and story breakdown for dangdai-app, de
 - Python Backend initialization: `langgraph new --template=new-langgraph-project-python dangdai-api`
 
 **From Architecture - Infrastructure:**
-- Supabase PostgreSQL for user data, progress, auth
-- Supabase pgvector for Dangdai content embeddings (existing RAG system)
-- Python backend (LangGraph + FastAPI) for RAG/quiz generation
+- Supabase PostgreSQL for user data, progress, auth, performance memory
+- Supabase pgvector for Dangdai content embeddings (existing RAG system, filterable by exercise type)
+- Python backend (LangGraph + FastAPI) for RAG/quiz generation + hybrid answer validation
 - Azure Container Apps for Python backend hosting
 - Terraform for infrastructure as code
 - GitHub Actions for CI/CD
 
 **From Architecture - Data Architecture:**
-- Hybrid data modeling (normalized + aggregates)
-- Tables: `users`, `quiz_attempts`, `chapter_progress`, `daily_activity`
+- Hybrid data modeling (normalized + aggregates + JSONB)
+- Tables: `users`, `quiz_attempts`, `question_results`, `exercise_type_progress`, `chapter_progress`, `daily_activity`
 - Cached aggregates on users table (total_points, current_streak, streak_updated_at)
+- Weakness profile computed on request from question_results (agent queries via service key)
 
 **From Architecture - State Management:**
-- TanStack Query v5 for server state (user profile, progress, quiz history)
-- Zustand v5 for local state (quiz state, UI preferences, theme)
+- TanStack Query v5 for server state (user profile, progress, quiz history, exercise type progress, weakness profile)
+- Zustand v5 for local state (quiz state for all 7 exercise types, UI preferences, theme)
 
 **From Architecture - API Patterns:**
 - REST API between mobile and Python backend
+- `POST /api/quizzes/generate` - Generate quiz with exercise type + adaptive biasing
+- `POST /api/quizzes/validate-answer` - LLM validation for Sentence Construction / Dialogue Completion
 - Supabase JS client for direct mobile-to-Supabase communication
 - JWT token passing via Authorization header
-- Python backend verifies Supabase JWT
+- Python backend verifies Supabase JWT and queries weakness profile
+
+**From Architecture - Answer Validation Strategy:**
+- **Hybrid approach**: Local validation for simple types (Vocabulary, Grammar, Fill-in-the-Blank, Matching, Reading Comprehension); LLM validation via agent for complex types (Sentence Construction, Dialogue Completion)
+- LLM returns: is_correct + explanation + alternative valid answers
+- Pre-generated explanations included in quiz payload for all question types
 
 **From Architecture - Error Handling:**
 - TanStack Query retry: 1 for API calls
 - Custom error boundary for React components
 - Toast notifications for recoverable errors
+- Progressive quiz loading (show first question ASAP)
+- RAG insufficient content fallback to broader chapter content
+- LLM validation timeout fallback to local validation
 
 **From UX Design - UI/UX Requirements:**
 - Tamagui as UI framework with custom playful theme
@@ -124,24 +198,36 @@ This document provides the complete epic and story breakdown for dangdai-app, de
 - Sound + visual feedback for correct/incorrect answers (ding/bonk sounds)
 - GitHub-style activity calendar for progress tracking
 - Weekly/monthly activity counts (no streak guilt mechanics)
-- Full-screen celebration for exercise completion with points tally animation
-- Loading tips during 5-second quiz generation
+- Full-screen celebration for exercise completion with per-exercise-type breakdown and weakness update
+- Loading tips during 8-second quiz generation with progressive loading
 - Portrait-only orientation
 - Minimum 48px touch targets
 - 72px Chinese characters for quiz display
 - Light and dark mode support with automatic sub-theme resolution
 - Gentle orange for wrong answers (not harsh red)
+- Exercise type selection screen with per-type progress indicators
+- Weakness dashboard with encouraging framing ("Focus Areas" not "Weaknesses")
 
 **From UX Design - Component Requirements:**
-- QuizQuestionCard with correct/incorrect states
+- QuizQuestionCard with correct/incorrect states (handles all 7 exercise types)
 - AnswerOptionGrid (2x2 grid and list variants)
 - TextInputAnswer for typed responses
+- MatchingExercise (tap-to-pair interaction)
+- SentenceBuilder (word tile reordering)
+- DialogueCard (conversation bubble layout)
+- WordBankSelector (horizontal word bank for fill-in-the-blank)
+- ReadingPassageCard (scrollable passage + comprehension questions)
+- ExerciseTypeSelector (grid of exercise type cards with per-type progress)
 - ActivityCalendar (week and month views)
 - PointsCounter with count-up animation
-- CompletionScreen with celebration sequence
-- ChapterListItem with progress states
+- CompletionScreen with celebration sequence + per-exercise-type breakdown
+- ChapterListItem with per-exercise-type progress indicator dots
 - BookCard with overall progress
-- FeedbackOverlay with auto-advance
+- FeedbackOverlay with auto-advance + pre-generated explanation display
+- WeaknessDashboard (vocabulary, grammar, exercise type accuracy sections)
+- WeakAreaDrillCard (tappable to launch focused drill)
+- AccuracyBar (horizontal color-coded bar)
+- WeaknessSummaryCard (dashboard card linking to full weakness dashboard)
 
 ### FR Coverage Map
 
@@ -156,42 +242,57 @@ This document provides the complete epic and story breakdown for dangdai-app, de
 | FR7 | Epic 3 | User can view available textbooks |
 | FR8 | Epic 3 | User can view chapters within a book |
 | FR9 | Epic 3 | User can select any chapter |
-| FR10 | Epic 3 | User can see chapter completion status |
-| FR11 | Epic 4 | User can start vocabulary quiz |
-| FR12 | Epic 4 | System generates questions via RAG + LLM |
-| FR13 | Epic 4 | User answers questions |
-| FR14 | Epic 4 | User receives immediate feedback |
-| FR15 | Epic 4 | User sees quiz results with score |
-| FR16 | Epic 4 | User can start grammar quiz |
-| FR17 | Epic 4 | System generates grammar questions |
-| FR18 | Epic 4 | User answers grammar questions |
-| FR19 | Epic 4 | User receives immediate feedback |
-| FR20 | Epic 4 | User sees quiz results with score |
-| FR21 | Epic 5 | User can take chapter test |
-| FR22 | Epic 5 | User sees chapter mastery status |
-| FR23 | Epic 6 | System tracks quiz scores per chapter |
-| FR24 | Epic 6 | System calculates chapter completion % |
-| FR25 | Epic 6 | User can view progress across chapters |
-| FR26 | Epic 6 | User can view quiz history |
-| FR27 | Epic 7 | System awards points for correct answers |
-| FR28 | Epic 7 | System tracks daily streak |
-| FR29 | Epic 7 | User can view current streak |
-| FR30 | Epic 7 | User can view total points |
-| FR31 | Epic 7 | System resets streak after missed day |
-| FR32 | Epic 8 | User can view dashboard with recent activity |
-| FR33 | Epic 8 | User can see book/chapter progress on dashboard |
-| FR34 | Epic 8 | User can see streak and points on dashboard |
-| FR35 | Epic 8 | User can quickly continue where left off |
+| FR10 | Epic 3 | User can see chapter completion status (per-exercise-type indicators) |
+| FR11 | Epic 4 | System retrieves chapter content from vector DB filtered by exercise type |
+| FR12 | Epic 4 | System generates quiz via LangGraph agent using RAG content |
+| FR13 | Epic 4 | System validates generated questions (self-check node) |
+| FR14 | Epic 4 | System returns structured quiz with explanations and source citations |
+| FR15 | Epic 4 | User can select exercise type per chapter (7 types + Mixed) |
+| FR16 | Epic 4 | Vocabulary Quiz |
+| FR17 | Epic 4 | Grammar Quiz |
+| FR18 | Epic 4 | Fill-in-the-Blank |
+| FR19 | Epic 4 | Matching |
+| FR20 | Epic 4 | Dialogue Completion |
+| FR21 | Epic 4 | Sentence Construction |
+| FR22 | Epic 4 | Reading Comprehension |
+| FR23 | Epic 4 | User receives immediate feedback with correct answer |
+| FR24 | Epic 4 | Feedback includes explanation and source citation |
+| FR25 | Epic 4 | User sees quiz results with score, time, breakdown |
+| FR26 | Epic 4 | User can review incorrect answers after completion |
+| FR27 | Epic 5 | User can take chapter test combining multiple exercise types |
+| FR28 | Epic 5 | Chapter test includes cumulative review |
+| FR29 | Epic 5 | Chapter test uses adaptive generation for weak areas |
+| FR30 | Epic 5 | User sees mastery status and per-type breakdown |
+| FR31 | Epic 10 | System saves per-question performance |
+| FR32 | Epic 10 | System maintains learner weakness profile |
+| FR33 | Epic 10 | System uses weakness profile to bias quiz generation |
+| FR34 | Epic 10 | User can view weakness dashboard |
+| FR35 | Epic 10 | Weakness profile updates in real-time |
+| FR36 | Epic 10 | System distinguishes "never practiced" vs "practiced but weak" |
+| FR37 | Epic 6 | System tracks quiz scores per chapter per exercise type |
+| FR38 | Epic 6 | System calculates chapter completion factoring type coverage |
+| FR39 | Epic 6 | User can view progress with per-exercise-type breakdown |
+| FR40 | Epic 6 | User can view quiz history with exercise type |
+| FR41 | Epic 7 | System awards points (scaled by difficulty) |
+| FR42 | Epic 7 | System tracks daily streak |
+| FR43 | Epic 7 | User can view current streak |
+| FR44 | Epic 7 | User can view total points |
+| FR45 | Epic 7 | System resets streak after missed day |
+| FR46 | Epic 8 | User can view dashboard with activity + weakness summary |
+| FR47 | Epic 8 | User can see progress with exercise type coverage |
+| FR48 | Epic 8 | User can see streak and points on dashboard |
+| FR49 | Epic 8 | User can quickly continue (last exercise type + chapter) |
+| FR50 | Epic 8 | Dashboard highlights areas needing review |
 
 ## Epic List
 
 ### Epic 1: Project Foundation & Infrastructure
 **Goal:** Establish the complete technical foundation so that development teams can begin building user-facing features with all infrastructure, tooling, and base architecture in place.
 
-**User Outcome:** Development environment ready with mobile app scaffold, Python backend scaffold, Supabase database schema, and deployment pipeline configured.
+**User Outcome:** Development environment ready with mobile app scaffold, Python backend scaffold, Supabase database schema (6 tables), and deployment pipeline configured.
 
 **FRs covered:** None directly (enables all FRs)
-**NFRs addressed:** NFR4, NFR6, NFR7, NFR11, NFR16, NFR17
+**NFRs addressed:** NFR5, NFR7, NFR8, NFR14, NFR20, NFR21
 
 ---
 
@@ -201,66 +302,66 @@ This document provides the complete epic and story breakdown for dangdai-app, de
 **User Outcome:** Users can register, login (email or Apple ID), sign out, reset password, and have their identity persist across sessions.
 
 **FRs covered:** FR1, FR2, FR3, FR4, FR5, FR6
-**NFRs addressed:** NFR4, NFR5, NFR7, NFR13
+**NFRs addressed:** NFR5, NFR6, NFR8, NFR16
 
 ---
 
 ### Epic 3: Content Navigation & Book Selection
-**Goal:** Enable users to browse available Dangdai textbooks and chapters, selecting any chapter to study without restrictions.
+**Goal:** Enable users to browse available Dangdai textbooks and chapters, selecting any chapter to study with per-exercise-type progress visibility.
 
-**User Outcome:** Users can view Books 1-2, see all chapters within each book, select any chapter freely (open navigation), and see chapter completion status at a glance.
+**User Outcome:** Users can view Books 1-2, see all chapters with per-exercise-type progress indicators, select any chapter freely (open navigation), and navigate to the exercise type selection screen.
 
-**FRs covered:** FR7, FR8, FR9, FR10
+**FRs covered:** FR7, FR8, FR9, FR10, FR15
 **NFRs addressed:** NFR2
 
 ---
 
-### Epic 4: Quiz Experience & Feedback
-**Goal:** Enable users to take vocabulary and grammar quizzes with AI-generated questions and receive immediate, satisfying feedback on their answers.
+### Epic 4: Quiz Experience & Exercise Types
+**Goal:** Enable users to take 7 types of AI-generated exercises with RAG-powered content, hybrid answer validation, pre-generated explanations, and satisfying feedback.
 
-**User Outcome:** Users can start vocabulary/grammar quizzes, answer questions (character ↔ pinyin ↔ meaning), receive immediate visual/audio feedback per answer, and see quiz results with scores.
+**User Outcome:** Users can select exercise types, take Vocabulary/Grammar/Fill-in-the-Blank/Matching/Dialogue Completion/Sentence Construction/Reading Comprehension quizzes, receive immediate feedback with explanations and source citations, and see results with per-question breakdown.
 
-**FRs covered:** FR11, FR12, FR13, FR14, FR15, FR16, FR17, FR18, FR19, FR20
-**NFRs addressed:** NFR1, NFR2, NFR8, NFR12
+**FRs covered:** FR11, FR12, FR13, FR14, FR15, FR16, FR17, FR18, FR19, FR20, FR21, FR22, FR23, FR24, FR25, FR26
+**NFRs addressed:** NFR1, NFR2, NFR10, NFR13, NFR15, NFR17, NFR27, NFR28, NFR30, NFR31
 
 ---
 
 ### Epic 5: Chapter Assessment & Mastery
-**Goal:** Enable users to take comprehensive chapter tests and achieve chapter mastery status.
+**Goal:** Enable users to take comprehensive chapter tests spanning multiple exercise types and achieve chapter mastery.
 
-**User Outcome:** Users can take chapter tests combining vocabulary and grammar, see chapter mastery status (80%+ threshold), and receive special celebration for mastery achievement.
+**User Outcome:** Users take chapter tests combining exercise types with cumulative review and adaptive weak-area targeting. Chapter mastery requires ≥4 of 7 types attempted with ≥80% average. Special celebration for first-time mastery.
 
-**FRs covered:** FR21, FR22
-**NFRs addressed:** NFR8, NFR9
+**FRs covered:** FR27, FR28, FR29, FR30
+**NFRs addressed:** NFR10, NFR11
 
 ---
 
 ### Epic 6: Progress Tracking & History
-**Goal:** Enable users to track their learning progress across all chapters and review their quiz history.
+**Goal:** Enable users to track their learning progress across all chapters with per-exercise-type breakdown and review quiz history.
 
-**User Outcome:** Users can view quiz scores per chapter, see chapter completion percentages, view progress across all chapters, and access their complete quiz history.
+**User Outcome:** Users can view per-exercise-type scores, chapter completion percentages factoring type coverage, progress across all chapters, and complete quiz history.
 
-**FRs covered:** FR23, FR24, FR25, FR26
-**NFRs addressed:** NFR9, NFR10
+**FRs covered:** FR37, FR38, FR39, FR40
+**NFRs addressed:** NFR11, NFR12
 
 ---
 
 ### Epic 7: Gamification & Motivation
 **Goal:** Enable users to earn points, track streaks, and stay motivated through gamification mechanics.
 
-**User Outcome:** Users earn points for correct answers, track daily streaks, view current streak and total points, with streak reset logic after missed days.
+**User Outcome:** Users earn points scaled by exercise difficulty, track daily streaks, view current streak and total points, with streak reset logic after missed days.
 
-**FRs covered:** FR27, FR28, FR29, FR30, FR31
-**NFRs addressed:** NFR9, NFR10
+**FRs covered:** FR41, FR42, FR43, FR44, FR45
+**NFRs addressed:** NFR11, NFR12
 
 ---
 
 ### Epic 8: Dashboard & Quick Continue
-**Goal:** Enable users to see their learning status at a glance and quickly continue where they left off.
+**Goal:** Enable users to see their learning status at a glance including weakness summary and quickly continue where they left off.
 
-**User Outcome:** Users can view dashboard with recent activity, see book/chapter progress, see streak and points, and one-tap continue to their current learning position.
+**User Outcome:** Users can view dashboard with recent activity and weakness summary, see book/chapter progress with exercise type coverage, see streak and points, and one-tap continue to their last exercise type and chapter.
 
-**FRs covered:** FR32, FR33, FR34, FR35
+**FRs covered:** FR46, FR47, FR48, FR49, FR50
 **NFRs addressed:** NFR2, NFR3
 
 ---
@@ -271,7 +372,17 @@ This document provides the complete epic and story breakdown for dangdai-app, de
 **User Outcome:** Users can change display language (English, French, Japanese, Korean), receive quiz instructions in their selected language, with Chinese content unchanged.
 
 **FRs covered:** None directly (enhances all user experience)
-**NFRs addressed:** NFR18, NFR19, NFR20, NFR21
+**NFRs addressed:** NFR23, NFR24, NFR25, NFR26
+
+---
+
+### Epic 10: Performance Memory & Adaptive Learning
+**Goal:** Enable the adaptive learning system that tracks per-question performance, builds weakness profiles, biases quiz generation toward weak areas, and provides a weakness dashboard for focused improvement.
+
+**User Outcome:** System saves every answer result, builds a profile of weak vocabulary/grammar/exercise types, adaptively targets weak areas in future quizzes (30-50%), and users can view a weakness dashboard with tappable drill cards for focused practice.
+
+**FRs covered:** FR31, FR32, FR33, FR34, FR35, FR36
+**NFRs addressed:** NFR4, NFR9, NFR22, NFR29
 
 ---
 
@@ -364,16 +475,23 @@ So that I have a working FastAPI service ready for RAG and quiz generation.
 ### Story 1.3: Configure Supabase Project and Base Schema
 
 As a developer,
-I want to configure the Supabase project with the base database schema,
-So that authentication and data storage foundations are ready.
+I want to configure the Supabase project with the complete database schema,
+So that authentication, data storage, performance memory, and exercise type progress foundations are ready.
 
 **Acceptance Criteria:**
 
 **Given** a Supabase project exists
 **When** I apply the initial migration
-**Then** the `users` table is created with columns: id, email, display_name, total_points, current_streak, streak_updated_at, created_at, updated_at
+**Then** the following tables are created:
+- `users` - id, email, display_name, total_points, current_streak, streak_updated_at, created_at, updated_at
+- `quiz_attempts` - id, user_id, chapter_id, book_id, exercise_type, score, total_questions, answers_json (JSONB), created_at
+- `question_results` - id, user_id, chapter_id, book_id, exercise_type, vocabulary_item, grammar_pattern, correct (boolean), time_spent_ms, created_at
+- `exercise_type_progress` - id, user_id, chapter_id, exercise_type, best_score, attempts_count, mastered_at, updated_at
+- `chapter_progress` - id, user_id, chapter_id, book_id, completion_percentage, mastered_at, updated_at
+- `daily_activity` - id, user_id, activity_date, quizzes_completed, points_earned
+**And** indexes are created on question_results: (user_id, exercise_type), (user_id, vocabulary_item), (user_id, chapter_id)
 **And** Supabase Auth is configured for email and Apple Sign-In
-**And** Row Level Security (RLS) is enabled on the users table
+**And** Row Level Security (RLS) is enabled on all tables (users read/write own data only)
 **And** the mobile app can connect to Supabase using environment variables
 
 ---
@@ -577,7 +695,7 @@ So that I don't have to sign in every time I open the app.
 
 ## Epic 3: Content Navigation & Book Selection
 
-**Goal:** Enable users to browse available Dangdai textbooks and chapters, selecting any chapter to study without restrictions.
+**Goal:** Enable users to browse available Dangdai textbooks and chapters, selecting any chapter with per-exercise-type progress visibility and navigating to the exercise type selection screen.
 
 ### Story 3.1: Book Selection Screen
 
@@ -615,25 +733,30 @@ So that I can see what content is available and choose what to study.
 
 ---
 
-### Story 3.3: Chapter Completion Status Display
+### Story 3.3: Chapter Completion Status with Per-Exercise-Type Indicators
 
 As a user,
-I want to see chapter completion status at a glance,
-So that I know my progress and which chapters need more work.
+I want to see chapter completion status with per-exercise-type progress at a glance,
+So that I know my progress, which exercise types I've completed, and which chapters need more work.
 
 **Acceptance Criteria:**
 
 **Given** I am on the chapter list screen
 **When** I view a chapter that I have not started
-**Then** the chapter shows "0%" or "Not started" indicator
+**Then** the chapter shows "Not started" with 7 gray indicator dots (one per exercise type)
 
-**Given** I have partially completed a chapter
+**Given** I have partially completed a chapter (some exercise types attempted)
 **When** I view that chapter in the list
-**Then** the chapter shows the completion percentage (e.g., "45%")
+**Then** the chapter shows overall completion percentage
+**And** per-exercise-type indicator dots below the chapter name: green (mastered ≥80%), teal (in progress <80%), gray (not started)
 
-**Given** I have mastered a chapter (80%+)
+**Given** I have mastered a chapter (≥4 types attempted, ≥80% average)
 **When** I view that chapter in the list
-**Then** the chapter shows a checkmark and "Mastered" or "100%" indicator
+**Then** the chapter shows a checkmark and all attempted type dots are green
+
+**Given** I tap on any chapter
+**When** the navigation completes
+**Then** I am taken to the Exercise Type Selection screen (not directly to quiz)
 
 ---
 
@@ -647,66 +770,128 @@ So that I can study the content that matches my current learning needs.
 
 **Given** I am on the chapter list screen
 **When** I tap on any chapter (regardless of completion status of other chapters)
-**Then** I can start a quiz for that chapter
+**Then** I am taken to the Exercise Type Selection screen for that chapter
 **And** no "unlock" or "complete previous chapters first" message is shown
 
 **Given** I have never used the app before
 **When** I navigate to Book 2, Chapter 10
-**Then** I can immediately start a quiz for that chapter
+**Then** I can immediately access the Exercise Type Selection screen for that chapter
 
 ---
 
-## Epic 4: Quiz Experience & Feedback
+### Story 3.5: Exercise Type Selection Screen
 
-**Goal:** Enable users to take vocabulary and grammar quizzes with AI-generated questions and receive immediate, satisfying feedback on their answers.
+As a user,
+I want to see all exercise types for a chapter with per-type progress and select one to start,
+So that I can choose the type of practice I want or let the AI pick for me.
 
-### Story 4.1: Quiz Generation API Endpoint
+**Acceptance Criteria:**
+
+**Given** I have selected a chapter
+**When** the Exercise Type Selection screen loads
+**Then** I see a 2-column grid of 8 cards: "Mixed" + 7 exercise types (Vocabulary, Grammar, Fill-in-the-Blank, Matching, Dialogue Completion, Sentence Construction, Reading Comprehension)
+**And** each card shows: exercise type icon, label, and progress indicator (%, "New", or checkmark)
+**And** the "Mixed" card is at top-left with distinct primary theme styling and subtitle "AI picks exercises based on your weak areas"
+**And** progress data is fetched from `exercise_type_progress` for this chapter
+
+**Given** I tap an exercise type card
+**When** the selection is registered
+**Then** quiz generation starts for that chapter + exercise type
+**And** I see the loading screen with progressive loading
+
+**Given** I tap the "Mixed" card
+**When** the quiz is generated
+**Then** the AI selects exercise types biased toward my documented weak areas
+
+---
+
+## Epic 4: Quiz Experience & Exercise Types
+
+**Goal:** Enable users to take 7 types of AI-generated exercises with RAG-powered content, hybrid answer validation, pre-generated explanations, and satisfying feedback across all interaction patterns.
+
+### Story 4.1: Quiz Generation API Endpoint (All Exercise Types)
 
 As a developer,
-I want to implement the quiz generation API endpoint in the Python backend,
-So that the mobile app can request AI-generated quizzes for any chapter.
+I want to implement the quiz generation API endpoint that supports all 7 exercise types with RAG filtering, pre-generated explanations, and self-check validation,
+So that the mobile app can request AI-generated quizzes for any chapter and exercise type.
 
 **Acceptance Criteria:**
 
 **Given** the Python backend is running
-**When** a POST request is made to `/api/quizzes` with `{ "chapter_id": 10, "book_id": 2, "quiz_type": "vocabulary" }`
-**Then** the RAG system retrieves chapter content from pgvector
-**And** the LLM generates 10-15 quiz questions
-**And** the response includes `{ "quiz_id": "...", "questions": [...] }`
-**And** the response is returned within 5 seconds (NFR1)
+**When** a POST request is made to `/api/quizzes/generate` with `{ "chapter_id": 12, "book_id": 2, "exercise_type": "matching" }`
+**Then** the RAG system retrieves chapter content from pgvector filtered by book, lesson, and exercise type
+**And** the LangGraph agent generates 10-15 quiz questions with:
+  - Answer key (correct answer for each question)
+  - Pre-generated explanation per question (why the answer is correct, citing textbook source)
+  - Source citation per question (e.g., "From Book 2, Chapter 12 - Grammar")
+  - Exercise-type-specific payload (matching pairs, sentence tiles, dialogue bubbles, word bank, etc.)
+**And** a self-check validation node verifies: correct answers exist, options are distinct, vocabulary/grammar items are from the chapter, no duplicate questions. Bad questions are regenerated.
+**And** the response is returned within 8 seconds (NFR1)
 
-**Given** the chapter_id is invalid
+**Given** `exercise_type` is "mixed"
 **When** the request is made
-**Then** a 404 error with `{ "detail": "Chapter not found" }` is returned
+**Then** the agent selects a variety of exercise types, biased toward the user's weak areas
+
+**Given** the RAG retrieval returns insufficient content for the exercise type
+**When** the agent processes the request
+**Then** it falls back to broader chapter content (NFR17) or returns a specific error if still insufficient
 
 ---
 
-### Story 4.2: Quiz Loading Screen with Tips
+### Story 4.1b: Answer Validation API Endpoint (Hybrid - Complex Types)
 
-As a user,
-I want to see an engaging loading screen while quiz questions are generated,
-So that I stay entertained during the ~5 second wait.
+As a developer,
+I want to implement the LLM-based answer validation endpoint for Sentence Construction and Dialogue Completion,
+So that the mobile app can evaluate open-ended answers where multiple valid responses exist.
 
 **Acceptance Criteria:**
 
-**Given** I have selected a chapter and tapped "Start Quiz"
-**When** quiz generation is in progress
-**Then** I see a loading animation (rotating Chinese character or bouncing element)
-**And** I see rotating learning tips that change every 2 seconds
-**And** a cancel button is available to return to chapter list
+**Given** the Python backend is running
+**When** a POST request is made to `/api/quizzes/validate-answer` with `{ "question": "...", "user_answer": "...", "correct_answer": "...", "exercise_type": "sentence_construction" }`
+**Then** the LLM evaluates whether the user's answer is valid
+**And** the response includes `{ "is_correct": true/false, "explanation": "...", "alternatives": ["alt1", "alt2"] }`
 
-**Given** quiz generation fails
-**When** the error is received
-**Then** I see a friendly error message "Couldn't load questions"
-**And** a "Try Again" button is displayed (NFR12)
+**Given** the validation call times out (>3 seconds)
+**When** the timeout occurs
+**Then** the mobile app falls back to local comparison against the answer key
 
 ---
 
-### Story 4.3: Vocabulary Quiz Question Display
+### Story 4.2: Quiz Loading Screen with Progressive Loading
 
 As a user,
-I want to see vocabulary quiz questions with clear Chinese character display,
-So that I can read and understand what I'm being asked.
+I want to see an engaging loading screen while quiz questions are generated, and start answering as soon as the first question is ready,
+So that I stay engaged during the ~8 second generation time.
+
+**Acceptance Criteria:**
+
+**Given** I have selected an exercise type and tapped to start
+**When** quiz generation is in progress
+**Then** I see "Generating your [Exercise Type] exercise for Chapter 12..."
+**And** I see a loading animation with progress indicator
+**And** I see rotating learning tips that change every 2 seconds
+**And** a cancel button is available to return to Exercise Type Selection screen
+
+**Given** the first question is ready before the full quiz
+**When** the first question arrives
+**Then** I can start answering immediately while remaining questions load in background (progressive loading)
+
+**Given** quiz generation fails
+**When** the error is received
+**Then** I see a friendly error "Couldn't generate [Exercise Type] exercise. Try another type or retry."
+**And** "Retry" and "Back" buttons are displayed
+
+**Given** RAG returns insufficient content for the exercise type
+**When** the fallback also fails
+**Then** I see "Not enough content for [Exercise Type] in this chapter. Try Vocabulary or Grammar instead."
+
+---
+
+### Story 4.3: Vocabulary & Grammar Quiz (Multiple Choice)
+
+As a user,
+I want to take vocabulary and grammar quizzes with clear Chinese character display and multiple choice answers,
+So that I can practice character/pinyin/meaning recognition and grammar patterns.
 
 **Acceptance Criteria:**
 
@@ -715,95 +900,198 @@ So that I can read and understand what I'm being asked.
 **Then** I see the question type label (e.g., "What does this mean?")
 **And** the Chinese character is displayed at 72px minimum
 **And** pinyin is shown below the character when applicable
+**And** 4 answer options are displayed in a 2x2 grid layout (or vertical list for longer grammar answers)
 **And** a progress bar shows my position in the quiz (e.g., "3/10")
-
----
-
-### Story 4.4: Answer Selection with 2x2 Grid
-
-As a user,
-I want to select my answer from a 2x2 grid of options,
-So that I can quickly tap my choice on mobile.
-
-**Acceptance Criteria:**
-
-**Given** I am viewing a multiple-choice question
-**When** the answer options load
-**Then** 4 options are displayed in a 2x2 grid layout
-**And** each option has a minimum touch target of 48x48px
-**And** tapping an option selects it visually (highlighted border)
+**And** each option has minimum 48x48px touch target
 
 **Given** I tap an answer option
 **When** my selection is registered
-**Then** the answer is submitted immediately
+**Then** the answer is validated locally against the answer key
 **And** I cannot change my answer after submission
 
 ---
 
-### Story 4.5: Immediate Answer Feedback (Visual + Sound)
+### Story 4.4: Fill-in-the-Blank Exercise (Word Bank)
 
 As a user,
-I want to receive immediate visual and audio feedback on my answer,
-So that I know instantly if I was correct and feel rewarded.
+I want to complete fill-in-the-blank exercises by selecting words from a word bank,
+So that I can practice using vocabulary in sentence context.
 
 **Acceptance Criteria:**
 
-**Given** I have submitted a correct answer
+**Given** a fill-in-the-blank exercise has loaded
+**When** I view a question
+**Then** I see a sentence with one or more blanks highlighted
+**And** a horizontal scrollable word bank is displayed below with selectable word options
+**And** each word option has minimum 48px touch target
+
+**Given** I tap a word in the word bank
+**When** the selection is registered
+**Then** the word animates from the bank to fill the blank in the sentence
+**And** the used word becomes semi-transparent (opacity 0.4) in the bank
+**And** I can tap the filled blank to return the word to the bank
+
+**Given** I have filled all blanks
+**When** the answer is validated locally against the answer key
+**Then** correct/incorrect feedback is shown per blank
+
+---
+
+### Story 4.5: Matching Exercise (Tap-to-Pair)
+
+As a user,
+I want to connect matching items (character ↔ pinyin, question ↔ response) by tapping pairs,
+So that I can practice recognizing character relationships.
+
+**Acceptance Criteria:**
+
+**Given** a matching exercise has loaded
+**When** I view the exercise
+**Then** I see two columns: left items (e.g., characters) and right items (e.g., pinyin), shuffled independently
+**And** a progress indicator shows "X/Y paired"
+**And** Chinese characters are displayed at 72px minimum
+
+**Given** I tap an item in the left column
+**When** the item is selected
+**Then** it highlights with primary theme border
+
+**Given** I tap an item in the right column after selecting a left item
+**When** the pair is evaluated locally against the answer key
+**Then** if correct: both items show success theme + connection line + "ding" sound + items become non-interactive
+**Then** if incorrect: both items shake + error theme flash + "bonk" sound + selection resets
+
+**Given** all pairs are matched
+**When** the exercise completes
+**Then** the completion flow triggers with score
+
+---
+
+### Story 4.6: Dialogue Completion Exercise
+
+As a user,
+I want to complete conversation exercises by selecting appropriate responses,
+So that I can practice dialogue patterns from the textbook.
+
+**Acceptance Criteria:**
+
+**Given** a dialogue completion exercise has loaded
+**When** I view the exercise
+**Then** I see conversation bubbles (A left-aligned, B right-aligned) with one blank bubble
+**And** answer options are displayed below the dialogue as a vertical list
+**And** Chinese characters are displayed at 72px minimum in bubbles
+
+**Given** I tap an answer option
+**When** the selection is registered
+**Then** the selected text fills the blank bubble with a slide-in animation
+**Then** if the answer matches the key: local validation → instant correct feedback
+**Then** if the answer differs from key: LLM validation call via `/api/quizzes/validate-answer`
+**And** LLM returns is_correct + explanation + alternative valid answers
+**And** if correct alternative: "Your answer is also valid!" shown with alternatives
+**And** if incorrect: correct answer shown with explanation
+
+---
+
+### Story 4.7: Sentence Construction Exercise
+
+As a user,
+I want to arrange scrambled words into correct sentences by tapping word tiles,
+So that I can practice Chinese sentence structure.
+
+**Acceptance Criteria:**
+
+**Given** a sentence construction exercise has loaded
+**When** I view the exercise
+**Then** I see an answer area with empty slots at the top
+**And** a word bank area below with scrambled word tiles
+**And** Chinese characters are displayed at 72px minimum in tiles
+**And** tiles have minimum 48px touch targets
+
+**Given** I tap a word tile in the bank
+**When** the tap is registered
+**Then** the tile animates from the bank to the next empty slot in the answer area
+**And** I can tap a placed tile to return it to the bank
+
+**Given** all tiles are placed and I tap "Submit"
+**When** the answer is evaluated
+**Then** if the answer matches the key: local validation → correct tiles flash green, celebration
+**Then** if the answer differs from key: LLM validation call via `/api/quizzes/validate-answer`
+**And** LLM returns is_correct + explanation + alternative valid orderings
+**And** if incorrect: correct positions flash green, incorrect flash orange, correct sentence shown
+
+---
+
+### Story 4.8: Reading Comprehension Exercise
+
+As a user,
+I want to read a Chinese passage and answer comprehension questions,
+So that I can practice reading skills.
+
+**Acceptance Criteria:**
+
+**Given** a reading comprehension exercise has loaded
+**When** I view the exercise
+**Then** I see a scrollable Chinese text passage (72px minimum for characters, pinyin toggle available)
+**And** comprehension questions appear below the passage with standard multiple choice
+**And** the passage remains scrollable while answering questions
+
+**Given** I select an answer to a comprehension question
+**When** the answer is validated locally against the answer key
+**Then** standard correct/incorrect feedback is shown
+
+---
+
+### Story 4.9: Immediate Answer Feedback (Visual + Sound + Explanation)
+
+As a user,
+I want to receive immediate visual and audio feedback with explanations on my answer,
+So that I know instantly if I was correct and learn from the explanation.
+
+**Acceptance Criteria:**
+
+**Given** I have submitted a correct answer (any exercise type)
 **When** feedback is displayed
-**Then** the selected option shows a green border and checkmark
+**Then** the answer shows success theme (green border, checkmark)
 **And** a satisfying "ding" sound plays
-**And** points increment is shown (+10 or similar)
-**And** the feedback displays for ~1 second before auto-advancing
+**And** points increment is shown
+**And** the pre-generated explanation is displayed (e.g., "This uses the 把 construction because...")
+**And** source citation is shown (e.g., "From Book 2, Chapter 12 - Grammar")
+**And** feedback displays for ~1 second before auto-advancing
 
 **Given** I have submitted an incorrect answer
 **When** feedback is displayed
-**Then** the selected option shows an orange border (not harsh red)
+**Then** the answer shows error theme (gentle orange border, not harsh red)
 **And** the correct answer is highlighted in green
 **And** a gentle "bonk" sound plays
-**And** the feedback displays for ~1 second before auto-advancing
+**And** the pre-generated explanation is displayed
+**And** feedback displays for ~1 second before auto-advancing
 
 ---
 
-### Story 4.6: Quiz Progress Saving (Crash-Safe)
+### Story 4.10: Quiz Progress Saving (Crash-Safe) & Per-Question Results
 
 As a user,
-I want my quiz progress saved after each answer,
-So that I don't lose progress if the app crashes or I leave.
+I want my quiz progress saved after each answer with per-question performance tracking,
+So that I don't lose progress and my weakness profile stays current.
 
 **Acceptance Criteria:**
 
-**Given** I am taking a quiz
+**Given** I am taking any exercise type
 **When** I answer a question
 **Then** my answer and score are saved to local state immediately
-**And** progress is synced to Supabase within 5 seconds (NFR10)
+**And** a `question_results` record is written to Supabase: user_id, chapter_id, exercise_type, vocabulary_item, grammar_pattern, correct, time_spent_ms
+**And** progress is synced within 5 seconds (NFR12)
 
 **Given** the app crashes mid-quiz
 **When** I reopen the app
-**Then** I can resume from where I left off (NFR8)
+**Then** I can resume from where I left off (NFR10)
 
 ---
 
-### Story 4.7: Grammar Quiz Question Types
+### Story 4.11: Quiz Results Screen with Per-Type Breakdown
 
 As a user,
-I want to take grammar quizzes with sentence completion and pattern recognition questions,
-So that I can practice grammar patterns from the chapter.
-
-**Acceptance Criteria:**
-
-**Given** I start a grammar quiz for a chapter
-**When** the quiz loads
-**Then** questions test grammar patterns (sentence completion, fill-in-the-blank)
-**And** answer options may include longer text (list layout instead of 2x2 when needed)
-**And** the same feedback patterns (sound, visual) apply as vocabulary quizzes
-
----
-
-### Story 4.8: Quiz Results Screen
-
-As a user,
-I want to see my quiz results with score upon completion,
-So that I know how well I performed.
+I want to see my quiz results with score, per-exercise-type chapter progress, and weakness update,
+So that I know how well I performed and how it fits into my overall chapter mastery.
 
 **Acceptance Criteria:**
 
@@ -812,12 +1100,16 @@ So that I know how well I performed.
 **Then** I see a completion screen with celebration animation
 **And** my score is displayed (e.g., "8/10 correct - 80%")
 **And** points earned are shown with count-up animation
+**And** **per-exercise-type progress bars** for the chapter are shown (which types done, in progress, new)
+**And** the just-completed type is highlighted
+**And** **weakness summary update** section shows changes to weakness profile (e.g., "會 vs 可以: 60% → 80% - Improving!")
 **And** "You struggled with:" section shows missed items (if any)
-**And** a "Continue" button returns me to the chapter list or dashboard
+**And** a "Continue" button returns to Exercise Type Selection or dashboard
+**And** `exercise_type_progress` is updated in Supabase
 
 ---
 
-### Story 4.9: Text Input Answer Type
+### Story 4.12: Text Input Answer Type
 
 As a user,
 I want to type my answer for certain question types,
@@ -827,76 +1119,85 @@ So that I can practice recall without multiple choice hints.
 
 **Given** a question requires typed input (pinyin or meaning)
 **When** I view the question
-**Then** a text input field is displayed instead of the 2x2 grid
+**Then** a text input field is displayed instead of the answer grid
 **And** placeholder text shows what to enter (e.g., "Type the pinyin...")
 **And** I can submit with Enter key or Submit button
 
 **Given** I submit a typed answer
-**When** the answer is validated
-**Then** correct/incorrect feedback is shown with the same visual/audio patterns
+**When** the answer is validated locally against the answer key
+**Then** correct/incorrect feedback is shown with the same visual/audio patterns + explanation
 **And** for incorrect answers, the correct answer is displayed
 
 ---
 
 ## Epic 5: Chapter Assessment & Mastery
 
-**Goal:** Enable users to take comprehensive chapter tests and achieve chapter mastery status.
+**Goal:** Enable users to take comprehensive chapter tests spanning multiple exercise types and achieve chapter mastery requiring exercise type coverage.
 
-### Story 5.1: Chapter Test (Combined Vocabulary + Grammar)
+### Story 5.1: Chapter Test (Multi-Type Assessment)
 
 As a user,
-I want to take a comprehensive chapter test combining vocabulary and grammar,
-So that I can assess my overall mastery of the chapter.
+I want to take a comprehensive chapter test combining multiple exercise types with adaptive targeting of my weak areas,
+So that I can assess my overall mastery of the chapter across different skills.
 
 **Acceptance Criteria:**
 
-**Given** I am on a chapter screen with progress < 80%
+**Given** I am on the Exercise Type Selection screen for a chapter
 **When** I tap "Take Chapter Test"
-**Then** a quiz is generated with ~20 questions mixing vocabulary and grammar
-**And** the quiz includes cumulative review from previous chapters
-**And** the same quiz UI and feedback patterns are used
+**Then** a quiz is generated with ~20 questions spanning multiple exercise types (vocabulary, grammar, fill-in-the-blank, matching, dialogue completion)
+**And** the quiz includes cumulative review questions from previous chapters (FR28)
+**And** the quiz uses adaptive generation to include extra questions on my documented weak areas (FR29)
+**And** the same quiz UI and feedback patterns are used, with type-specific interactions per question
 
 **Given** the chapter test is in progress
 **When** I view the progress bar
-**Then** I see "Chapter Test" label to distinguish from regular quizzes
+**Then** I see "Chapter Test" label and current question count
 
 ---
 
-### Story 5.2: Chapter Mastery Calculation
+### Story 5.2: Chapter Mastery Calculation (Multi-Type)
 
 As a user,
-I want the system to calculate my chapter mastery based on test performance,
-So that I know when I've truly learned the material.
+I want the system to calculate my chapter mastery based on exercise type coverage and performance,
+So that I know when I've truly learned the material across different exercise types.
 
 **Acceptance Criteria:**
 
-**Given** I complete a chapter test
-**When** the results are calculated
-**Then** my chapter completion percentage is updated in `chapter_progress` table
-**And** the percentage reflects weighted scores from all quiz attempts
+**Given** I complete exercises for a chapter
+**When** the mastery is evaluated
+**Then** the system checks: have I attempted ≥4 of 7 exercise types for this chapter?
+**And** the system checks: is my average score across attempted types ≥80%?
+**And** `chapter_progress` is updated with overall completion percentage (calculated from `exercise_type_progress`)
 
-**Given** my chapter score reaches 80% or higher
-**When** the mastery threshold is checked
-**Then** the chapter is marked as "Mastered" in the database
+**Given** I have attempted ≥4 types with ≥80% average
+**When** the mastery threshold is met
+**Then** the chapter is marked as "Mastered" in `chapter_progress`
+**And** `mastered_at` timestamp is set
+
+**Given** I have only attempted 2 of 7 types with 90% average
+**When** the mastery is evaluated
+**Then** the chapter is NOT mastered (insufficient type coverage)
+**And** the completion screen encourages: "Try Matching or Sentence Construction next!"
 
 ---
 
-### Story 5.3: Chapter Mastery Celebration
+### Story 5.3: Chapter Mastery Celebration (Per-Type Breakdown)
 
 As a user,
-I want to receive a special celebration when I master a chapter,
-So that I feel accomplished and motivated to continue.
+I want to receive a special celebration when I master a chapter with a per-exercise-type breakdown,
+So that I feel accomplished and see which types I've mastered.
 
 **Acceptance Criteria:**
 
-**Given** I complete a chapter test with 80%+ score
+**Given** I achieve chapter mastery (≥4 types, ≥80% average)
 **When** this is my first time mastering the chapter
-**Then** I see an enhanced celebration screen with special animation
+**Then** I see an enhanced celebration screen with special animation and success theme
 **And** a "Chapter Mastered!" message is prominently displayed
+**And** a per-exercise-type breakdown is shown (e.g., "Vocabulary 95% ✓, Grammar 82% ✓, Matching 88% ✓, ...")
 **And** a special achievement sound plays (different from regular completion)
-**And** a badge or achievement indicator is shown
+**And** a badge or achievement indicator is earned
 
-**Given** I redo a mastered chapter and score 80%+
+**Given** I redo a mastered chapter
 **When** the quiz completes
 **Then** I see the normal completion screen (not the mastery celebration)
 
@@ -904,45 +1205,44 @@ So that I feel accomplished and motivated to continue.
 
 ## Epic 6: Progress Tracking & History
 
-**Goal:** Enable users to track their learning progress across all chapters and review their quiz history.
+**Goal:** Enable users to track their learning progress across all chapters with per-exercise-type breakdown and review quiz history.
 
-### Story 6.1: Quiz Attempts Database Schema
+### Story 6.1: Quiz Attempts and Progress Storage
 
 As a developer,
-I want to store quiz attempts in the database,
-So that user progress and history can be tracked and queried.
+I want quiz attempts and exercise type progress saved correctly after each quiz,
+So that user progress, history, and exercise type mastery can be tracked and queried.
 
 **Acceptance Criteria:**
 
-**Given** the Supabase database exists
-**When** I apply the migration
-**Then** the `quiz_attempts` table is created with columns: id, user_id, chapter_id, book_id, quiz_type, score, total_questions, answers_json, created_at
-**And** the `chapter_progress` table is created with columns: id, user_id, chapter_id, book_id, completion_percentage, mastered_at, updated_at
-**And** RLS policies allow users to read/write only their own data
-
----
-
-### Story 6.2: Chapter Progress Calculation and Storage
-
-As a user,
-I want the system to track my quiz scores per chapter,
-So that my progress is accurately calculated.
-
-**Acceptance Criteria:**
-
-**Given** I complete a quiz
+**Given** a user completes a quiz
 **When** the results are saved
-**Then** the quiz attempt is stored in `quiz_attempts` table
-**And** the `chapter_progress` table is updated with new completion percentage
-**And** the calculation considers all attempts for that chapter
+**Then** the quiz attempt is stored in `quiz_attempts` with JSONB `answers_json` for full quiz replay
+**And** `exercise_type_progress` is updated for this user + chapter + exercise type (best_score, attempts_count, mastered_at if ≥80%)
+**And** `chapter_progress` is recalculated from `exercise_type_progress` (overall completion considering type coverage)
 
 ---
 
-### Story 6.3: Progress Overview Screen
+### Story 6.2: Chapter Progress Calculation (Factoring Type Coverage)
 
 As a user,
-I want to view my progress across all chapters,
-So that I can see my overall learning journey.
+I want chapter completion to factor in exercise type coverage,
+So that my progress reflects breadth of practice, not just one exercise type.
+
+**Acceptance Criteria:**
+
+**Given** I have completed exercises for a chapter
+**When** chapter progress is calculated
+**Then** the completion percentage considers: number of types attempted, average score across types, and mastery status per type
+**And** a chapter with only 1 type at 100% shows lower completion than a chapter with 4 types at 75%
+
+---
+
+### Story 6.3: Progress Overview Screen (Per-Exercise-Type)
+
+As a user,
+I want to view my progress across all chapters with per-exercise-type breakdown,
+So that I can see my overall learning journey and which skills I've practiced.
 
 **Acceptance Criteria:**
 
@@ -950,8 +1250,8 @@ So that I can see my overall learning journey.
 **When** the screen loads
 **Then** I see a summary of my overall progress (e.g., "12/30 chapters completed")
 **And** I see progress by book (Book 1: 8/15, Book 2: 4/15)
-**And** I see total points earned
-**And** I see current streak
+**And** I see total points earned and current streak
+**And** I see per-exercise-type accuracy summary (e.g., "Vocabulary 85%, Grammar 70%, Matching 55%")
 
 ---
 
@@ -977,23 +1277,23 @@ So that I can visualize my learning consistency.
 
 ---
 
-### Story 6.5: Quiz History List
+### Story 6.5: Quiz History List (With Exercise Type)
 
 As a user,
-I want to view my quiz history,
-So that I can review past performance and identify patterns.
+I want to view my quiz history with exercise type information,
+So that I can review past performance across different exercise types.
 
 **Acceptance Criteria:**
 
 **Given** I am on the Progress screen
 **When** I scroll to the quiz history section
 **Then** I see a list of recent quiz attempts
-**And** each entry shows: date, chapter name, score, quiz type
+**And** each entry shows: date, chapter name, score, **exercise type**, time ago
 **And** the list is sorted by most recent first
 
 **Given** I tap on a quiz history entry
 **When** the details expand
-**Then** I see which questions I missed (optional enhancement)
+**Then** I see which questions I missed with their explanations (optional enhancement)
 
 ---
 
@@ -1102,13 +1402,13 @@ So that earning points feels rewarding.
 
 ## Epic 8: Dashboard & Quick Continue
 
-**Goal:** Enable users to see their learning status at a glance and quickly continue where they left off.
+**Goal:** Enable users to see their learning status at a glance including weakness summary and quickly continue where they left off.
 
-### Story 8.1: Dashboard Screen Layout
+### Story 8.1: Dashboard Screen Layout (With Weakness Summary)
 
 As a user,
-I want to see a dashboard with my learning status at a glance,
-So that I can quickly understand my progress and decide what to do.
+I want to see a dashboard with my learning status, weakness summary, and quick actions at a glance,
+So that I can quickly understand my progress, see areas needing review, and decide what to do.
 
 **Acceptance Criteria:**
 
@@ -1116,7 +1416,7 @@ So that I can quickly understand my progress and decide what to do.
 **When** I navigate to the Home tab
 **Then** I see the dashboard screen
 **And** the screen loads within 3 seconds (NFR3)
-**And** the layout includes: stats row, continue card, recent activity
+**And** the layout includes: stats row, continue card, **weakness summary card**, recent activity
 
 ---
 
@@ -1136,10 +1436,10 @@ So that I'm reminded of my progress and motivated to continue.
 
 ---
 
-### Story 8.3: Continue Learning Card
+### Story 8.3: Continue Learning Card (Last Exercise Type + Chapter)
 
 As a user,
-I want to quickly continue where I left off,
+I want to quickly continue where I left off with context about my last exercise type,
 So that I can start learning with one tap.
 
 **Acceptance Criteria:**
@@ -1147,16 +1447,35 @@ So that I can start learning with one tap.
 **Given** I have a chapter in progress
 **When** I view the dashboard
 **Then** I see a "Continue Learning" card
-**And** the card shows the chapter name and progress (e.g., "Book 2, Ch. 10 - 45%")
+**And** the card shows the chapter name, last exercise type, and progress (e.g., "Book 2, Ch. 12 - Matching - 45%")
 **And** a prominent "Continue" button is displayed
 
 **Given** I tap the "Continue" button
 **When** the navigation completes
-**Then** I am taken directly to start a quiz for that chapter
+**Then** I am taken to the Exercise Type Selection screen for that chapter (or directly to the last exercise type)
 
 **Given** I have no chapter in progress
 **When** I view the dashboard
 **Then** I see a "Start Learning" card prompting me to select a book
+
+---
+
+### Story 8.6: Weakness Summary Card on Dashboard
+
+As a user,
+I want to see a brief weakness summary on the dashboard,
+So that I'm aware of my focus areas and can quickly navigate to targeted practice.
+
+**Acceptance Criteria:**
+
+**Given** I have a weakness profile (at least some quiz attempts)
+**When** I view the dashboard
+**Then** I see a "Focus Areas" card showing my top 2-3 weak items (e.g., "會 vs 可以", "Sentence Construction 40%")
+**And** a "View All" link navigates to the full Weakness Dashboard screen
+
+**Given** I have no weakness data yet (new user)
+**When** I view the dashboard
+**Then** the weakness summary card is not shown (or shows "Complete your first quiz to see focus areas")
 
 ---
 
@@ -1282,3 +1601,139 @@ So that I can customize the app to my preferences.
 **When** I select Theme (Light/Dark/System)
 **Then** the app theme updates immediately
 **And** the preference persists across sessions
+
+---
+
+## Epic 10: Performance Memory & Adaptive Learning
+
+**Goal:** Enable the adaptive learning system that tracks per-question performance, builds weakness profiles, biases quiz generation toward weak areas, and provides a weakness dashboard for focused improvement.
+
+### Story 10.1: Weakness Profile Query Service
+
+As a developer,
+I want the LangGraph agent to query the user's weakness profile from `question_results` before generating a quiz,
+So that quiz content can be adaptively biased toward the user's weak areas.
+
+**Acceptance Criteria:**
+
+**Given** a quiz generation request is made
+**When** the agent processes the request
+**Then** the weakness service queries `question_results` for the user (via service key)
+**And** aggregates: weak vocabulary items (<70% accuracy), weak grammar patterns (<70% accuracy), weak exercise types (<70% accuracy)
+**And** the profile is computed within 2 seconds (NFR4)
+**And** the profile is passed to the quiz generation node for biasing
+
+**Given** the user has no question_results yet (new user)
+**When** the weakness profile is queried
+**Then** an empty profile is returned and quiz generation uses random selection (no biasing)
+
+---
+
+### Story 10.2: Adaptive Quiz Biasing (30-50% Weak Area Targeting)
+
+As a user,
+I want my quizzes to include extra questions on my weak areas,
+So that I get more practice where I need it most.
+
+**Acceptance Criteria:**
+
+**Given** my weakness profile shows "會 vs 可以" as a weak vocabulary item and "Sentence Construction" as a weak exercise type
+**When** I generate a "Mixed" quiz or any exercise type quiz
+**Then** 30-50% of generated questions target my documented weak areas (FR33)
+**And** the remaining questions cover standard chapter content
+**And** the biasing is not visible during the quiz (no anxiety-inducing indicators)
+
+**Given** the post-quiz completion screen is displayed
+**When** I view the results
+**Then** I see "This quiz focused on your focus areas: 會 vs 可以, Sentence Construction"
+**And** per-weakness improvement shown (e.g., "會 vs 可以: 3/4 correct - up from 1/4 last time")
+
+---
+
+### Story 10.3: Weakness Dashboard Screen
+
+As a user,
+I want to view a comprehensive weakness dashboard showing my weak vocabulary, grammar patterns, and exercise type accuracy,
+So that I can identify specific areas to improve and launch focused drills.
+
+**Acceptance Criteria:**
+
+**Given** I navigate to the Weakness Dashboard (from dashboard summary card or Progress tab)
+**When** the screen loads
+**Then** I see three sections:
+  1. **Vocabulary Focus:** Cards for each weak vocabulary item (character + pinyin + correct meaning + miss count + trend arrow)
+  2. **Grammar Focus:** Cards for weak grammar patterns (pattern name + example + accuracy %)
+  3. **Exercise Type Accuracy:** Horizontal accuracy bars per exercise type (color-coded: green >80%, amber 50-79%, orange <50%)
+**And** the header says "Your Focus Areas" (not "Weaknesses")
+**And** trend arrows show improvement direction (up = improving in green, stable = amber)
+**And** each item is a tappable WeakAreaDrillCard
+
+---
+
+### Story 10.4: Focused Drill from Weakness Dashboard
+
+As a user,
+I want to tap a weak area in the dashboard and launch a focused drill,
+So that I can target specific weaknesses with dedicated practice.
+
+**Acceptance Criteria:**
+
+**Given** I am on the Weakness Dashboard
+**When** I tap a weak vocabulary item (e.g., "會 vs 可以")
+**Then** the AI generates a 10-question focused drill targeting that specific item
+**And** the drill uses RAG retrieval filtered to chapters where the item was weak
+
+**Given** I tap a weak exercise type (e.g., "Sentence Construction - 40%")
+**When** the drill loads
+**Then** the AI generates a 10-question exercise of that type from my weakest chapters
+
+**Given** I complete a focused drill
+**When** the results are shown
+**Then** I see weakness-specific feedback: "會 vs 可以: 60% → 80% - Improving!" or "Keep practicing - you'll get it!"
+**And** the weakness dashboard updates with the new accuracy
+**And** items that reach 80%+ celebrate and move to "Mastered" section
+
+---
+
+### Story 10.5: Weakness Profile Real-Time Updates
+
+As a user,
+I want my weakness profile to update immediately after each quiz,
+So that my progress is always current and the next quiz adapts to my latest performance.
+
+**Acceptance Criteria:**
+
+**Given** I complete any exercise
+**When** question_results are saved to Supabase
+**Then** the weakness profile reflects the new data within 2 seconds (NFR4)
+**And** TanStack Query invalidates the weakness profile cache
+**And** the dashboard weakness summary card refreshes
+
+**Given** I improve on a previously weak item (crosses 70% threshold)
+**When** the weakness profile is recalculated
+**Then** the item is removed from the weakness dashboard
+**And** future adaptive quizzes no longer target that item
+
+---
+
+### Story 10.6: Distinguishing "Never Practiced" vs "Practiced but Weak"
+
+As a user,
+I want the system to distinguish between content I've never practiced and content I've practiced but struggle with,
+So that the weakness dashboard and adaptive system focus on real weaknesses, not just unexplored content.
+
+**Acceptance Criteria:**
+
+**Given** I have never attempted Matching exercises for Chapter 12
+**When** I view the Exercise Type Selection screen
+**Then** Matching shows "New" (not a weak area indicator)
+
+**Given** I have attempted Matching for Chapter 12 with 40% accuracy
+**When** I view the Exercise Type Selection screen
+**Then** Matching shows "40%" with a teal (in progress) indicator
+**And** the Weakness Dashboard includes Matching for Chapter 12 as a focus area
+
+**Given** the adaptive system generates a quiz
+**When** it biases toward weak areas
+**Then** it only targets items with actual attempt history and low accuracy (FR36)
+**And** "never practiced" items are not treated as weaknesses
