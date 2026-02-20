@@ -1,23 +1,25 @@
-import { useColorScheme } from 'react-native'
-import { TamaguiProvider, type TamaguiProviderProps } from 'tamagui'
+import { TamaguiProvider, Theme, type TamaguiProviderProps } from 'tamagui'
 import { ToastProvider, ToastViewport } from '@tamagui/toast'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { CurrentToast } from './CurrentToast'
 import { config } from '../tamagui.config'
 import { queryClient } from '../lib/queryClient'
+import { useResolvedColorScheme } from '../hooks/useResolvedColorScheme'
 
 export function Provider({
   children,
   ...rest
 }: Omit<TamaguiProviderProps, 'config' | 'defaultTheme'>) {
-  const colorScheme = useColorScheme()
+  const colorScheme = useResolvedColorScheme()
 
   return (
     <TamaguiProvider
       config={config}
-      defaultTheme={colorScheme === 'dark' ? 'dark' : 'light'}
+      defaultTheme={colorScheme}
       {...rest}
     >
+    {/* Theme wrapper enables reactive switching -- defaultTheme alone only sets initial value */}
+    <Theme name={colorScheme}>
       <QueryClientProvider client={queryClient}>
         <ToastProvider
           swipeDirection="horizontal"
@@ -32,6 +34,7 @@ export function Provider({
           <ToastViewport top="$8" left={0} right={0} />
         </ToastProvider>
       </QueryClientProvider>
+    </Theme>
     </TamaguiProvider>
   )
 }

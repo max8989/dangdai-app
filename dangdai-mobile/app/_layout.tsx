@@ -1,7 +1,6 @@
 import '../tamagui.generated.css'
 
 import { useEffect } from 'react'
-import { useColorScheme } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { ThemeProvider, DefaultTheme, DarkTheme } from '@react-navigation/native'
 import { useFonts } from 'expo-font'
@@ -11,6 +10,7 @@ import { Provider } from 'components/Provider'
 import { AuthProvider, useAuth } from '../providers/AuthProvider'
 import { SplashScreen as AppSplashScreen } from '../components/SplashScreen'
 import { supabase } from '../lib/supabase'
+import { useResolvedColorScheme } from '../hooks/useResolvedColorScheme'
 
 // Custom navigation themes matching UX spec colors
 const customLightTheme = {
@@ -110,7 +110,7 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
 }
 
 function RootLayoutNav() {
-  const colorScheme = useColorScheme()
+  const colorScheme = useResolvedColorScheme()
   const { loading } = useAuth()
 
   // Show splash screen while loading auth state
