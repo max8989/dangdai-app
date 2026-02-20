@@ -46,6 +46,8 @@ export default function TabLayout() {
         options={{
           title: 'Theme Demo',
           tabBarIcon: ({ color }) => <Palette color={color as never} />,
+          // Only show in dev - temporary verification screen (Story 1.1b)
+          href: __DEV__ ? '/(tabs)/theme-demo' : null,
         }}
       />
     </Tabs>

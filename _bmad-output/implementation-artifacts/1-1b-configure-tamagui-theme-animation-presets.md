@@ -311,10 +311,12 @@ claude-opus-4-6 (anthropic/claude-opus-4-6)
 ### Change Log
 
 - 2026-02-20: Implemented Story 1.1b - Configured Tamagui theme system with animations, sub-themes, custom tokens, and demo screen.
+- 2026-02-20: Addressed code review findings - 3 items resolved: font face mapping for native weights (medium), unused import (low), __DEV__ guard on demo tab (low).
 
 ### File List
 
-- `dangdai-mobile/tamagui.config.ts` (modified) - Added animation driver, custom tokens/fonts, success/error/warning sub-themes, gtXs media query
+- `dangdai-mobile/tamagui.config.ts` (modified) - Added animation driver, custom tokens/fonts with face mapping, success/error/warning sub-themes, gtXs media query
+- `dangdai-mobile/app/_layout.tsx` (modified) - Loaded all Inter font weights (Regular, Medium, SemiBold, Bold) for native face mapping
 - `dangdai-mobile/tamagui.config.test.ts` (new) - 14 unit tests for config: animations, theme tokens, sub-themes, custom tokens
 - `dangdai-mobile/app/(tabs)/theme-demo.tsx` (new) - Theme verification demo screen with sub-theme cards, animation demos
 - `dangdai-mobile/app/(tabs)/theme-demo.test.tsx` (new) - 6 unit tests for theme demo screen rendering

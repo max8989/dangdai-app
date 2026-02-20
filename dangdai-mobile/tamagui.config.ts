@@ -43,6 +43,13 @@ const interFont = createFont({
   weight: { 4: '400', 5: '500', 6: '600', 7: '700' },
   letterSpacing: { 4: 0, 5: -0.2 },
   lineHeight: { 1: 17, 2: 20, 3: 22, 4: 25, 5: 28, 6: 33, 7: 44 },
+  // Native font face mapping - keys must match useFonts() keys in _layout.tsx
+  face: {
+    400: { normal: 'Inter' },
+    500: { normal: 'InterMedium' },
+    600: { normal: 'InterSemiBold' },
+    700: { normal: 'InterBold' },
+  },
 })
 
 // ─── Custom Color Values (from UX spec) ──────────────────────────────────────
