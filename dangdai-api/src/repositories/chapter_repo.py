@@ -63,7 +63,8 @@ class ChapterRepository:
             .execute()
         )
         if response.data:
-            return response.data[0]
+            result: dict[str, Any] = response.data[0]
+            return result
         return None
 
     def get_available_exercise_types(

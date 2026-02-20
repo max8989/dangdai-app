@@ -8,7 +8,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Any
 
-from supabase import create_client  # type: ignore[attr-defined]
+from supabase import create_client
 
 from src.utils.config import settings
 

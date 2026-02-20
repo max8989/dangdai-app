@@ -11,7 +11,6 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from src.api.dependencies import get_current_user
 from src.api.schemas import (
-    ExerciseType,
     QuizGenerateRequest,
     QuizGenerateResponse,
 )
@@ -50,17 +49,7 @@ async def generate_quiz(
     Returns:
         QuizGenerateResponse with generated questions.
     """
-    # Validate exercise_type is a valid enum value
-    try:
-        ExerciseType(request.exercise_type)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid exercise_type: {request.exercise_type}. "
-            f"Valid types: {[e.value for e in ExerciseType]}",
-        )
-
-    # Validate chapter_id format
+    # Validate chapter_id format (exercise_type is already validated by Pydantic)
     if request.chapter_id < 100:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

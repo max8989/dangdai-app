@@ -89,7 +89,7 @@ def query_weakness(state: QuizGenerationState) -> dict[str, Any]:
     return {"weakness_profile": profile}
 
 
-def generate_quiz(state: QuizGenerationState) -> dict[str, Any]:
+async def generate_quiz(state: QuizGenerationState) -> dict[str, Any]:
     """Generate quiz questions using LLM with structured output.
 
     Args:
@@ -110,15 +110,24 @@ def generate_quiz(state: QuizGenerationState) -> dict[str, Any]:
     # Prepare chapter content text from RAG chunks
     chapter_content = _format_chapter_content(retrieved_content)
 
-    # Get exercise-type-specific instructions
+    # Get exercise-type-specific instructions, biased toward weak areas (AC #2)
     if exercise_type == "mixed":
-        # For mixed, combine instructions for multiple types
+        weak_types: list[str] = weakness_profile.get("weak_exercise_types", [])
+        # Select types biased toward weaknesses
+        weakness_service = WeaknessService()
+        all_mixed_types = list(EXERCISE_TYPE_INSTRUCTIONS.keys())
+        selected_types = weakness_service.select_mixed_exercise_types(
+            weakness_profile, all_mixed_types, count=4
+        )
+        if not selected_types:
+            selected_types = ["vocabulary", "grammar", "fill_in_blank", "matching"]
         exercise_instructions = "\n\n".join(
-            f"### {etype.upper()} Questions:\n{instructions}"
-            for etype, instructions in EXERCISE_TYPE_INSTRUCTIONS.items()
-            if etype in ["vocabulary", "grammar", "fill_in_blank", "matching"]
+            f"### {etype.upper()} Questions:\n{EXERCISE_TYPE_INSTRUCTIONS[etype]}"
+            for etype in selected_types
+            if etype in EXERCISE_TYPE_INSTRUCTIONS
         )
     else:
+        weak_types = weakness_profile.get("weak_exercise_types", [])
         exercise_instructions = EXERCISE_TYPE_INSTRUCTIONS.get(
             exercise_type,
             EXERCISE_TYPE_INSTRUCTIONS["vocabulary"],
@@ -126,7 +135,6 @@ def generate_quiz(state: QuizGenerationState) -> dict[str, Any]:
 
     # Build weakness context
     weakness_context = ""
-    weak_types = weakness_profile.get("weak_exercise_types", [])
     if weak_types:
         weakness_context = (
             f"## Student Weakness Profile\n"
@@ -152,7 +160,7 @@ def generate_quiz(state: QuizGenerationState) -> dict[str, Any]:
         output_schema=output_schema,
     )
 
-    # Call LLM
+    # Call LLM asynchronously
     llm = get_llm_client()
     messages = [
         SystemMessage(content=SYSTEM_PROMPT),
@@ -160,7 +168,7 @@ def generate_quiz(state: QuizGenerationState) -> dict[str, Any]:
     ]
 
     try:
-        response = llm.invoke(messages)
+        response = await llm.ainvoke(messages)
         content = (
             response.content
             if isinstance(response.content, str)
@@ -338,9 +346,11 @@ def _parse_questions_json(content: str) -> list[dict[str, Any]]:
     try:
         parsed = json.loads(text)
         if isinstance(parsed, list):
-            return parsed
+            result: list[dict[str, Any]] = parsed
+            return result
         if isinstance(parsed, dict) and "questions" in parsed:
-            return parsed["questions"]
+            questions: list[dict[str, Any]] = parsed["questions"]
+            return questions
         return [parsed]
     except json.JSONDecodeError as e:
         logger.error("Failed to parse LLM JSON response: %s", e)

@@ -1,6 +1,6 @@
 # Story 4.1: Quiz Generation API Endpoint (All Exercise Types)
 
-Status: review
+Status: done
 
 ## Story
 
@@ -476,3 +476,43 @@ claude-opus-4-6 (anthropic/claude-opus-4-6)
 - dangdai-api/tests/test_schemas.py (16 schema validation tests)
 - dangdai-api/tests/test_rag_retrieval.py (8 RAG service tests with mocked vector store)
 - dangdai-api/tests/test_quiz_generation.py (23 graph node + helper tests)
+
+**Note:** `src/services/validation_service.py` was listed in Dev Notes file structure as "CREATE" but validation logic was correctly inlined into `src/agent/nodes.py:validate_quiz` instead. This is an acceptable deviation.
+
+**Note:** The `dev 4.1` git commit also includes unrelated `dangdai-mobile/` changes (logo, auth screens, app config, splash screen). These are not part of this story's scope and should have been committed separately.
+
+## Senior Developer Review (AI)
+
+**Reviewer:** Maxime on 2026-02-20
+**Issues Found:** 3 High, 5 Medium, 3 Low
+**Issues Fixed:** 7 (all HIGH and MEDIUM code issues)
+**Action Items Created:** 0
+
+### Findings and Fixes Applied
+
+**HIGH (fixed):**
+1. **H1: mypy --strict failed with 6 errors** - Fixed type: ignore comments in `llm.py`, removed stale ignore in `supabase.py`, added explicit type annotations in `chapter_repo.py`, `nodes.py`, `quiz_service.py`. mypy now passes clean.
+2. **H2: Integration test skipif broken** - `.env` has placeholder SUPABASE_URL that's truthy, causing test to run and fail. Fixed `test_graph.py` with `_has_real_env_var()` that rejects placeholder values. Test now correctly skips.
+3. **H3: API key in .env** - Confirmed NOT committed to git (.gitignored). Warning: rotate the OpenAI key exposed in this session.
+
+**MEDIUM (fixed):**
+1. **M1: Synchronous LLM call** - Converted `generate_quiz` node to `async def` using `await llm.ainvoke()` per the "async throughout" anti-pattern requirement.
+2. **M4: Raw LLM output passed to response** - Added explicit `try/except ValidationError` in `QuizService.generate_quiz` before constructing `QuizGenerateResponse`, raising `ValueError` with error count on schema mismatch.
+3. **M5: WeaknessService.select_mixed_exercise_types never called** - Wired into `generate_quiz` node for mixed mode: weakness profile now biases exercise type selection per AC #2.
+
+**MEDIUM (documented):**
+4. **M2: validation_service.py deviation** - Documented in File List notes above.
+5. **M3: Unrelated mobile files in commit** - Documented in File List notes above.
+
+**LOW (fixed):**
+1. **L1: Dead AuthService class** - Replaced with docstring pointing to `dependencies.py` (the actual implementation).
+2. **L3: Redundant ExerciseType validation** - Removed unreachable try/except in `quizzes.py` (Pydantic validates before handler).
+
+**LOW (not fixed - cosmetic):**
+3. **L2: Schema hint JSON closing inconsistency** - Minor LLM prompt hint issue, does not affect functionality.
+
+### Verification
+
+- 83 unit tests passing, 1 integration test correctly skipped
+- `ruff check src/ tests/` - All checks passed
+- `mypy src/ --strict` - Success: no issues found in 27 source files

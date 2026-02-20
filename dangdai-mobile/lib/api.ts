@@ -8,8 +8,8 @@
  */
 
 import { supabase } from './supabase'
-import { QuizGenerationError } from '../types/quiz'
-import type { QuizGenerationParams, QuizResponse } from '../types/quiz'
+import { QuizGenerationError, EXERCISE_TYPE_LABELS } from '../types/quiz'
+import type { QuizGenerationParams, QuizResponse, ExerciseType } from '../types/quiz'
 
 const apiUrl = process.env.EXPO_PUBLIC_API_URL
 
@@ -94,7 +94,8 @@ export const api = {
       clearTimeout(timeoutId)
 
       if (!response.ok) {
-        throw categorizeHttpError(response.status, params.exerciseType)
+        const label = EXERCISE_TYPE_LABELS[params.exerciseType as ExerciseType] ?? params.exerciseType
+        throw categorizeHttpError(response.status, label)
       }
 
       return (await response.json()) as QuizResponse

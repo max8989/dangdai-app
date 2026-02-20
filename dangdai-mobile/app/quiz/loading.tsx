@@ -23,16 +23,17 @@ import { EXERCISE_TYPE_LABELS } from '../../types/quiz'
 import type { ExerciseType, QuizGenerationError } from '../../types/quiz'
 
 export default function QuizLoadingScreen() {
-  const { chapterId, bookId, quizType } = useLocalSearchParams<{
+  const { chapterId, bookId, quizType, exerciseType: exerciseTypeParam } = useLocalSearchParams<{
     chapterId: string
     bookId: string
     quizType: string
+    exerciseType: string
   }>()
   const router = useRouter()
   const startQuiz = useQuizStore((state) => state.startQuiz)
 
-  // Support both quizType (legacy Story 3.4 param) and exerciseType
-  const exerciseType = quizType ?? 'vocabulary'
+  // Support both exerciseType (preferred) and quizType (legacy Story 3.4 param)
+  const exerciseType = exerciseTypeParam ?? quizType ?? 'vocabulary'
   const exerciseTypeLabel =
     EXERCISE_TYPE_LABELS[exerciseType as ExerciseType] ?? exerciseType
 
@@ -98,9 +99,9 @@ export default function QuizLoadingScreen() {
       // Small delay for the progress bar to reach 100% visually
       const timeout = setTimeout(() => {
         // Navigate to quiz question screen (Story 4.3+)
-        // For now, navigate to a placeholder or replace the loading screen
+        // TODO(story-4.3): Replace with typed route once quiz session screen exists
         router.replace({
-          pathname: '/quiz/loading',
+          pathname: `/quiz/${data.quiz_id}` as '/quiz/[chapterId]',
           params: {
             chapterId: chapterIdNum.toString(),
             bookId: bookIdNum.toString(),
@@ -271,8 +272,7 @@ export default function QuizLoadingScreen() {
                   animation="quick"
                   pressStyle={{ scale: 0.98 }}
                   onPress={handleRetry}
-                  backgroundColor="$primary"
-                  color="white"
+                  theme="primary"
                   testID="retry-button"
                 >
                   Retry

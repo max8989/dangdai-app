@@ -130,6 +130,10 @@ describe('QuizLoadingScreen', () => {
   })
 
   afterEach(() => {
+    // Flush any pending timers inside act() to prevent leak warnings and act() errors
+    act(() => {
+      jest.runOnlyPendingTimers()
+    })
     jest.useRealTimers()
   })
 
@@ -376,6 +380,82 @@ describe('QuizLoadingScreen', () => {
     })
   })
 
+  describe('success state', () => {
+    const mockQuizData = {
+      quiz_id: 'test-quiz-123',
+      chapter_id: 212,
+      book_id: 2,
+      exercise_type: 'vocabulary' as const,
+      question_count: 10,
+      questions: [],
+    }
+
+    it('calls startQuiz with quiz_id when data arrives', () => {
+      mockHookReturn = {
+        mutate: mockMutate,
+        isPending: false,
+        isError: false,
+        error: null,
+        data: mockQuizData,
+        isSuccess: true,
+        reset: mockReset,
+      }
+
+      render(<QuizLoadingScreen />)
+      expect(mockStartQuiz).toHaveBeenCalledWith('test-quiz-123')
+    })
+
+    it('navigates to quiz session screen after delay', () => {
+      mockHookReturn = {
+        mutate: mockMutate,
+        isPending: false,
+        isError: false,
+        error: null,
+        data: mockQuizData,
+        isSuccess: true,
+        reset: mockReset,
+      }
+
+      render(<QuizLoadingScreen />)
+
+      // Advance past the 300ms navigation delay
+      act(() => {
+        jest.advanceTimersByTime(300)
+      })
+
+      expect(mockRouterReplace).toHaveBeenCalledWith({
+        pathname: '/quiz/test-quiz-123',
+        params: {
+          chapterId: '212',
+          bookId: '2',
+          quizType: 'vocabulary',
+          quizId: 'test-quiz-123',
+        },
+      })
+    })
+
+    it('does not navigate before the delay completes', () => {
+      mockHookReturn = {
+        mutate: mockMutate,
+        isPending: false,
+        isError: false,
+        error: null,
+        data: mockQuizData,
+        isSuccess: true,
+        reset: mockReset,
+      }
+
+      render(<QuizLoadingScreen />)
+
+      // Advance only 100ms — should not have navigated yet
+      act(() => {
+        jest.advanceTimersByTime(100)
+      })
+
+      expect(mockRouterReplace).not.toHaveBeenCalled()
+    })
+  })
+
   describe('edge cases', () => {
     it('handles undefined params gracefully', () => {
       mockUseLocalSearchParams.mockReturnValue({})
@@ -391,6 +471,23 @@ describe('QuizLoadingScreen', () => {
 
       const { getByTestId } = render(<QuizLoadingScreen />)
       expect(getByTestId('quiz-loading-screen')).toBeTruthy()
+    })
+
+    it('prefers exerciseType param over quizType', () => {
+      mockUseLocalSearchParams.mockReturnValue({
+        chapterId: '212',
+        bookId: '2',
+        quizType: 'vocabulary',
+        exerciseType: 'grammar',
+      })
+
+      render(<QuizLoadingScreen />)
+
+      expect(mockMutate).toHaveBeenCalledWith({
+        chapterId: 212,
+        bookId: 2,
+        exerciseType: 'grammar',
+      })
     })
   })
 })

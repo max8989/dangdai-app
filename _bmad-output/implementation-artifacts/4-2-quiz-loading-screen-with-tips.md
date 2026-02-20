@@ -1,6 +1,6 @@
 # Story 4.2: Quiz Loading Screen with Progressive Loading
 
-Status: review
+Status: done
 
 ## Story
 
@@ -534,6 +534,15 @@ Claude claude-opus-4-6 (anthropic/claude-opus-4-6)
 ### Change Log
 
 - 2026-02-20: Implemented Story 4.2 - Quiz Loading Screen with Progressive Loading. Created API client, quiz generation hook, loading tips, and full loading screen with error handling.
+- 2026-02-20: **Code Review (AI)** - Found and fixed 6 issues (3 HIGH, 3 MEDIUM):
+  - H1: Added 4 missing success-flow tests (startQuiz call, navigation after delay, delay timing, exerciseType param priority)
+  - H2: Fixed success navigation that pointed back to `/quiz/loading` (infinite loop risk) - now routes to `/quiz/{quizId}`
+  - H3: Fixed `exerciseType` param never read from URL search params - now destructured and preferred over legacy `quizType`
+  - M1: Fixed `categorizeHttpError` receiving raw exercise type key instead of display label (error messages showed `fill_in_blank` instead of `Fill-in-the-Blank`)
+  - M2: Replaced hardcoded `color="white"` on Retry button with `theme="primary"` Tamagui pattern
+  - M4: Fixed test timer leak by wrapping `runOnlyPendingTimers` in `act()`
+  - 2 LOW issues noted but not fixed: `QuizGenerationParams.exerciseType` typed as `string` not `ExerciseType`; no auth error redirect to login
+  - All 76 tests passing, TypeScript clean, ESLint clean
 
 ### File List
 

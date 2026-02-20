@@ -26,7 +26,7 @@ def get_llm_client() -> BaseChatModel:
     if not settings.LLM_API_KEY:
         raise ValueError("LLM_API_KEY environment variable is required")
 
-    return ChatAnthropic(
+    return ChatAnthropic(  # type: ignore[call-arg]
         model=settings.LLM_MODEL,
         api_key=settings.LLM_API_KEY,  # type: ignore[arg-type]
         max_tokens=4096,
