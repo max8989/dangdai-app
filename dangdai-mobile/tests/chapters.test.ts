@@ -164,13 +164,13 @@ test.describe('Chapter List Flow (Authenticated)', () => {
     // Verify first chapter displays all required fields
     await expect(page.getByTestId('chapter-number-badge-101')).toBeVisible()
     await expect(page.getByTestId('chapter-number-text-101')).toHaveText('1')
-    await expect(page.getByTestId('chapter-title-english-101')).toHaveText('Greetings')
-    await expect(page.getByTestId('chapter-title-chinese-101')).toHaveText('问候')
+    await expect(page.getByTestId('chapter-title-english-101')).toHaveText('Welcome to Taiwan!')
+    await expect(page.getByTestId('chapter-title-chinese-101')).toHaveText('歡迎你來臺灣！')
 
     // Verify another chapter
     await expect(page.getByTestId('chapter-number-text-105')).toHaveText('5')
-    await expect(page.getByTestId('chapter-title-english-105')).toHaveText('Dates')
-    await expect(page.getByTestId('chapter-title-chinese-105')).toHaveText('日期')
+    await expect(page.getByTestId('chapter-title-english-105')).toHaveText('Beef Noodles Are Delicious')
+    await expect(page.getByTestId('chapter-title-chinese-105')).toHaveText('牛肉麵真好吃')
   })
 
   // AC #1: Back button returns to book selection
@@ -203,13 +203,13 @@ test.describe('Chapter List Flow (Authenticated)', () => {
     await page.getByTestId('book-card-1').click()
     await expect(page.getByTestId('chapter-list-screen')).toBeVisible({ timeout: 5000 })
 
-    // Tap on Chapter 5 (Dates)
+    // Tap on Chapter 5 (Beef Noodles Are Delicious)
     await page.getByTestId('chapter-list-item-105').click()
 
     // Verify quiz screen appears
     await expect(page.getByTestId('quiz-screen')).toBeVisible({ timeout: 5000 })
-    await expect(page.getByTestId('quiz-header')).toHaveText('Dates')
-    await expect(page.getByTestId('quiz-chinese-title')).toHaveText('日期')
+    await expect(page.getByTestId('quiz-header')).toHaveText('Beef Noodles Are Delicious')
+    await expect(page.getByTestId('quiz-chinese-title')).toHaveText('牛肉麵真好吃')
   })
 
   test('scrollable chapter list renders correctly', async ({ page }) => {

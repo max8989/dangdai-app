@@ -60,8 +60,8 @@ const mockChapter: Chapter = {
   id: 105,
   bookId: 1,
   chapterNumber: 5,
-  titleEnglish: 'Dates',
-  titleChinese: '日期',
+  titleEnglish: 'Beef Noodles Are Delicious',
+  titleChinese: '牛肉麵真好吃',
 }
 
 // Progress test fixtures
@@ -99,16 +99,16 @@ const mockFirstChapter: Chapter = {
   id: 101,
   bookId: 1,
   chapterNumber: 1,
-  titleEnglish: 'Greetings',
-  titleChinese: '问候',
+  titleEnglish: 'Welcome to Taiwan!',
+  titleChinese: '歡迎你來臺灣！',
 }
 
 const mockBook3Chapter: Chapter = {
   id: 301,
   bookId: 3,
   chapterNumber: 1,
-  titleEnglish: 'Education',
-  titleChinese: '教育',
+  titleEnglish: 'School Has Started',
+  titleChinese: '開學了',
 }
 
 describe('ChapterListItem', () => {
@@ -140,7 +140,7 @@ describe('ChapterListItem', () => {
         <ChapterListItem chapter={mockChapter} onPress={mockOnPress} />
       )
 
-      expect(getByTestId('chapter-title-english-105')).toHaveTextContent('Dates')
+      expect(getByTestId('chapter-title-english-105')).toHaveTextContent('Beef Noodles Are Delicious')
     })
 
     it('renders Chinese title', () => {
@@ -148,7 +148,7 @@ describe('ChapterListItem', () => {
         <ChapterListItem chapter={mockChapter} onPress={mockOnPress} />
       )
 
-      expect(getByTestId('chapter-title-chinese-105')).toHaveTextContent('日期')
+      expect(getByTestId('chapter-title-chinese-105')).toHaveTextContent('牛肉麵真好吃')
     })
 
     it('renders card with correct testID', () => {
@@ -197,7 +197,7 @@ describe('ChapterListItem', () => {
       )
 
       const card = getByTestId('chapter-list-item-105')
-      expect(card.props.accessibilityLabel).toBe('Chapter 5: Dates, 日期')
+      expect(card.props.accessibilityLabel).toBe('Chapter 5: Beef Noodles Are Delicious, 牛肉麵真好吃')
     })
 
     it('includes Chinese title in accessibility for bilingual context', () => {
@@ -206,7 +206,7 @@ describe('ChapterListItem', () => {
       )
 
       const card = getByTestId('chapter-list-item-101')
-      expect(card.props.accessibilityLabel).toBe('Chapter 1: Greetings, 问候')
+      expect(card.props.accessibilityLabel).toBe('Chapter 1: Welcome to Taiwan!, 歡迎你來臺灣！')
     })
   })
 
@@ -217,8 +217,8 @@ describe('ChapterListItem', () => {
       )
 
       expect(getByTestId('chapter-number-text-101')).toHaveTextContent('1')
-      expect(getByTestId('chapter-title-english-101')).toHaveTextContent('Greetings')
-      expect(getByTestId('chapter-title-chinese-101')).toHaveTextContent('问候')
+      expect(getByTestId('chapter-title-english-101')).toHaveTextContent('Welcome to Taiwan!')
+      expect(getByTestId('chapter-title-chinese-101')).toHaveTextContent('歡迎你來臺灣！')
     })
 
     it('renders chapter from different book correctly', () => {
@@ -227,8 +227,8 @@ describe('ChapterListItem', () => {
       )
 
       expect(getByTestId('chapter-number-text-301')).toHaveTextContent('1')
-      expect(getByTestId('chapter-title-english-301')).toHaveTextContent('Education')
-      expect(getByTestId('chapter-title-chinese-301')).toHaveTextContent('教育')
+      expect(getByTestId('chapter-title-english-301')).toHaveTextContent('School Has Started')
+      expect(getByTestId('chapter-title-chinese-301')).toHaveTextContent('開學了')
     })
   })
 

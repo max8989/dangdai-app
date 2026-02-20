@@ -95,8 +95,8 @@ const mockChapter = {
   id: 210,
   bookId: 2,
   chapterNumber: 10,
-  titleEnglish: 'Celebrations',
-  titleChinese: '庆祝',
+  titleEnglish: 'Welcome to My Home to Make Dumplings',
+  titleChinese: '歡迎到我家來包餃子',
 }
 
 describe('ChapterDetailScreen', () => {
@@ -119,12 +119,12 @@ describe('ChapterDetailScreen', () => {
 
     it('displays chapter title in English', () => {
       const { getByTestId } = render(<ChapterDetailScreen />)
-      expect(getByTestId('chapter-title-english')).toHaveTextContent('Celebrations')
+      expect(getByTestId('chapter-title-english')).toHaveTextContent('Welcome to My Home to Make Dumplings')
     })
 
     it('displays chapter title in Chinese', () => {
       const { getByTestId } = render(<ChapterDetailScreen />)
-      expect(getByTestId('chapter-title-chinese')).toHaveTextContent('庆祝')
+      expect(getByTestId('chapter-title-chinese')).toHaveTextContent('歡迎到我家來包餃子')
     })
 
     it('displays book info', () => {

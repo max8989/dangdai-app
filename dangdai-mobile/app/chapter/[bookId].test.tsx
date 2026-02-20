@@ -75,8 +75,8 @@ jest.mock('../../components/chapter/ChapterListSkeleton', () => ({
 
 // Mock useChapters
 const mockChapters = [
-  { id: 101, bookId: 1, chapterNumber: 1, titleEnglish: 'Greetings', titleChinese: '问候' },
-  { id: 102, bookId: 1, chapterNumber: 2, titleEnglish: 'Numbers', titleChinese: '数字' },
+  { id: 101, bookId: 1, chapterNumber: 1, titleEnglish: 'Welcome to Taiwan!', titleChinese: '歡迎你來臺灣！' },
+  { id: 102, bookId: 1, chapterNumber: 2, titleEnglish: 'My Family', titleChinese: '我的家人' },
 ]
 jest.mock('../../hooks/useChapters', () => ({
   useChapters: () => mockChapters,
