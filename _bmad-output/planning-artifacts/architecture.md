@@ -11,6 +11,8 @@ date: 'Sat Feb 14 2026'
 lastStep: 8
 status: 'complete'
 completedAt: '2026-02-14'
+updatedAt: '2026-02-20'
+updateReason: 'Added Tamagui Theme & Animation Architecture section to align with enriched UX Design Specification'
 ---
 
 # Architecture Decision Document
@@ -50,8 +52,11 @@ _This document builds collaboratively through step-by-step discovery. Sections a
 | Layer | Technology | Purpose |
 |-------|------------|---------|
 | Mobile | React Native + Expo (managed) | Cross-platform app |
+| UI Framework | Tamagui + @tamagui/animations-moti | Themed components, spring animations |
+| Animation Engine | react-native-reanimated + moti | Off-JS-thread animation driver |
+| Sound | expo-av | Quiz feedback sounds |
 | Backend (Data) | Supabase (PostgreSQL + Auth) | User data, progress, auth |
-| Backend (AI) | Python (Flask + LangChain) | RAG queries, quiz generation |
+| Backend (AI) | Python (FastAPI + LangGraph) | RAG queries, quiz generation |
 | Vector Store | Supabase pgvector | Dangdai content embeddings |
 | LLM | External API (via LangChain) | Quiz question generation |
 | Min iOS | 13.0+ | - |
@@ -77,9 +82,10 @@ Mobile App (Expo) ──┬──▶ Supabase (Auth, Progress, User Data)
 4. **Loading States**: Critical for 5-second AI quiz generation via Python backend
 5. **Localization**: UI text in 4 languages, Chinese content unchanged
 6. **Sound/Haptics**: Consistent feedback patterns across interactions
-7. **Theme Support**: Light/dark mode with Tamagui tokens
-8. **API Layer**: Mobile ↔ Python backend communication patterns
-9. **Backend Deployment**: Python service hosting strategy
+7. **Theme Support**: Light/dark mode with Tamagui semantic tokens, sub-themes (primary/success/error/warning), and interaction state variants
+8. **Animation System**: `@tamagui/animations-moti` driver with 5 named spring presets; `AnimatePresence` for conditional rendering; declarative `enterStyle`/`exitStyle`/`pressStyle` props
+9. **API Layer**: Mobile ↔ Python backend communication patterns
+10. **Backend Deployment**: Python service hosting strategy
 
 ## Starter Template Evaluation
 
@@ -153,6 +159,7 @@ Project initialization should be the first implementation task, creating:
 - State management strategy (TanStack Query + Zustand)
 - API communication pattern (REST)
 - Python backend hosting (Azure Container Apps)
+- Tamagui theme & animation configuration (theme tokens, sub-themes, animation presets)
 
 **Important Decisions (Shape Architecture):**
 - Error handling strategy (Retry once + user fallback)
@@ -238,26 +245,164 @@ Azure Container Apps
 - Custom error boundary for React components
 - Toast notifications for recoverable errors
 
+### Tamagui Theme & Animation Architecture
+
+This section defines the Tamagui configuration layer that all UI components depend on. The UX Design Specification provides the complete visual details; this section captures the **architectural decisions** that prevent implementation conflicts.
+
+#### Animation Driver
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| **Primary Animation Driver** | `@tamagui/animations-moti` (Reanimated-based) | Runs animations off JS thread for 60fps quiz interactions |
+| **Fallback Driver** | `@tamagui/animations-react-native` | Available but not primary |
+| **Raw Reanimated** | Only for numeric interpolation | Points count-up requires `useSharedValue` + `withTiming` which Tamagui doesn't handle |
+
+#### Required Dependencies (Mobile)
+
+| Package | Purpose |
+|---------|---------|
+| `@tamagui/animations-moti` | Animation driver for Tamagui components |
+| `react-native-reanimated` | Underlying animation engine (peer dep of moti) |
+| `moti` | Peer dependency of @tamagui/animations-moti |
+| `expo-av` | Sound playback for quiz feedback |
+
+#### Animation Presets (`tamagui.config.ts`)
+
+All animations use spring physics. Named presets are defined in `createAnimations()` and referenced by name via the `animation` prop on any Tamagui component.
+
+| Preset | Spring Parameters | Usage |
+|--------|-------------------|-------|
+| `quick` | `damping: 20, stiffness: 250, mass: 1.2` | Button press, micro-interactions, tab switches |
+| `bouncy` | `damping: 10, stiffness: 200, mass: 0.9` | Celebration emoji, badges, points counter end-bounce |
+| `medium` | `damping: 15, stiffness: 150, mass: 1.0` | Screen transitions, card appearance, question enter/exit |
+| `slow` | `damping: 20, stiffness: 60, mass: 1.2` | Background elements, calendar square fill |
+| `lazy` | (from defaultConfig) | Skeleton shimmer placeholders |
+
+#### Sub-Theme Architecture
+
+Tamagui sub-themes use `parentTheme_subTheme` naming (e.g., `light_primary`, `dark_primary`). Wrapping a component tree in `<Theme name="primary">` remaps all semantic tokens to that sub-theme's values.
+
+**Required Sub-Themes (must exist for both `light_` and `dark_` parents):**
+
+| Sub-Theme | Purpose | Key Usage |
+|-----------|---------|-----------|
+| `primary` | Primary action surfaces | CTA buttons via `<Theme name="primary"><Button>`, active tabs |
+| `success` | Correct answer context | FeedbackOverlay (correct), completion celebrations |
+| `error` | Incorrect answer context | FeedbackOverlay (incorrect), error states |
+| `warning` | Caution/hint context | Quiz hints, network warnings |
+
+**Enforcement Rule:** Components MUST use `<Theme name="...">` wrappers for contextual color switching instead of hardcoding `backgroundColor="$success"` on individual elements. This ensures automatic dark mode support and consistent color relationships.
+
+#### Semantic Theme Tokens
+
+Every theme (light, dark) must define the full Tamagui semantic token set. Components reference these tokens (e.g., `$background`, `$color`, `$borderColor`) and Tamagui resolves them based on the active theme.
+
+**Core Tokens (Light Mode Reference):**
+
+| Token | Value | Purpose |
+|-------|-------|---------|
+| `background` | `#FAFAF9` | Main screen background |
+| `backgroundHover` | `#F5F5F4` | Background on hover |
+| `backgroundPress` | `#E7E5E4` | Background on press |
+| `backgroundFocus` | `#D6D3D1` | Background on focus |
+| `backgroundStrong` | `#E7E5E4` | Emphasized background |
+| `color` | `#1C1917` | Primary text |
+| `colorHover` | `#292524` | Text on hover |
+| `colorPress` | `#44403C` | Text on press |
+| `borderColor` | `#D6D3D1` | Default borders |
+| `borderColorHover` | `#A8A29E` | Border on hover |
+| `borderColorFocus` | `#06B6D4` | Border on focus (primary) |
+| `placeholderColor` | `#78716C` | Input placeholders |
+
+**Custom Tokens (extends Tamagui standard):**
+
+| Token | Value | Purpose |
+|-------|-------|---------|
+| `surface` | `#FFFFFF` | Cards, elevated surfaces |
+| `colorSubtle` | `#78716C` | Secondary/muted text |
+
+Each semantic color (`success`, `error`, `warning`) requires background/border/text variants for contextual UI (e.g., `successBackground: '#DCFCE7'`, `successBorder: '#BBF7D0'`, `successText: '#166534'`).
+
+**Dark Mode:** All tokens redefined with inverted/adjusted values. Primary shifts to `primaryLight` (`#22D3EE`) for better contrast on dark backgrounds.
+
+#### Declarative Animation Pattern (Enforcement)
+
+**All AI Agents MUST use Tamagui declarative animation props instead of imperative animation code:**
+
+| Prop | Purpose |
+|------|---------|
+| `enterStyle` | Styles when component mounts (animates FROM these values) |
+| `exitStyle` | Styles when component unmounts (animates TO these values) |
+| `pressStyle` | Styles while pressed (e.g., `{ scale: 0.98 }`) |
+| `hoverStyle` | Styles on hover (web) |
+| `focusStyle` | Styles when focused (e.g., `{ borderColor: '$borderColorFocus' }`) |
+
+**`AnimatePresence` is required for:**
+- Quiz question transitions (`key={questionIndex}`)
+- FeedbackOverlay appearance/disappearance
+- CompletionScreen slide-up entrance
+- Toast notifications
+
+#### Responsive Pattern (Enforcement)
+
+**Use Tamagui declarative media queries, NOT imperative `Dimensions.get('window')` checks:**
+
+```tsx
+// ✅ Correct: Tamagui media props
+<Text fontSize={16} $xs={{ fontSize: 14 }}>Question</Text>
+
+// ❌ Wrong: Imperative dimension checks
+const isSmall = Dimensions.get('window').width < 375;
+```
+
+| Media Query | Condition | Usage |
+|-------------|-----------|-------|
+| `$xs` | `maxWidth: 660` | Small phones -- tighter spacing, smaller fonts |
+| `$sm` | `maxWidth: 800` | Most phones -- primary design target |
+| `$gtXs` | `minWidth: 661` | Standard/large phones -- default spacing |
+
+#### `tamagui.config.ts` Structure
+
+This is the central configuration file for the mobile app's theme system:
+
+```
+tamagui.config.ts
+├── createAnimations()          # Spring presets (quick, bouncy, medium, slow, lazy)
+├── createTamagui()
+│   ├── themes                  # light, dark + sub-themes (light_primary, dark_primary, etc.)
+│   ├── tokens
+│   │   ├── color               # Brand colors + semantic variants
+│   │   ├── space               # Spacing scale (xs=4, sm=8, md=16, lg=24, xl=32, 2xl=48)
+│   │   ├── size                # Component size tokens
+│   │   └── radius              # Border radius (sm=8, md=12, full=9999)
+│   ├── fonts
+│   │   ├── body (Inter)        # Latin UI text
+│   │   └── heading (Inter)     # Headings
+│   └── media                   # Breakpoints ($xs, $sm, $gtXs from defaultConfig)
+```
+
 ### Decision Impact Analysis
 
 **Implementation Sequence:**
 1. Supabase schema setup (data architecture)
 2. Python backend deployment (Azure + Terraform)
 3. Mobile app state setup (TanStack Query + Zustand)
-4. API integration layer
-5. Error handling patterns
+4. **Tamagui theme & animation configuration** (tokens, sub-themes, animation presets)
+5. API integration layer
+6. Error handling patterns
 
 **Cross-Component Dependencies:**
 - Supabase JWT → Python backend auth verification
 - TanStack Query → REST endpoints → Python backend
 - Zustand quiz state → TanStack Query mutations for progress sync
+- **Tamagui config → All UI components** (theme tokens, animation presets, sub-themes)
 
 ## Implementation Patterns & Consistency Rules
 
 ### Pattern Categories Defined
 
 **Critical Conflict Points Identified:**
-12 areas where AI agents could make different choices - all now standardized below.
+18 areas where AI agents could make different choices - all now standardized below (including 6 Tamagui-specific patterns).
 
 ### Naming Patterns
 
@@ -501,6 +646,12 @@ if (isLoading) {
 5. Return direct responses with proper HTTP status codes (no envelope)
 6. Use ISO 8601 for API dates, date-fns for UI formatting
 7. Follow the query key structure: `[resource, ...identifiers]`
+8. Use Tamagui theme tokens (`$background`, `$color`, `$borderColor`, etc.) for all colors -- NEVER hardcode hex values in components
+9. Use `<Theme name="...">` sub-theme wrappers for contextual color contexts (success, error, primary)
+10. Use Tamagui declarative animation props (`enterStyle`, `exitStyle`, `pressStyle`) -- NOT imperative animation code
+11. Use `AnimatePresence` for all conditional rendering that requires enter/exit animations
+12. Use Tamagui media query props (`$xs`, `$sm`) -- NOT `Dimensions.get('window')` for responsive adjustments
+13. Use named animation presets (`animation="quick"`, `animation="bouncy"`) -- NOT inline spring configs
 
 **Pattern Enforcement:**
 
@@ -508,6 +659,7 @@ if (isLoading) {
 - TypeScript strict mode for type safety
 - PR reviews check pattern compliance
 - Shared types between frontend and backend via `types/` directory
+- Tamagui config validates theme token completeness at build time
 
 ### Pattern Examples
 
@@ -930,6 +1082,8 @@ LANGSMITH_API_KEY=ls-...  # optional
 **Decision Compatibility:**
 All technology choices validated as compatible:
 - React Native + Expo + Tamagui: First-class integration via @tamagui/metro-plugin
+- Tamagui + @tamagui/animations-moti + react-native-reanimated: Official animation driver with off-JS-thread performance
+- Tamagui sub-themes + light/dark mode: Built-in `parentTheme_subTheme` convention handles both
 - TanStack Query v5 + Zustand v5: Work together for server/local state separation
 - Supabase JS + Expo: Official support for React Native
 - LangGraph + FastAPI: Built-in HTTP layer support

@@ -2,6 +2,8 @@
 stepsCompleted: ['step-01-validate-prerequisites', 'step-02-design-epics', 'step-03-create-stories', 'step-04-final-validation']
 workflowComplete: true
 completedAt: 2026-02-15
+updatedAt: 2026-02-20
+updateReason: 'Added Story 1.1b (Tamagui Theme & Animation Configuration) and updated UX requirements to align with enriched UX Design Specification'
 inputDocuments:
   - '/home/maxime/repos/dangdai-app/_bmad-output/planning-artifacts/prd.md'
   - '/home/maxime/repos/dangdai-app/_bmad-output/planning-artifacts/architecture.md'
@@ -114,6 +116,11 @@ This document provides the complete epic and story breakdown for dangdai-app, de
 
 **From UX Design - UI/UX Requirements:**
 - Tamagui as UI framework with custom playful theme
+- `@tamagui/animations-moti` as animation driver with 5 named spring presets (`quick`, `bouncy`, `medium`, `slow`, `lazy`)
+- Tamagui sub-themes (`primary`, `success`, `error`, `warning`) for contextual color contexts
+- Full Tamagui semantic token set with interaction state variants (hover/press/focus)
+- Declarative animation props (`enterStyle`/`exitStyle`/`pressStyle`) and `AnimatePresence` for conditional rendering
+- Tamagui media queries (`$xs`, `$sm`) for responsive adjustments (NOT imperative Dimensions checks)
 - Sound + visual feedback for correct/incorrect answers (ding/bonk sounds)
 - GitHub-style activity calendar for progress tracking
 - Weekly/monthly activity counts (no streak guilt mechanics)
@@ -122,7 +129,7 @@ This document provides the complete epic and story breakdown for dangdai-app, de
 - Portrait-only orientation
 - Minimum 48px touch targets
 - 72px Chinese characters for quiz display
-- Light and dark mode support
+- Light and dark mode support with automatic sub-theme resolution
 - Gentle orange for wrong answers (not harsh red)
 
 **From UX Design - Component Requirements:**
@@ -286,6 +293,54 @@ So that I have a working foundation with routing, theming, and TypeScript config
 **And** the app runs successfully on iOS simulator and Android emulator
 **And** file-based routing is functional
 **And** TypeScript strict mode is enabled
+
+---
+
+### Story 1.1b: Configure Tamagui Theme, Sub-Themes & Animation Presets
+
+As a developer,
+I want to configure the Tamagui theme system with semantic tokens, sub-themes, and animation presets,
+So that all UI components have a consistent design foundation with light/dark mode, contextual color contexts, and standardized animations.
+
+**Acceptance Criteria:**
+
+**Given** the mobile app scaffold exists (Story 1.1 complete)
+**When** I configure `tamagui.config.ts`
+**Then** the following are defined and functional:
+
+**Theme Tokens:**
+- Light and dark themes with full Tamagui semantic token sets (`background`, `backgroundHover`, `backgroundPress`, `backgroundFocus`, `backgroundStrong`, `color`, `colorHover`, `colorPress`, `borderColor`, `borderColorHover`, `borderColorFocus`, `placeholderColor`)
+- Custom tokens: `surface` (card backgrounds), `colorSubtle` (muted text)
+- Brand color tokens: `primary` (#06B6D4), `primaryDark` (#0891B2), `primaryLight` (#22D3EE), `secondary` (#F97316), `success` (#22C55E), `error` (#FB923C), `warning` (#F59E0B)
+- Semantic color context tokens for success/error/warning (e.g., `successBackground`, `successBorder`, `successText`)
+
+**Sub-Themes:**
+- `primary`, `success`, `error`, `warning` sub-themes exist for both `light_` and `dark_` parents
+- Wrapping a component in `<Theme name="success">` correctly remaps `$background`, `$color`, `$borderColor` to success context colors
+- A visual test or storybook screen demonstrates all 4 sub-themes rendering correctly in both light and dark mode
+
+**Animation Presets:**
+- `@tamagui/animations-moti` is installed and configured as the animation driver
+- `react-native-reanimated` and `moti` peer dependencies are installed
+- 5 named animation presets are defined in `createAnimations()`:
+  - `quick`: `damping: 20, stiffness: 250, mass: 1.2`
+  - `bouncy`: `damping: 10, stiffness: 200, mass: 0.9`
+  - `medium`: `damping: 15, stiffness: 150, mass: 1.0`
+  - `slow`: `damping: 20, stiffness: 60, mass: 1.2`
+  - `lazy`: from defaultConfig
+- A component using `animation="bouncy"` with `enterStyle={{ opacity: 0, scale: 0.5 }}` animates correctly on mount
+
+**Design Tokens:**
+- Spacing scale: `xs=4, sm=8, md=16, lg=24, xl=32, 2xl=48`
+- Border radius: `sm=8, md=12, full=9999`
+- Font families: body (Inter), heading (Inter) configured with Tamagui `createFont()`
+- Media queries: `$xs`, `$sm`, `$gtXs` available from defaultConfig
+
+**Verification:**
+- The app renders with correct theme colors in both light and dark mode
+- `<Theme name="primary"><Button>Test</Button></Theme>` renders a teal-background button with white text
+- `AnimatePresence` with `enterStyle`/`exitStyle` correctly animates a test component in and out
+- No hardcoded hex values exist in any component file (only `$tokenName` references)
 
 ---
 
