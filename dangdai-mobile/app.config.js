@@ -3,28 +3,28 @@
 
 export default {
   expo: {
-    name: 'Dangdai',
-    slug: 'dangdai',
+    name: 'Maixin Chinese',
+    slug: 'maixin-chinese',
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/images/icon.png',
-    scheme: 'dangdai',
+    scheme: 'maixin-chinese',
     userInterfaceStyle: 'automatic',
     splash: {
-      image: './assets/images/splash.png',
+      image: './assets/images/splash-icon.png',
       resizeMode: 'contain',
-      backgroundColor: '#ffffff',
+      backgroundColor: '#0891B2',
     },
     assetBundlePatterns: ['**/*'],
     ios: {
       supportsTablet: true,
-      bundleIdentifier: 'com.maximegagne.dangdai',
+      bundleIdentifier: 'com.maximegagne.maixin-chinese',
       usesAppleSignIn: true,
     },
     android: {
       adaptiveIcon: {
         foregroundImage: './assets/images/adaptive-icon.png',
-        backgroundColor: '#ffffff',
+        backgroundColor: '#0891B2',
       },
     },
     web: {
@@ -48,6 +48,14 @@ export default {
       ],
       'expo-web-browser',
       'expo-apple-authentication',
+      [
+        'expo-splash-screen',
+        {
+          backgroundColor: '#0891B2',
+          image: './assets/images/splash-icon.png',
+          imageWidth: 200,
+        },
+      ],
     ],
     experiments: {
       typedRoutes: true,

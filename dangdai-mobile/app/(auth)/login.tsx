@@ -5,7 +5,7 @@ import { LoginForm } from '../../components/auth/LoginForm'
 export default function LoginScreen() {
   return (
     <SafeAreaView style={{ flex: 1 }}>
-      <YStack flex={1} paddingHorizontal="$4" gap="$4">
+      <YStack flex={1} paddingHorizontal="$4" gap="$8">
         <YStack gap="$2" paddingTop="$6" alignItems="center">
           <H1>Sign In</H1>
           <Text color="$colorSubtle">

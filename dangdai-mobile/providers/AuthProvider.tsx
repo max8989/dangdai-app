@@ -243,7 +243,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: 'dangdai://reset-password',
+        redirectTo: 'maixin-chinese://reset-password',
       })
 
       if (resetError) {

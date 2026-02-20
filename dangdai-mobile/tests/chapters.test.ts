@@ -22,7 +22,7 @@ test.describe('Chapter List Flow', () => {
 
     // For unauthenticated users, the login screen should be shown
     const loginVisible = await page.getByRole('heading', { name: 'Sign In' }).isVisible()
-    const homeVisible = await page.getByText('Dangdai').first().isVisible()
+    const homeVisible = await page.getByText('Maixin Chinese').first().isVisible()
 
     // Either login is shown (unauthenticated) or main app is shown (authenticated)
     expect(loginVisible || homeVisible).toBe(true)

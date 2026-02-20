@@ -5,7 +5,7 @@ import { ForgotPasswordForm } from '../../components/auth/ForgotPasswordForm'
 export default function ForgotPasswordScreen() {
   return (
     <SafeAreaView style={{ flex: 1 }}>
-      <YStack flex={1} paddingHorizontal="$4" gap="$4">
+      <YStack flex={1} paddingHorizontal="$4" gap="$8">
         <YStack gap="$2" paddingTop="$6" alignItems="center">
           <H1>Forgot Password?</H1>
           <Text color="$colorSubtle" textAlign="center">

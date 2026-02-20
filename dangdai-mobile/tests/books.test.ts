@@ -19,7 +19,7 @@ test.describe('Book Selection Flow', () => {
     // For unauthenticated users, the login screen should be shown
     // This validates the auth flow works correctly
     const loginVisible = await page.getByRole('heading', { name: 'Sign In' }).isVisible()
-    const homeVisible = await page.getByText('Dangdai').first().isVisible()
+    const homeVisible = await page.getByText('Maixin Chinese').first().isVisible()
 
     // Either login is shown (unauthenticated) or main app is shown (authenticated)
     expect(loginVisible || homeVisible).toBe(true)

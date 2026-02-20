@@ -5,7 +5,7 @@ import { SignupForm } from '../../components/auth/SignupForm'
 export default function SignupScreen() {
   return (
     <SafeAreaView style={{ flex: 1 }}>
-      <YStack flex={1} paddingHorizontal="$4" gap="$4">
+      <YStack flex={1} paddingHorizontal="$4" gap="$8">
         <YStack gap="$2" paddingTop="$6" alignItems="center">
           <H1>Create Account</H1>
           <Text color="$colorSubtle">

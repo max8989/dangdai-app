@@ -11,6 +11,7 @@ import { AuthProvider, useAuth } from '../providers/AuthProvider'
 import { SplashScreen as AppSplashScreen } from '../components/SplashScreen'
 import { supabase } from '../lib/supabase'
 import { useResolvedColorScheme } from '../hooks/useResolvedColorScheme'
+import { APP_NAME } from '../constants/app'
 
 // Custom navigation themes matching UX spec colors
 const customLightTheme = {
@@ -139,7 +140,7 @@ function RootLayoutNav() {
         <Stack.Screen
           name="modal"
           options={{
-            title: 'Dangdai',
+            title: APP_NAME,
             presentation: 'modal',
             animation: 'slide_from_right',
             gestureEnabled: true,
