@@ -646,6 +646,63 @@
             cursor: pointer;
         }
         
+        .d4-type-breakdown {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        
+        .d4-type-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 0;
+            font-size: 13px;
+        }
+        
+        .d4-type-name {
+            min-width: 80px;
+            text-align: left;
+            opacity: 0.9;
+        }
+        
+        .d4-type-bar {
+            flex: 1;
+            height: 6px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        
+        .d4-type-bar-fill {
+            height: 100%;
+            background: white;
+            border-radius: 3px;
+            opacity: 0.9;
+        }
+        
+        .d4-type-value {
+            min-width: 32px;
+            text-align: right;
+            opacity: 0.9;
+            font-weight: 500;
+        }
+        
+        .d4-improvement {
+            background: rgba(255,255,255,0.15);
+            border-radius: 12px;
+            padding: 12px 16px;
+            width: 100%;
+            text-align: left;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+        
+        .d4-improvement-title {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-bottom: 6px;
+        }
+        
         /* Direction 5: Dashboard Focus */
         .d5-screen {
             background: var(--bg);
@@ -899,6 +956,406 @@
             color: var(--success);
         }
         
+        .d6-type-dots {
+            display: flex;
+            gap: 4px;
+            margin-top: 6px;
+        }
+        
+        .d6-type-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--cal-empty);
+        }
+        
+        .d6-type-dot.mastered {
+            background: var(--success);
+        }
+        
+        .d6-type-dot.in-progress {
+            background: var(--primary);
+        }
+        
+        /* Direction 7: Exercise Type Selection */
+        .d7-screen {
+            background: var(--bg);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .d7-header {
+            padding: 16px 20px;
+            background: var(--surface);
+        }
+        
+        .d7-back {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--primary);
+            font-weight: 500;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        .d7-chapter-title {
+            font-size: 20px;
+            font-weight: 600;
+        }
+        
+        .d7-chapter-subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+        
+        .d7-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .d7-section-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+        
+        .d7-type-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        
+        .d7-type-card {
+            background: var(--surface);
+            border: 2px solid var(--progress-track);
+            border-radius: 16px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-height: 90px;
+            justify-content: center;
+        }
+        
+        .d7-type-card:hover {
+            border-color: var(--primary);
+        }
+        
+        .d7-type-card.mixed {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+        
+        .d7-type-card.mastered {
+            border-color: var(--success);
+        }
+        
+        .d7-type-card.in-progress {
+            border-color: var(--primary);
+        }
+        
+        .d7-type-icon {
+            font-size: 24px;
+        }
+        
+        .d7-type-label {
+            font-weight: 600;
+            font-size: 13px;
+            text-align: center;
+        }
+        
+        .d7-type-progress {
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        
+        .d7-type-card.mixed .d7-type-progress {
+            color: rgba(255,255,255,0.8);
+        }
+        
+        .d7-type-card.mastered .d7-type-progress {
+            color: var(--success);
+        }
+        
+        .d7-type-card.in-progress .d7-type-progress {
+            color: var(--primary);
+        }
+        
+        /* Direction 8: Weakness Dashboard */
+        .d8-screen {
+            background: var(--bg);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .d8-header {
+            padding: 16px 20px;
+            background: var(--surface);
+        }
+        
+        .d8-back {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--primary);
+            font-weight: 500;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        .d8-title {
+            font-size: 20px;
+            font-weight: 600;
+        }
+        
+        .d8-trend {
+            font-size: 14px;
+            color: var(--success);
+            margin-top: 2px;
+        }
+        
+        .d8-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .d8-section-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+            margin-top: 20px;
+        }
+        
+        .d8-section-label:first-child {
+            margin-top: 0;
+        }
+        
+        .d8-weak-card {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 10px;
+            border-left: 3px solid var(--error);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .d8-weak-card.improving {
+            border-left-color: var(--success);
+        }
+        
+        .d8-weak-char {
+            font-size: 28px;
+            min-width: 48px;
+            text-align: center;
+        }
+        
+        .d8-weak-info {
+            flex: 1;
+        }
+        
+        .d8-weak-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .d8-weak-detail {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+        
+        .d8-weak-bar {
+            height: 6px;
+            background: var(--progress-track);
+            border-radius: 3px;
+            margin-top: 6px;
+            overflow: hidden;
+        }
+        
+        .d8-weak-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+        }
+        
+        .d8-weak-bar-fill.low { background: var(--error); }
+        .d8-weak-bar-fill.medium { background: var(--warning); }
+        .d8-weak-bar-fill.high { background: var(--success); }
+        
+        .d8-weak-action {
+            color: var(--primary);
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        
+        .d8-accuracy-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 0;
+        }
+        
+        .d8-accuracy-label {
+            font-size: 13px;
+            min-width: 90px;
+            color: var(--text-primary);
+        }
+        
+        .d8-accuracy-bar {
+            flex: 1;
+            height: 8px;
+            background: var(--progress-track);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .d8-accuracy-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+        }
+        
+        .d8-accuracy-value {
+            font-size: 13px;
+            font-weight: 600;
+            min-width: 36px;
+            text-align: right;
+        }
+        
+        /* Direction 9: Matching Exercise */
+        .d9-screen {
+            background: var(--bg);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .d9-header {
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .d9-type-badge {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--primary);
+            background: var(--bg);
+            padding: 4px 10px;
+            border-radius: 12px;
+            border: 1px solid var(--primary);
+        }
+        
+        .d9-progress-bar {
+            flex: 1;
+            height: 8px;
+            background: var(--progress-track);
+            border-radius: 4px;
+            margin: 0 16px;
+            overflow: hidden;
+        }
+        
+        .d9-progress-fill {
+            height: 100%;
+            background: var(--primary);
+            border-radius: 4px;
+        }
+        
+        .d9-count {
+            font-size: 14px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        
+        .d9-content {
+            flex: 1;
+            padding: 16px 20px;
+        }
+        
+        .d9-instruction {
+            font-size: 14px;
+            color: var(--text-secondary);
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .d9-match-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .d9-match-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .d9-match-item {
+            flex: 1;
+            background: var(--surface);
+            border: 2px solid var(--progress-track);
+            border-radius: 12px;
+            padding: 14px;
+            text-align: center;
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-height: 54px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .d9-match-item:hover {
+            border-color: var(--primary);
+        }
+        
+        .d9-match-item.selected {
+            border-color: var(--primary);
+            background: var(--bg);
+        }
+        
+        .d9-match-item.matched {
+            border-color: var(--success);
+            background: #dcfce7;
+            opacity: 0.7;
+        }
+        
+        [data-theme="dark"] .d9-match-item.matched {
+            background: #14532D;
+        }
+        
+        .d9-match-connector {
+            width: 24px;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+        
+        .d9-match-connector.connected {
+            color: var(--success);
+        }
+        
         /* Traits list */
         .traits-list {
             margin-top: 24px;
@@ -934,7 +1391,7 @@
             <span id="theme-label">Dark Mode</span>
         </button>
         <h1>Dangdai App - Design Direction Exploration</h1>
-        <p>Explore different visual approaches for the app. Click tabs to see each screen type. Toggle dark mode to preview both themes.</p>
+        <p>Explore different visual approaches for the app. Click tabs to see each screen type. Toggle dark mode to preview both themes. Directions 7-9 reflect PRD v2.0 additions (exercise types, weakness dashboard, matching).</p>
         <div class="nav-tabs">
             <button class="nav-tab active" onclick="showDirection('d1')">1. Dashboard (Clean)</button>
             <button class="nav-tab" onclick="showDirection('d2')">2. Dashboard (Vibrant)</button>
@@ -942,6 +1399,9 @@
             <button class="nav-tab" onclick="showDirection('d4')">4. Completion</button>
             <button class="nav-tab" onclick="showDirection('d5')">5. Progress Focus</button>
             <button class="nav-tab" onclick="showDirection('d6')">6. Chapter Select</button>
+            <button class="nav-tab" onclick="showDirection('d7')">7. Exercise Types</button>
+            <button class="nav-tab" onclick="showDirection('d8')">8. Weakness Dashboard</button>
+            <button class="nav-tab" onclick="showDirection('d9')">9. Matching Exercise</button>
         </div>
     </div>
     
@@ -1255,7 +1715,7 @@
                             <div class="d4-screen">
                                 <div class="d4-trophy">🎉</div>
                                 <div class="d4-title">Exercise Complete!</div>
-                                <div class="d4-subtitle">Chapter 12: 我的家人</div>
+                                <div class="d4-subtitle">Chapter 12: 我的家人 · Matching</div>
                                 
                                 <div class="d4-stats-row">
                                     <div class="d4-stat-item">
@@ -1272,16 +1732,38 @@
                                     </div>
                                 </div>
                                 
-                                <div class="d4-summary-card">
-                                    <div class="d4-summary-title">Review these words:</div>
-                                    <div class="d4-weak-item">
-                                        <div class="d4-weak-char">會</div>
-                                        <div>huì - can/will</div>
+                                <div class="d4-type-breakdown">
+                                    <div style="font-size: 12px; opacity: 0.7; margin-bottom: 8px;">CHAPTER 12 PROGRESS</div>
+                                    <div class="d4-type-row">
+                                        <div class="d4-type-name">Vocabulary</div>
+                                        <div class="d4-type-bar"><div class="d4-type-bar-fill" style="width: 85%;"></div></div>
+                                        <div class="d4-type-value">85% ✓</div>
                                     </div>
-                                    <div class="d4-weak-item">
-                                        <div class="d4-weak-char">可以</div>
-                                        <div>kěyǐ - can/may</div>
+                                    <div class="d4-type-row">
+                                        <div class="d4-type-name">Grammar</div>
+                                        <div class="d4-type-bar"><div class="d4-type-bar-fill" style="width: 65%;"></div></div>
+                                        <div class="d4-type-value">65%</div>
                                     </div>
+                                    <div class="d4-type-row">
+                                        <div class="d4-type-name" style="font-weight: 600;">Matching</div>
+                                        <div class="d4-type-bar"><div class="d4-type-bar-fill" style="width: 80%;"></div></div>
+                                        <div class="d4-type-value" style="font-weight: 600;">80% ←</div>
+                                    </div>
+                                    <div class="d4-type-row">
+                                        <div class="d4-type-name" style="opacity: 0.5;">Fill-in-Blank</div>
+                                        <div class="d4-type-bar"><div class="d4-type-bar-fill" style="width: 0%;"></div></div>
+                                        <div class="d4-type-value" style="opacity: 0.5;">New</div>
+                                    </div>
+                                    <div class="d4-type-row">
+                                        <div class="d4-type-name" style="opacity: 0.5;">Dialogue</div>
+                                        <div class="d4-type-bar"><div class="d4-type-bar-fill" style="width: 0%;"></div></div>
+                                        <div class="d4-type-value" style="opacity: 0.5;">New</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="d4-improvement">
+                                    <div class="d4-improvement-title">FOCUS AREA UPDATE</div>
+                                    會 vs 可以: 60% → 80% ↑ Getting stronger!
                                 </div>
                                 
                                 <button class="d4-continue-btn">Continue</button>
@@ -1296,14 +1778,17 @@
                         <div class="trait"><span class="trait-icon">✓</span> Large celebratory emoji</div>
                         <div class="trait"><span class="trait-icon">✓</span> Points prominently displayed</div>
                         <div class="trait"><span class="trait-icon">✓</span> Stats summary (correct, accuracy)</div>
-                        <div class="trait"><span class="trait-icon">✓</span> "Review these words" summary</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Per-exercise-type progress breakdown</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Currently completed type highlighted (← arrow)</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Focus area improvement feedback</div>
                         <div class="trait"><span class="trait-icon">✓</span> Gradient background (success green)</div>
                     </div>
                     <div class="traits-list" style="margin-top: 16px;">
                         <h4>EMOTIONAL IMPACT</h4>
-                        <div class="trait"><span class="trait-icon">→</span> Feels like an achievement</div>
+                        <div class="trait"><span class="trait-icon">→</span> Feels like an achievement + chapter progress visible</div>
                         <div class="trait"><span class="trait-icon">→</span> Points animation creates satisfaction</div>
-                        <div class="trait"><span class="trait-icon">→</span> Review summary is helpful, not shaming</div>
+                        <div class="trait"><span class="trait-icon">→</span> Per-type bars motivate trying more types</div>
+                        <div class="trait"><span class="trait-icon">→</span> Weakness improvement celebrated with ↑ arrows</div>
                         <div class="trait"><span class="trait-icon">→</span> Clear path forward with "Continue"</div>
                     </div>
                 </div>
@@ -1442,6 +1927,15 @@
                                             <div class="d6-chapter-info">
                                                 <div class="d6-chapter-name">Chapter 10</div>
                                                 <div class="d6-chapter-name-cn">天氣怎麼樣?</div>
+                                                <div class="d6-type-dots">
+                                                    <div class="d6-type-dot mastered" title="Vocabulary"></div>
+                                                    <div class="d6-type-dot mastered" title="Grammar"></div>
+                                                    <div class="d6-type-dot mastered" title="Fill-in-Blank"></div>
+                                                    <div class="d6-type-dot mastered" title="Matching"></div>
+                                                    <div class="d6-type-dot mastered" title="Dialogue"></div>
+                                                    <div class="d6-type-dot mastered" title="Sentence Build"></div>
+                                                    <div class="d6-type-dot mastered" title="Reading"></div>
+                                                </div>
                                             </div>
                                             <div class="d6-chapter-progress">100%</div>
                                         </div>
@@ -1450,6 +1944,15 @@
                                             <div class="d6-chapter-info">
                                                 <div class="d6-chapter-name">Chapter 11</div>
                                                 <div class="d6-chapter-name-cn">你會說中文嗎?</div>
+                                                <div class="d6-type-dots">
+                                                    <div class="d6-type-dot mastered" title="Vocabulary"></div>
+                                                    <div class="d6-type-dot mastered" title="Grammar"></div>
+                                                    <div class="d6-type-dot mastered" title="Fill-in-Blank"></div>
+                                                    <div class="d6-type-dot mastered" title="Matching"></div>
+                                                    <div class="d6-type-dot mastered" title="Dialogue"></div>
+                                                    <div class="d6-type-dot mastered" title="Sentence Build"></div>
+                                                    <div class="d6-type-dot mastered" title="Reading"></div>
+                                                </div>
                                             </div>
                                             <div class="d6-chapter-progress">100%</div>
                                         </div>
@@ -1458,6 +1961,15 @@
                                             <div class="d6-chapter-info">
                                                 <div class="d6-chapter-name">Chapter 12</div>
                                                 <div class="d6-chapter-name-cn">我的家人</div>
+                                                <div class="d6-type-dots">
+                                                    <div class="d6-type-dot mastered" title="Vocabulary ✓"></div>
+                                                    <div class="d6-type-dot in-progress" title="Grammar 60%"></div>
+                                                    <div class="d6-type-dot" title="Fill-in-Blank"></div>
+                                                    <div class="d6-type-dot in-progress" title="Matching 80%"></div>
+                                                    <div class="d6-type-dot in-progress" title="Dialogue 40%"></div>
+                                                    <div class="d6-type-dot" title="Sentence Build"></div>
+                                                    <div class="d6-type-dot" title="Reading"></div>
+                                                </div>
                                             </div>
                                             <div class="d6-chapter-progress">65%</div>
                                         </div>
@@ -1466,6 +1978,15 @@
                                             <div class="d6-chapter-info">
                                                 <div class="d6-chapter-name">Chapter 13</div>
                                                 <div class="d6-chapter-name-cn">我住在學校附近</div>
+                                                <div class="d6-type-dots">
+                                                    <div class="d6-type-dot" title="Vocabulary"></div>
+                                                    <div class="d6-type-dot" title="Grammar"></div>
+                                                    <div class="d6-type-dot" title="Fill-in-Blank"></div>
+                                                    <div class="d6-type-dot" title="Matching"></div>
+                                                    <div class="d6-type-dot" title="Dialogue"></div>
+                                                    <div class="d6-type-dot" title="Sentence Build"></div>
+                                                    <div class="d6-type-dot" title="Reading"></div>
+                                                </div>
                                             </div>
                                             <div class="d6-chapter-progress">0%</div>
                                         </div>
@@ -1474,6 +1995,15 @@
                                             <div class="d6-chapter-info">
                                                 <div class="d6-chapter-name">Chapter 14</div>
                                                 <div class="d6-chapter-name-cn">生日快樂</div>
+                                                <div class="d6-type-dots">
+                                                    <div class="d6-type-dot" title="Vocabulary"></div>
+                                                    <div class="d6-type-dot" title="Grammar"></div>
+                                                    <div class="d6-type-dot" title="Fill-in-Blank"></div>
+                                                    <div class="d6-type-dot" title="Matching"></div>
+                                                    <div class="d6-type-dot" title="Dialogue"></div>
+                                                    <div class="d6-type-dot" title="Sentence Build"></div>
+                                                    <div class="d6-type-dot" title="Reading"></div>
+                                                </div>
                                             </div>
                                             <div class="d6-chapter-progress">0%</div>
                                         </div>
@@ -1491,14 +2021,314 @@
                         <div class="trait"><span class="trait-icon">✓</span> Completion checkmarks</div>
                         <div class="trait"><span class="trait-icon">✓</span> Current chapter highlighted</div>
                         <div class="trait"><span class="trait-icon">✓</span> Percentage progress shown</div>
+                        <div class="trait"><span class="trait-icon">✓</span> <strong>Per-exercise-type dots</strong> (7 dots per chapter)</div>
                         <div class="trait"><span class="trait-icon">✓</span> All chapters accessible (open nav)</div>
+                    </div>
+                    <div class="traits-list" style="margin-top: 16px;">
+                        <h4>PER-TYPE PROGRESS DOTS</h4>
+                        <div class="trait"><span class="trait-icon" style="color: var(--success);">●</span> Green = mastered (80%+)</div>
+                        <div class="trait"><span class="trait-icon" style="color: var(--primary);">●</span> Teal = in progress</div>
+                        <div class="trait"><span class="trait-icon" style="color: var(--cal-empty);">●</span> Gray = not started</div>
+                        <div class="trait"><span class="trait-icon">→</span> Hover/tap shows exercise type name</div>
                     </div>
                     <div class="traits-list" style="margin-top: 16px;">
                         <h4>NAVIGATION APPROACH</h4>
                         <div class="trait"><span class="trait-icon">→</span> No locked chapters (matches PRD)</div>
                         <div class="trait"><span class="trait-icon">→</span> Can jump to any chapter</div>
-                        <div class="trait"><span class="trait-icon">→</span> Visual distinction for current</div>
+                        <div class="trait"><span class="trait-icon">→</span> Tapping goes to Exercise Type Selection</div>
                         <div class="trait"><span class="trait-icon">→</span> Back navigation to books list</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Direction 7: Exercise Type Selection -->
+        <div class="direction" id="d7">
+            <div class="direction-header">
+                <h2>Direction 7: Exercise Type Selection</h2>
+                <p>After selecting a chapter, users choose from 7 exercise types (or "Mixed"). Per-type progress shown on each card.</p>
+            </div>
+            <div class="mockup-grid">
+                <div class="mockup-card">
+                    <h3>Exercise Type Selection</h3>
+                    <div class="phone-frame">
+                        <div class="phone-notch"></div>
+                        <div class="phone-screen">
+                            <div class="d7-screen">
+                                <div class="d7-header">
+                                    <div class="d7-back">&larr; Book 2</div>
+                                    <div class="d7-chapter-title">Chapter 12: My Family</div>
+                                    <div class="d7-chapter-subtitle">我的家人</div>
+                                </div>
+                                <div class="d7-content">
+                                    <div class="d7-section-label">Choose Exercise Type</div>
+                                    <div class="d7-type-grid">
+                                        <div class="d7-type-card mixed">
+                                            <div class="d7-type-icon">🎯</div>
+                                            <div class="d7-type-label">Mixed</div>
+                                            <div class="d7-type-progress">AI picks for you</div>
+                                        </div>
+                                        <div class="d7-type-card mastered">
+                                            <div class="d7-type-icon">🔤</div>
+                                            <div class="d7-type-label">Vocabulary</div>
+                                            <div class="d7-type-progress">85% ✓</div>
+                                        </div>
+                                        <div class="d7-type-card in-progress">
+                                            <div class="d7-type-icon">📖</div>
+                                            <div class="d7-type-label">Grammar</div>
+                                            <div class="d7-type-progress">60%</div>
+                                        </div>
+                                        <div class="d7-type-card">
+                                            <div class="d7-type-icon">✏️</div>
+                                            <div class="d7-type-label">Fill-in-Blank</div>
+                                            <div class="d7-type-progress">New</div>
+                                        </div>
+                                        <div class="d7-type-card">
+                                            <div class="d7-type-icon">🔗</div>
+                                            <div class="d7-type-label">Matching</div>
+                                            <div class="d7-type-progress">New</div>
+                                        </div>
+                                        <div class="d7-type-card in-progress">
+                                            <div class="d7-type-icon">💬</div>
+                                            <div class="d7-type-label">Dialogue</div>
+                                            <div class="d7-type-progress">40%</div>
+                                        </div>
+                                        <div class="d7-type-card">
+                                            <div class="d7-type-icon">🏗️</div>
+                                            <div class="d7-type-label">Sentence Build</div>
+                                            <div class="d7-type-progress">New</div>
+                                        </div>
+                                        <div class="d7-type-card">
+                                            <div class="d7-type-icon">📚</div>
+                                            <div class="d7-type-label">Reading</div>
+                                            <div class="d7-type-progress">New</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mockup-card">
+                    <div class="traits-list">
+                        <h4>EXERCISE TYPE SELECTION PATTERNS</h4>
+                        <div class="trait"><span class="trait-icon">✓</span> 2-column grid for 8 cards (7 types + Mixed)</div>
+                        <div class="trait"><span class="trait-icon">✓</span> "Mixed" card prominent with primary color</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Per-type progress shown (%, "New", checkmark)</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Color-coded borders: green=mastered, teal=in progress</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Emoji icons for quick recognition</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Minimum 48px touch target per card</div>
+                    </div>
+                    <div class="traits-list" style="margin-top: 16px;">
+                        <h4>DESIGN RATIONALE</h4>
+                        <div class="trait"><span class="trait-icon">→</span> Grid prevents overwhelm vs. long list</div>
+                        <div class="trait"><span class="trait-icon">→</span> Mixed at top-left guides new users</div>
+                        <div class="trait"><span class="trait-icon">→</span> Progress on cards motivates coverage</div>
+                        <div class="trait"><span class="trait-icon">→</span> "New" label invites exploration</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Direction 8: Weakness Dashboard -->
+        <div class="direction" id="d8">
+            <div class="direction-header">
+                <h2>Direction 8: Weakness Dashboard</h2>
+                <p>Focus areas presented in a motivating, non-judgmental way. Tappable cards launch focused drills.</p>
+            </div>
+            <div class="mockup-grid">
+                <div class="mockup-card">
+                    <h3>Your Focus Areas</h3>
+                    <div class="phone-frame">
+                        <div class="phone-notch"></div>
+                        <div class="phone-screen">
+                            <div class="d8-screen">
+                                <div class="d8-header">
+                                    <div class="d8-back">&larr; Dashboard</div>
+                                    <div class="d8-title">Your Focus Areas</div>
+                                    <div class="d8-trend">↑ Improving this week</div>
+                                </div>
+                                <div class="d8-content">
+                                    <div class="d8-section-label">Vocabulary Focus</div>
+                                    
+                                    <div class="d8-weak-card improving">
+                                        <div class="d8-weak-char">會</div>
+                                        <div class="d8-weak-info">
+                                            <div class="d8-weak-name">會 vs 可以</div>
+                                            <div class="d8-weak-detail">Missed 4x in Ch. 10-12 · ↑ Improving</div>
+                                            <div class="d8-weak-bar"><div class="d8-weak-bar-fill medium" style="width: 60%;"></div></div>
+                                        </div>
+                                        <div class="d8-weak-action">Practice</div>
+                                    </div>
+                                    
+                                    <div class="d8-weak-card">
+                                        <div class="d8-weak-char">該</div>
+                                        <div class="d8-weak-info">
+                                            <div class="d8-weak-name">應該 vs 該</div>
+                                            <div class="d8-weak-detail">Missed 3x in Ch. 11</div>
+                                            <div class="d8-weak-bar"><div class="d8-weak-bar-fill low" style="width: 40%;"></div></div>
+                                        </div>
+                                        <div class="d8-weak-action">Practice</div>
+                                    </div>
+                                    
+                                    <div class="d8-section-label">Grammar Focus</div>
+                                    
+                                    <div class="d8-weak-card">
+                                        <div class="d8-weak-char" style="font-size: 18px;">把</div>
+                                        <div class="d8-weak-info">
+                                            <div class="d8-weak-name">把 Construction</div>
+                                            <div class="d8-weak-detail">Accuracy: 45%</div>
+                                            <div class="d8-weak-bar"><div class="d8-weak-bar-fill low" style="width: 45%;"></div></div>
+                                        </div>
+                                        <div class="d8-weak-action">Practice</div>
+                                    </div>
+                                    
+                                    <div class="d8-section-label">Exercise Type Accuracy</div>
+                                    
+                                    <div class="d8-accuracy-row">
+                                        <div class="d8-accuracy-label">Vocabulary</div>
+                                        <div class="d8-accuracy-bar"><div class="d8-accuracy-bar-fill" style="width: 85%; background: var(--success);"></div></div>
+                                        <div class="d8-accuracy-value">85%</div>
+                                    </div>
+                                    <div class="d8-accuracy-row">
+                                        <div class="d8-accuracy-label">Grammar</div>
+                                        <div class="d8-accuracy-bar"><div class="d8-accuracy-bar-fill" style="width: 65%; background: var(--warning);"></div></div>
+                                        <div class="d8-accuracy-value">65%</div>
+                                    </div>
+                                    <div class="d8-accuracy-row">
+                                        <div class="d8-accuracy-label">Fill-in-Blank</div>
+                                        <div class="d8-accuracy-bar"><div class="d8-accuracy-bar-fill" style="width: 70%; background: var(--warning);"></div></div>
+                                        <div class="d8-accuracy-value">70%</div>
+                                    </div>
+                                    <div class="d8-accuracy-row">
+                                        <div class="d8-accuracy-label">Matching</div>
+                                        <div class="d8-accuracy-bar"><div class="d8-accuracy-bar-fill" style="width: 55%; background: var(--error);"></div></div>
+                                        <div class="d8-accuracy-value">55%</div>
+                                    </div>
+                                    <div class="d8-accuracy-row">
+                                        <div class="d8-accuracy-label">Dialogue</div>
+                                        <div class="d8-accuracy-bar"><div class="d8-accuracy-bar-fill" style="width: 40%; background: var(--error);"></div></div>
+                                        <div class="d8-accuracy-value">40%</div>
+                                    </div>
+                                    <div class="d8-accuracy-row">
+                                        <div class="d8-accuracy-label">Sent. Build</div>
+                                        <div class="d8-accuracy-bar"><div class="d8-accuracy-bar-fill" style="width: 40%; background: var(--error);"></div></div>
+                                        <div class="d8-accuracy-value">40%</div>
+                                    </div>
+                                    <div class="d8-accuracy-row">
+                                        <div class="d8-accuracy-label">Reading</div>
+                                        <div class="d8-accuracy-bar"><div class="d8-accuracy-bar-fill" style="width: 0%; background: var(--progress-track);"></div></div>
+                                        <div class="d8-accuracy-value" style="color: var(--text-secondary);">New</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mockup-card">
+                    <div class="traits-list">
+                        <h4>WEAKNESS DASHBOARD PATTERNS</h4>
+                        <div class="trait"><span class="trait-icon">✓</span> "Focus Areas" not "Weaknesses" - positive framing</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Three sections: Vocabulary, Grammar, Exercise Types</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Each item is tappable to launch focused drill</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Improvement arrows (↑) celebrate progress</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Warm orange for low scores (not red)</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Color-coded bars: green >80%, amber 50-79%, orange <50%</div>
+                    </div>
+                    <div class="traits-list" style="margin-top: 16px;">
+                        <h4>EMOTIONAL DESIGN</h4>
+                        <div class="trait"><span class="trait-icon">→</span> Overall trend shows improvement direction</div>
+                        <div class="trait"><span class="trait-icon">→</span> Encourages action with "Practice" CTAs</div>
+                        <div class="trait"><span class="trait-icon">→</span> No shame language - focus on growth</div>
+                        <div class="trait"><span class="trait-icon">→</span> Items that improve past 80% celebrate and graduate</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Direction 9: Matching Exercise -->
+        <div class="direction" id="d9">
+            <div class="direction-header">
+                <h2>Direction 9: Matching Exercise</h2>
+                <p>Tap-to-pair interaction for matching exercises. Select left item, then right item to match.</p>
+            </div>
+            <div class="mockup-grid">
+                <div class="mockup-card">
+                    <h3>Matching - In Progress</h3>
+                    <div class="phone-frame">
+                        <div class="phone-notch"></div>
+                        <div class="phone-screen">
+                            <div class="d9-screen">
+                                <div class="d9-header">
+                                    <div class="d9-type-badge">Matching</div>
+                                    <div class="d9-progress-bar">
+                                        <div class="d9-progress-fill" style="width: 50%;"></div>
+                                    </div>
+                                    <div class="d9-count">3/6</div>
+                                </div>
+                                <div class="d9-content">
+                                    <div class="d9-instruction">Tap a character, then tap its matching pinyin</div>
+                                    
+                                    <div class="d9-match-grid">
+                                        <div class="d9-match-row">
+                                            <div class="d9-match-item matched" style="font-size: 28px;">她</div>
+                                            <div class="d9-match-connector connected">—</div>
+                                            <div class="d9-match-item matched">tā</div>
+                                        </div>
+                                        <div class="d9-match-row">
+                                            <div class="d9-match-item matched" style="font-size: 28px;">吃</div>
+                                            <div class="d9-match-connector connected">—</div>
+                                            <div class="d9-match-item matched">chī</div>
+                                        </div>
+                                        <div class="d9-match-row">
+                                            <div class="d9-match-item matched" style="font-size: 28px;">咖啡</div>
+                                            <div class="d9-match-connector connected">—</div>
+                                            <div class="d9-match-item matched">kāfēi</div>
+                                        </div>
+                                        <div class="d9-match-row">
+                                            <div class="d9-match-item selected" style="font-size: 28px;">喜歡</div>
+                                            <div class="d9-match-connector">?</div>
+                                            <div class="d9-match-item">hē</div>
+                                        </div>
+                                        <div class="d9-match-row">
+                                            <div class="d9-match-item" style="font-size: 28px;">喝</div>
+                                            <div class="d9-match-connector">?</div>
+                                            <div class="d9-match-item">xǐhuān</div>
+                                        </div>
+                                        <div class="d9-match-row">
+                                            <div class="d9-match-item" style="font-size: 28px;">書</div>
+                                            <div class="d9-match-connector">?</div>
+                                            <div class="d9-match-item">shū</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mockup-card">
+                    <div class="traits-list">
+                        <h4>MATCHING INTERACTION PATTERNS</h4>
+                        <div class="trait"><span class="trait-icon">✓</span> Two columns: characters (left) and pinyin (right)</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Tap left item to select, then tap right to match</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Matched pairs show green border + connector</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Selected item highlighted with teal border</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Matched pairs dim to show completion</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Exercise type badge shown in header</div>
+                    </div>
+                    <div class="traits-list" style="margin-top: 16px;">
+                        <h4>FEEDBACK</h4>
+                        <div class="trait"><span class="trait-icon" style="color: var(--success);">✓</span> Correct match: green + "ding" sound</div>
+                        <div class="trait"><span class="trait-icon" style="color: var(--error);">✓</span> Incorrect: items shake + gentle "bonk"</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Progress bar updates per match</div>
+                        <div class="trait"><span class="trait-icon">✓</span> Chinese characters at 28px+ for readability</div>
+                    </div>
+                    <div class="traits-list" style="margin-top: 16px;">
+                        <h4>OTHER EXERCISE TYPE MOCKUPS</h4>
+                        <div class="trait"><span class="trait-icon">→</span> Sentence Construction: word tiles to reorder</div>
+                        <div class="trait"><span class="trait-icon">→</span> Dialogue Completion: conversation bubbles</div>
+                        <div class="trait"><span class="trait-icon">→</span> Fill-in-Blank: horizontal word bank selector</div>
+                        <div class="trait"><span class="trait-icon">→</span> Reading: scrollable passage + questions</div>
                     </div>
                 </div>
             </div>
