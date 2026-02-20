@@ -1,13 +1,31 @@
 """Supabase client configuration.
 
-This module provides the Supabase client for database operations.
+Provide a singleton Supabase client for database operations.
 """
 
+from __future__ import annotations
 
-def get_supabase_client():
-    """Get configured Supabase client.
+from functools import lru_cache
+from typing import Any
+
+from supabase import create_client  # type: ignore[attr-defined]
+
+from src.utils.config import settings
+
+
+@lru_cache(maxsize=1)
+def get_supabase_client() -> Any:
+    """Get configured Supabase client (singleton).
 
     Returns:
-        Supabase client instance.
+        Supabase Client instance configured with service key.
+
+    Raises:
+        ValueError: If SUPABASE_URL or SUPABASE_SERVICE_KEY is not set.
     """
-    pass
+    if not settings.SUPABASE_URL:
+        raise ValueError("SUPABASE_URL environment variable is required")
+    if not settings.SUPABASE_SERVICE_KEY:
+        raise ValueError("SUPABASE_SERVICE_KEY environment variable is required")
+
+    return create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)

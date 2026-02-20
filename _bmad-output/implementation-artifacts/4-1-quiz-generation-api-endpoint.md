@@ -1,6 +1,6 @@
 # Story 4.1: Quiz Generation API Endpoint (All Exercise Types)
 
-Status: in-progress
+Status: review
 
 ## Story
 
@@ -39,59 +39,59 @@ So that the mobile app can request AI-generated quizzes for any chapter and exer
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add missing Python dependencies (AC: all)
-  - [ ] 1.1 Add `langchain-core`, `langchain-anthropic` (or `langchain-openai`), `supabase` to `pyproject.toml`
-  - [ ] 1.2 Add `pydantic-settings` for typed config
-  - [ ] 1.3 Run `uv sync` and verify imports work
+- [x] Task 1: Add missing Python dependencies (AC: all)
+  - [x] 1.1 Add `langchain-core`, `langchain-anthropic` (or `langchain-openai`), `supabase` to `pyproject.toml`
+  - [x] 1.2 Add `pydantic-settings` for typed config
+  - [x] 1.3 Run `uv sync` and verify imports work
 
-- [ ] Task 2: Implement Supabase client utility (AC: #1, #4)
-  - [ ] 2.1 Implement `src/utils/supabase.py` with Supabase service-key client
-  - [ ] 2.2 Implement `src/utils/llm.py` with LLM client initialization (Anthropic or OpenAI via LangChain)
+- [x] Task 2: Implement Supabase client utility (AC: #1, #4)
+  - [x] 2.1 Implement `src/utils/supabase.py` with Supabase service-key client
+  - [x] 2.2 Implement `src/utils/llm.py` with LLM client initialization (Anthropic or OpenAI via LangChain)
 
-- [ ] Task 3: Implement JWT authentication (AC: #4, #5)
-  - [ ] 3.1 Implement `src/api/dependencies.py` `verify_jwt_token()` using Supabase JWT verification
-  - [ ] 3.2 Implement `get_current_user()` dependency returning user_id from JWT
-  - [ ] 3.3 Apply auth dependency to quiz routes
+- [x] Task 3: Implement JWT authentication (AC: #4, #5)
+  - [x] 3.1 Implement `src/api/dependencies.py` `verify_jwt_token()` using Supabase JWT verification
+  - [x] 3.2 Implement `get_current_user()` dependency returning user_id from JWT
+  - [x] 3.3 Apply auth dependency to quiz routes
 
-- [ ] Task 4: Implement RAG retrieval (AC: #1, #3)
-  - [ ] 4.1 Implement `src/repositories/vector_store.py` - pgvector similarity search filtered by book, lesson, exercise_type
-  - [ ] 4.2 Implement `src/services/rag_service.py` - orchestrate retrieval with fallback to broader chapter content
-  - [ ] 4.3 Implement `src/repositories/chapter_repo.py` - chapter metadata lookup
+- [x] Task 4: Implement RAG retrieval (AC: #1, #3)
+  - [x] 4.1 Implement `src/repositories/vector_store.py` - pgvector similarity search filtered by book, lesson, exercise_type
+  - [x] 4.2 Implement `src/services/rag_service.py` - orchestrate retrieval with fallback to broader chapter content
+  - [x] 4.3 Implement `src/repositories/chapter_repo.py` - chapter metadata lookup
 
-- [ ] Task 5: Implement weakness profile querying (AC: #2)
-  - [ ] 5.1 Create `src/repositories/performance_repo.py` - query `question_results` for weakness aggregation
-  - [ ] 5.2 Create `src/services/weakness_service.py` - compute weakness profile from question_results
+- [x] Task 5: Implement weakness profile querying (AC: #2)
+  - [x] 5.1 Create `src/repositories/performance_repo.py` - query `question_results` for weakness aggregation
+  - [x] 5.2 Create `src/services/weakness_service.py` - compute weakness profile from question_results
 
-- [ ] Task 6: Implement LangGraph quiz generation agent (AC: #1, #2)
-  - [ ] 6.1 Define `QuizGenerationState` in `src/agent/state.py` (replace placeholder)
-  - [ ] 6.2 Implement graph nodes in `src/agent/nodes.py`:
+- [x] Task 6: Implement LangGraph quiz generation agent (AC: #1, #2)
+  - [x] 6.1 Define `QuizGenerationState` in `src/agent/state.py` (replace placeholder)
+  - [x] 6.2 Implement graph nodes in `src/agent/nodes.py`:
     - `retrieve_content` - calls RAG service
     - `query_weakness` - calls weakness service
     - `generate_quiz` - calls LLM with exercise-type-specific prompts
     - `validate_quiz` - self-check node (correct answers, distinct options, curriculum alignment)
-  - [ ] 6.3 Write exercise-type-specific prompts in `src/agent/prompts.py`
-  - [ ] 6.4 Wire nodes into graph in `src/agent/graph.py` (replace template graph)
+  - [x] 6.3 Write exercise-type-specific prompts in `src/agent/prompts.py`
+  - [x] 6.4 Wire nodes into graph in `src/agent/graph.py` (replace template graph)
 
-- [ ] Task 7: Implement Pydantic schemas for all 7 exercise types (AC: #1)
-  - [ ] 7.1 Define exercise-type-specific question models in `src/api/schemas.py`
-  - [ ] 7.2 Define `QuizGenerateRequest` and `QuizGenerateResponse` models
-  - [ ] 7.3 Define `QuizQuestion` base + type-specific variants
+- [x] Task 7: Implement Pydantic schemas for all 7 exercise types (AC: #1)
+  - [x] 7.1 Define exercise-type-specific question models in `src/api/schemas.py`
+  - [x] 7.2 Define `QuizGenerateRequest` and `QuizGenerateResponse` models
+  - [x] 7.3 Define `QuizQuestion` base + type-specific variants
 
-- [ ] Task 8: Implement quiz route (AC: #1, #2, #3, #4, #5)
-  - [ ] 8.1 Replace `POST /api/quizzes` stub with `POST /api/quizzes/generate` in `src/api/routes/quizzes.py`
-  - [ ] 8.2 Wire request validation, auth, and agent invocation
-  - [ ] 8.3 Handle errors: LLM timeout, insufficient RAG content, invalid input
+- [x] Task 8: Implement quiz route (AC: #1, #2, #3, #4, #5)
+  - [x] 8.1 Replace `POST /api/quizzes` stub with `POST /api/quizzes/generate` in `src/api/routes/quizzes.py`
+  - [x] 8.2 Wire request validation, auth, and agent invocation
+  - [x] 8.3 Handle errors: LLM timeout, insufficient RAG content, invalid input
 
-- [ ] Task 9: Implement quiz service orchestration (AC: #1)
-  - [ ] 9.1 Implement `src/services/quiz_service.py` - orchestrate graph invocation and response formatting
+- [x] Task 9: Implement quiz service orchestration (AC: #1)
+  - [x] 9.1 Implement `src/services/quiz_service.py` - orchestrate graph invocation and response formatting
 
-- [ ] Task 10: Write tests (AC: all)
-  - [ ] 10.1 Unit tests for Pydantic schemas
-  - [ ] 10.2 Unit tests for RAG service with mocked vector store
-  - [ ] 10.3 Unit tests for weakness service with mocked DB
-  - [ ] 10.4 Unit tests for graph nodes with mocked LLM
-  - [ ] 10.5 API integration tests for `/api/quizzes/generate`
-  - [ ] 10.6 Test error scenarios (no JWT, bad chapter_id, insufficient RAG content)
+- [x] Task 10: Write tests (AC: all)
+  - [x] 10.1 Unit tests for Pydantic schemas
+  - [x] 10.2 Unit tests for RAG service with mocked vector store
+  - [x] 10.3 Unit tests for weakness service with mocked DB
+  - [x] 10.4 Unit tests for graph nodes with mocked LLM
+  - [x] 10.5 API integration tests for `/api/quizzes/generate`
+  - [x] 10.6 Test error scenarios (no JWT, bad chapter_id, insufficient RAG content)
 
 ## Dev Notes
 
@@ -419,10 +419,60 @@ LANGSMITH_PROJECT=dangdai-api
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+claude-opus-4-6 (anthropic/claude-opus-4-6)
 
 ### Debug Log References
 
+- All 83 unit tests passing (28 existing + 55 new)
+- Ruff linting passes with zero errors
+- Integration test for full graph requires env vars (SUPABASE_URL, LLM_API_KEY) and is conditionally skipped
+
 ### Completion Notes List
 
+- Implemented full quiz generation API endpoint at POST /api/quizzes/generate
+- Added 5 new dependencies: langchain-core, langchain-anthropic, supabase, pydantic-settings, PyJWT
+- JWT authentication via Supabase JWT secret (HS256, audience "authenticated")
+- RAG retrieval with 4-tier fallback strategy: exercise_type+workbook -> exercise_type+any -> book+lesson -> book-only
+- Weakness profile querying gracefully handles missing question_results table (returns empty profile)
+- LangGraph graph: retrieve_content -> query_weakness -> generate_quiz -> validate_quiz -> END (with retry loop, max 2)
+- Pydantic discriminated union schemas for all 7 exercise types + "mixed" mode
+- Self-check validation node: checks correct answers exist, distinct options, no duplicates, required fields
+- Quiz service orchestrates graph invocation with 8-second async timeout (NFR1)
+- Error handling: 400 (bad input), 401 (invalid/missing JWT), 404 (no RAG content), 504 (timeout), 500 (server error)
+- ExerciseType enum prevents magic strings throughout codebase
+- Supabase client uses @lru_cache(maxsize=1) for singleton pattern
+- LLM client uses @lru_cache(maxsize=1) for singleton pattern
+- Uses existing dangdai_search RPC function in Supabase for vector search (not used directly yet, using filtered table queries instead)
+
+### Change Log
+
+- 2026-02-20: Story 4.1 implementation complete - all 10 tasks with subtasks implemented and tested
+
 ### File List
+
+**Modified:**
+- dangdai-api/pyproject.toml (added dependencies)
+- dangdai-api/src/utils/config.py (added SUPABASE_JWT_SECRET)
+- dangdai-api/src/utils/supabase.py (implemented singleton client)
+- dangdai-api/src/utils/llm.py (implemented ChatAnthropic client)
+- dangdai-api/src/api/dependencies.py (implemented JWT verification + user extraction)
+- dangdai-api/src/api/schemas.py (full Pydantic models for all 7 exercise types)
+- dangdai-api/src/api/routes/quizzes.py (POST /api/quizzes/generate endpoint)
+- dangdai-api/src/agent/state.py (QuizGenerationState TypedDict)
+- dangdai-api/src/agent/nodes.py (retrieve_content, query_weakness, generate_quiz, validate_quiz)
+- dangdai-api/src/agent/prompts.py (system prompt + per-exercise-type templates)
+- dangdai-api/src/agent/graph.py (StateGraph with conditional retry edges)
+- dangdai-api/src/services/auth_service.py (AuthService with verify_token/extract_user_id)
+- dangdai-api/src/services/quiz_service.py (QuizService with async graph invocation + timeout)
+- dangdai-api/src/services/rag_service.py (RagService with 4-tier fallback)
+- dangdai-api/src/repositories/vector_store.py (VectorStore with filtered queries)
+- dangdai-api/src/repositories/chapter_repo.py (ChapterRepository with parse_chapter_id)
+- dangdai-api/tests/test_api.py (added 8 quiz endpoint tests)
+- dangdai-api/tests/integration_tests/test_graph.py (updated for new graph state)
+
+**Created:**
+- dangdai-api/src/repositories/performance_repo.py (PerformanceRepository - graceful missing table handling)
+- dangdai-api/src/services/weakness_service.py (WeaknessService - adaptive exercise type selection)
+- dangdai-api/tests/test_schemas.py (16 schema validation tests)
+- dangdai-api/tests/test_rag_retrieval.py (8 RAG service tests with mocked vector store)
+- dangdai-api/tests/test_quiz_generation.py (23 graph node + helper tests)

@@ -16,6 +16,7 @@ class Settings:
     # Supabase Configuration
     SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
     SUPABASE_SERVICE_KEY: str = os.getenv("SUPABASE_SERVICE_KEY", "")
+    SUPABASE_JWT_SECRET: str = os.getenv("SUPABASE_JWT_SECRET", "")
 
     # LLM Configuration
     LLM_API_KEY: str = os.getenv("LLM_API_KEY", "")

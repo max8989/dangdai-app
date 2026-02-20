@@ -72,9 +72,9 @@ development_status:
 
   # Epic 4: Quiz Experience & Feedback
   epic-4: in-progress
-  4-1-quiz-generation-api-endpoint: in-progress
-  4-2-quiz-loading-screen-with-tips: ready-for-dev
-  4-3-vocabulary-quiz-question-display: backlog
+  4-1-quiz-generation-api-endpoint: review
+  4-2-quiz-loading-screen-with-tips: review
+  4-3-vocabulary-quiz-question-display: ready-for-dev
   4-4-answer-selection-with-2x2-grid: backlog
   4-5-immediate-answer-feedback-visual-sound: backlog
   4-6-quiz-progress-saving-crash-safe: backlog
