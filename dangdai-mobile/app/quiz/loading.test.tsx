@@ -1,108 +1,161 @@
 /**
  * Quiz Loading Screen Tests
  *
- * Unit tests for the Quiz Loading placeholder screen.
- * Validates rendering with quiz type and chapter info from route params.
+ * Comprehensive tests for the quiz loading screen covering:
+ * - Loading state with tips, progress bar, cancel button
+ * - Error state with retry and back buttons
+ * - Insufficient content state
+ * - Tip rotation
+ * - Navigation on cancel
  *
- * Story 3.4: Open Chapter Navigation (No Gates)
+ * Story 4.2: Quiz Loading Screen with Progressive Loading
  */
 
 import React from 'react'
-import { render } from '@testing-library/react-native'
+import { render, fireEvent, act } from '@testing-library/react-native'
 
 // Mock expo-router
 const mockUseLocalSearchParams = jest.fn()
+const mockRouterBack = jest.fn()
+const mockRouterReplace = jest.fn()
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => mockUseLocalSearchParams(),
+  useRouter: () => ({
+    back: mockRouterBack,
+    replace: mockRouterReplace,
+  }),
   Stack: {
     Screen: () => null,
   },
 }))
 
+// Mock useQuizGeneration hook
+const mockMutate = jest.fn()
+const mockReset = jest.fn()
+let mockHookReturn: Record<string, unknown> = {}
+jest.mock('../../hooks/useQuizGeneration', () => ({
+  useQuizGeneration: () => mockHookReturn,
+}))
+
+// Mock useQuizStore
+const mockStartQuiz = jest.fn()
+jest.mock('../../stores/useQuizStore', () => ({
+  useQuizStore: (selector: (state: Record<string, unknown>) => unknown) =>
+    selector({ startQuiz: mockStartQuiz }),
+}))
+
+// Mock tips
+jest.mock('../../constants/tips', () => ({
+  LOADING_TIPS: [
+    'Tip 1: Learn characters daily.',
+    'Tip 2: Practice tones.',
+    'Tip 3: Watch Chinese shows.',
+  ],
+  TIP_ROTATION_INTERVAL_MS: 2000,
+  getNextTipIndex: jest.fn().mockReturnValue(1),
+}))
+
+// Mock quiz types
+jest.mock('../../types/quiz', () => ({
+  EXERCISE_TYPE_LABELS: {
+    vocabulary: 'Vocabulary',
+    grammar: 'Grammar',
+    fill_in_blank: 'Fill-in-the-Blank',
+    matching: 'Matching',
+  },
+  QuizGenerationError: class QuizGenerationError extends Error {
+    type: string
+    constructor(type: string, message: string) {
+      super(message)
+      this.name = 'QuizGenerationError'
+      this.type = type
+    }
+  },
+}))
+
 // Mock Tamagui components
 jest.mock('tamagui', () => {
-  const { View, Text, ActivityIndicator } = require('react-native')
+  const { View, Text: RNText, TouchableOpacity, ActivityIndicator } = require('react-native')
 
   return {
-    YStack: ({ children, testID }: { children: React.ReactNode; testID?: string }) => (
+    YStack: ({ children, testID, ...props }: any) => (
       <View testID={testID}>{children}</View>
     ),
-    Text: ({ children, testID }: { children: React.ReactNode; testID?: string }) => (
-      <Text testID={testID}>{children}</Text>
+    XStack: ({ children, testID }: any) => (
+      <View testID={testID}>{children}</View>
     ),
-    Spinner: ({ testID }: { testID?: string }) => <ActivityIndicator testID={testID} />,
+    Text: ({ children, testID }: any) => (
+      <RNText testID={testID}>{children}</RNText>
+    ),
+    Button: ({ children, testID, onPress }: any) => (
+      <TouchableOpacity testID={testID} onPress={onPress}>
+        <RNText>{children}</RNText>
+      </TouchableOpacity>
+    ),
+    Spinner: ({ testID }: any) => <ActivityIndicator testID={testID} />,
+    AnimatePresence: ({ children }: any) => <View>{children}</View>,
   }
 })
 
+// Mock lucide icons
+jest.mock('@tamagui/lucide-icons', () => ({
+  AlertTriangle: () => null,
+}))
+
 // Import after mocks
 import QuizLoadingScreen from './loading'
+import { QuizGenerationError } from '../../types/quiz'
 
 describe('QuizLoadingScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    jest.useFakeTimers()
+
+    mockUseLocalSearchParams.mockReturnValue({
+      chapterId: '212',
+      bookId: '2',
+      quizType: 'vocabulary',
+    })
+
+    // Default: pending state
+    mockHookReturn = {
+      mutate: mockMutate,
+      isPending: true,
+      isError: false,
+      error: null,
+      data: undefined,
+      isSuccess: false,
+      reset: mockReset,
+    }
   })
 
-  describe('rendering', () => {
-    it('renders the loading screen container', () => {
-      mockUseLocalSearchParams.mockReturnValue({
-        chapterId: '101',
-        bookId: '1',
-        quizType: 'vocabulary',
-      })
+  afterEach(() => {
+    jest.useRealTimers()
+  })
 
+  describe('loading state', () => {
+    it('renders the loading screen container', () => {
       const { getByTestId } = render(<QuizLoadingScreen />)
       expect(getByTestId('quiz-loading-screen')).toBeTruthy()
     })
 
-    it('shows loading spinner', () => {
-      mockUseLocalSearchParams.mockReturnValue({
-        chapterId: '101',
-        bookId: '1',
-        quizType: 'vocabulary',
-      })
+    it('renders loading state when pending', () => {
+      const { getByTestId } = render(<QuizLoadingScreen />)
+      expect(getByTestId('loading-state')).toBeTruthy()
+    })
 
+    it('shows loading spinner', () => {
       const { getByTestId } = render(<QuizLoadingScreen />)
       expect(getByTestId('loading-spinner')).toBeTruthy()
     })
-  })
 
-  describe('quiz type display', () => {
-    it('displays vocabulary quiz type in loading text', () => {
-      mockUseLocalSearchParams.mockReturnValue({
-        chapterId: '101',
-        bookId: '1',
-        quizType: 'vocabulary',
-      })
-
+    it('displays exercise type and chapter in loading text', () => {
       const { getByTestId } = render(<QuizLoadingScreen />)
-      expect(getByTestId('loading-text')).toHaveTextContent('Preparing vocabulary quiz...')
+      const loadingText = getByTestId('loading-text')
+      expect(loadingText).toHaveTextContent('Generating your Vocabulary exercise for Chapter 12...')
     })
 
-    it('displays grammar quiz type in loading text', () => {
-      mockUseLocalSearchParams.mockReturnValue({
-        chapterId: '210',
-        bookId: '2',
-        quizType: 'grammar',
-      })
-
-      const { getByTestId } = render(<QuizLoadingScreen />)
-      expect(getByTestId('loading-text')).toHaveTextContent('Preparing grammar quiz...')
-    })
-  })
-
-  describe('chapter info display', () => {
-    it('displays chapter and book info', () => {
-      mockUseLocalSearchParams.mockReturnValue({
-        chapterId: '105',
-        bookId: '1',
-        quizType: 'vocabulary',
-      })
-
-      const { getByTestId } = render(<QuizLoadingScreen />)
-      expect(getByTestId('chapter-info')).toHaveTextContent('Chapter 105 (Book 1)')
-    })
-
-    it('displays different chapter and book info', () => {
+    it('displays grammar exercise type correctly', () => {
       mockUseLocalSearchParams.mockReturnValue({
         chapterId: '315',
         bookId: '3',
@@ -110,21 +163,215 @@ describe('QuizLoadingScreen', () => {
       })
 
       const { getByTestId } = render(<QuizLoadingScreen />)
-      expect(getByTestId('chapter-info')).toHaveTextContent('Chapter 315 (Book 3)')
+      expect(getByTestId('loading-text')).toHaveTextContent(
+        'Generating your Grammar exercise for Chapter 15...',
+      )
+    })
+
+    it('renders progress bar', () => {
+      const { getByTestId } = render(<QuizLoadingScreen />)
+      expect(getByTestId('progress-bar-container')).toBeTruthy()
+      expect(getByTestId('progress-bar')).toBeTruthy()
+    })
+
+    it('renders tips container', () => {
+      const { getByTestId } = render(<QuizLoadingScreen />)
+      expect(getByTestId('tips-container')).toBeTruthy()
+    })
+
+    it('displays a tip', () => {
+      const { getByTestId } = render(<QuizLoadingScreen />)
+      expect(getByTestId('tip-text')).toHaveTextContent('Tip 1: Learn characters daily.')
+    })
+
+    it('renders cancel button', () => {
+      const { getByTestId } = render(<QuizLoadingScreen />)
+      expect(getByTestId('cancel-button')).toBeTruthy()
+    })
+
+    it('triggers quiz generation on mount', () => {
+      render(<QuizLoadingScreen />)
+      expect(mockMutate).toHaveBeenCalledWith({
+        chapterId: 212,
+        bookId: 2,
+        exerciseType: 'vocabulary',
+      })
     })
   })
 
-  describe('placeholder notice', () => {
-    it('shows Epic 4 placeholder notice', () => {
+  describe('tip rotation', () => {
+    it('rotates tips after interval', () => {
+      const { getByTestId } = render(<QuizLoadingScreen />)
+
+      // Initially shows tip at index 0
+      expect(getByTestId('tip-text')).toHaveTextContent('Tip 1: Learn characters daily.')
+
+      // Advance timer past the rotation interval
+      act(() => {
+        jest.advanceTimersByTime(2000)
+      })
+
+      // getNextTipIndex is mocked to return 1
+      expect(getByTestId('tip-text')).toHaveTextContent('Tip 2: Practice tones.')
+    })
+  })
+
+  describe('cancel navigation', () => {
+    it('navigates back on cancel button press', () => {
+      const { getByTestId } = render(<QuizLoadingScreen />)
+
+      fireEvent.press(getByTestId('cancel-button'))
+      expect(mockRouterBack).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('error state', () => {
+    beforeEach(() => {
+      mockHookReturn = {
+        mutate: mockMutate,
+        isPending: false,
+        isError: true,
+        error: new QuizGenerationError(
+          'server',
+          "Couldn't generate Vocabulary exercise. Try another type or retry.",
+        ),
+        data: undefined,
+        isSuccess: false,
+        reset: mockReset,
+      }
+    })
+
+    it('renders error state', () => {
+      const { getByTestId } = render(<QuizLoadingScreen />)
+      expect(getByTestId('error-state')).toBeTruthy()
+    })
+
+    it('displays error message', () => {
+      const { getByTestId } = render(<QuizLoadingScreen />)
+      expect(getByTestId('error-text')).toHaveTextContent(
+        "Couldn't generate Vocabulary exercise. Try another type or retry.",
+      )
+    })
+
+    it('renders Retry button', () => {
+      const { getByTestId } = render(<QuizLoadingScreen />)
+      expect(getByTestId('retry-button')).toBeTruthy()
+    })
+
+    it('renders Back button', () => {
+      const { getByTestId } = render(<QuizLoadingScreen />)
+      expect(getByTestId('back-button')).toBeTruthy()
+    })
+
+    it('re-triggers mutation on Retry press', () => {
+      const { getByTestId } = render(<QuizLoadingScreen />)
+
+      fireEvent.press(getByTestId('retry-button'))
+
+      expect(mockReset).toHaveBeenCalledTimes(1)
+      expect(mockMutate).toHaveBeenCalledWith({
+        chapterId: 212,
+        bookId: 2,
+        exerciseType: 'vocabulary',
+      })
+    })
+
+    it('navigates back on Back button press', () => {
+      const { getByTestId } = render(<QuizLoadingScreen />)
+
+      fireEvent.press(getByTestId('back-button'))
+      expect(mockRouterBack).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('insufficient content state', () => {
+    beforeEach(() => {
+      mockHookReturn = {
+        mutate: mockMutate,
+        isPending: false,
+        isError: true,
+        error: new QuizGenerationError(
+          'not_found',
+          'Not enough content for Matching in this chapter. Try Vocabulary or Grammar instead.',
+        ),
+        data: undefined,
+        isSuccess: false,
+        reset: mockReset,
+      }
+    })
+
+    it('renders insufficient content state', () => {
       mockUseLocalSearchParams.mockReturnValue({
-        chapterId: '101',
-        bookId: '1',
-        quizType: 'vocabulary',
+        chapterId: '212',
+        bookId: '2',
+        quizType: 'matching',
       })
 
       const { getByTestId } = render(<QuizLoadingScreen />)
-      expect(getByTestId('placeholder-notice')).toHaveTextContent(
-        'Quiz generation will be implemented in Epic 4'
+      expect(getByTestId('insufficient-content-state')).toBeTruthy()
+    })
+
+    it('displays insufficient content message', () => {
+      const { getByTestId } = render(<QuizLoadingScreen />)
+      expect(getByTestId('insufficient-text')).toHaveTextContent(
+        'Not enough content for Matching in this chapter. Try Vocabulary or Grammar instead.',
+      )
+    })
+
+    it('renders Back button for insufficient content', () => {
+      const { getByTestId } = render(<QuizLoadingScreen />)
+      expect(getByTestId('insufficient-back-button')).toBeTruthy()
+    })
+
+    it('does not render Retry button for insufficient content', () => {
+      const { queryByTestId } = render(<QuizLoadingScreen />)
+      expect(queryByTestId('retry-button')).toBeNull()
+    })
+  })
+
+  describe('timeout error', () => {
+    it('shows timeout error with retry', () => {
+      mockHookReturn = {
+        mutate: mockMutate,
+        isPending: false,
+        isError: true,
+        error: new QuizGenerationError(
+          'timeout',
+          'Generation is taking too long. Please try again.',
+        ),
+        data: undefined,
+        isSuccess: false,
+        reset: mockReset,
+      }
+
+      const { getByTestId } = render(<QuizLoadingScreen />)
+      expect(getByTestId('error-state')).toBeTruthy()
+      expect(getByTestId('error-text')).toHaveTextContent(
+        'Generation is taking too long. Please try again.',
+      )
+      expect(getByTestId('retry-button')).toBeTruthy()
+    })
+  })
+
+  describe('network error', () => {
+    it('shows network error with retry', () => {
+      mockHookReturn = {
+        mutate: mockMutate,
+        isPending: false,
+        isError: true,
+        error: new QuizGenerationError(
+          'network',
+          'Check your connection and try again.',
+        ),
+        data: undefined,
+        isSuccess: false,
+        reset: mockReset,
+      }
+
+      const { getByTestId } = render(<QuizLoadingScreen />)
+      expect(getByTestId('error-state')).toBeTruthy()
+      expect(getByTestId('error-text')).toHaveTextContent(
+        'Check your connection and try again.',
       )
     })
   })
@@ -132,9 +379,17 @@ describe('QuizLoadingScreen', () => {
   describe('edge cases', () => {
     it('handles undefined params gracefully', () => {
       mockUseLocalSearchParams.mockReturnValue({})
+      mockHookReturn = {
+        mutate: mockMutate,
+        isPending: true,
+        isError: false,
+        error: null,
+        data: undefined,
+        isSuccess: false,
+        reset: mockReset,
+      }
 
       const { getByTestId } = render(<QuizLoadingScreen />)
-      // Should still render without crashing
       expect(getByTestId('quiz-loading-screen')).toBeTruthy()
     })
   })

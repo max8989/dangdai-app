@@ -59,14 +59,14 @@ export default function ChapterDetailScreen() {
   }
 
   const handleStartQuiz = (quizType: 'vocabulary' | 'grammar') => {
-    // Navigate to quiz loading screen with type
-    // Note: Actual quiz generation is Epic 4
+    // Navigate to quiz loading screen with exercise type
     router.push({
       pathname: '/quiz/loading',
       params: {
         chapterId: chapterIdNum.toString(),
         bookId: chapter.bookId.toString(),
         quizType,
+        exerciseType: quizType,
       },
     })
   }

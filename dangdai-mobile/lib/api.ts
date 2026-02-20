@@ -1,29 +1,121 @@
 /**
  * Python Backend API Client
  *
- * This module provides a client for communicating with the Python backend API.
- * Will be implemented in later stories (Story 1-6 and beyond).
+ * Provides methods for communicating with the Python backend API.
+ * Uses Supabase JWT for authentication.
+ *
+ * Story 4.2: Quiz Loading Screen with Progressive Loading
  */
 
-const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+import { supabase } from './supabase'
+import { QuizGenerationError } from '../types/quiz'
+import type { QuizGenerationParams, QuizResponse } from '../types/quiz'
+
+const apiUrl = process.env.EXPO_PUBLIC_API_URL
 
 if (!apiUrl) {
-  console.warn('EXPO_PUBLIC_API_URL not configured. Python backend API will not be available.');
+  console.warn('EXPO_PUBLIC_API_URL not configured. Python backend API will not be available.')
 }
 
 /**
- * Base URL for the Python backend API
+ * Base URL for the Python backend API.
  */
-export const API_BASE_URL = apiUrl ?? 'http://localhost:8000';
+export const API_BASE_URL = apiUrl ?? 'http://localhost:8000'
+
+/** Client-side timeout for quiz generation requests (10 seconds). */
+const QUIZ_GENERATION_TIMEOUT_MS = 10_000
 
 /**
- * Placeholder for API client implementation
- * Will include:
- * - Quiz generation endpoints
- * - Health check
- * - Authentication headers
+ * Categorize an HTTP error response into a typed QuizGenerationError.
+ */
+function categorizeHttpError(status: number, exerciseTypeLabel: string): QuizGenerationError {
+  switch (status) {
+    case 401:
+      return new QuizGenerationError('auth', 'Your session has expired. Please sign in again.')
+    case 400:
+      return new QuizGenerationError('validation', 'Invalid request. Please go back and try again.')
+    case 404:
+      return new QuizGenerationError(
+        'not_found',
+        `Not enough content for ${exerciseTypeLabel} in this chapter. Try Vocabulary or Grammar instead.`,
+      )
+    case 504:
+      return new QuizGenerationError(
+        'timeout',
+        'Generation is taking too long. Please try again.',
+      )
+    default:
+      return new QuizGenerationError(
+        'server',
+        `Couldn't generate ${exerciseTypeLabel} exercise. Try another type or retry.`,
+      )
+  }
+}
+
+/**
+ * API client for communicating with the Python backend.
  */
 export const api = {
   baseUrl: API_BASE_URL,
-  // TODO: Implement API methods in Story 1-6
-};
+
+  /**
+   * Generate a quiz via the backend API.
+   *
+   * @param params - Quiz generation parameters (chapterId, bookId, exerciseType).
+   * @returns The generated quiz response.
+   * @throws {QuizGenerationError} Typed error with category and user-friendly message.
+   */
+  async generateQuiz(params: QuizGenerationParams): Promise<QuizResponse> {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    if (!session?.access_token) {
+      throw new QuizGenerationError('auth', 'Not authenticated. Please sign in.')
+    }
+
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), QUIZ_GENERATION_TIMEOUT_MS)
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/quizzes/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          chapter_id: params.chapterId,
+          book_id: params.bookId,
+          exercise_type: params.exerciseType,
+        }),
+        signal: controller.signal,
+      })
+
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        throw categorizeHttpError(response.status, params.exerciseType)
+      }
+
+      return (await response.json()) as QuizResponse
+    } catch (error) {
+      clearTimeout(timeoutId)
+
+      // Already a QuizGenerationError — rethrow
+      if (error instanceof QuizGenerationError) {
+        throw error
+      }
+
+      // AbortController timeout (AbortError name works across environments)
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new QuizGenerationError(
+          'timeout',
+          'Generation is taking too long. Please try again.',
+        )
+      }
+
+      // Network / fetch failure
+      throw new QuizGenerationError('network', 'Check your connection and try again.')
+    }
+  },
+}

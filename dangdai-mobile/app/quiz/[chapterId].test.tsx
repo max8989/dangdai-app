@@ -182,6 +182,7 @@ describe('ChapterDetailScreen', () => {
           chapterId: '210',
           bookId: '2',
           quizType: 'vocabulary',
+          exerciseType: 'vocabulary',
         },
       })
     })
@@ -197,6 +198,7 @@ describe('ChapterDetailScreen', () => {
           chapterId: '210',
           bookId: '2',
           quizType: 'grammar',
+          exerciseType: 'grammar',
         },
       })
     })
@@ -322,6 +324,7 @@ describe('ChapterDetailScreen', () => {
           chapterId: '210',
           bookId: '2',
           quizType: 'vocabulary',
+          exerciseType: 'vocabulary',
         },
       })
     })
@@ -345,6 +348,7 @@ describe('ChapterDetailScreen', () => {
           chapterId: '210',
           bookId: '2',
           quizType: 'vocabulary',
+          exerciseType: 'vocabulary',
         },
       })
     })

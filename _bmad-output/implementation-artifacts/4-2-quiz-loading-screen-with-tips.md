@@ -1,6 +1,6 @@
 # Story 4.2: Quiz Loading Screen with Progressive Loading
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -32,40 +32,40 @@ So that I stay engaged during the ~8 second generation time.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Implement API client quiz generation method (AC: #1, #2, #3, #4)
-  - [ ] 1.1 Add `generateQuiz(chapterId, bookId, exerciseType)` to `lib/api.ts` using `fetch` with auth header from Supabase session
-  - [ ] 1.2 Add request/response types in `types/quiz.ts` matching the API contract from Story 4.1
-  - [ ] 1.3 Handle timeout (8s), network errors, and specific error codes (401, 400, 404, 504)
+- [x] Task 1: Implement API client quiz generation method (AC: #1, #2, #3, #4)
+  - [x] 1.1 Add `generateQuiz(chapterId, bookId, exerciseType)` to `lib/api.ts` using `fetch` with auth header from Supabase session
+  - [x] 1.2 Add request/response types in `types/quiz.ts` matching the API contract from Story 4.1
+  - [x] 1.3 Handle timeout (8s), network errors, and specific error codes (401, 400, 404, 504)
 
-- [ ] Task 2: Create `useQuizGeneration` hook (AC: #1, #2, #3, #4)
-  - [ ] 2.1 Create `hooks/useQuizGeneration.ts` using TanStack Query `useMutation`
-  - [ ] 2.2 Expose states: `isPending`, `isError`, `error`, `data` (quiz payload)
-  - [ ] 2.3 Handle progressive loading: when `data` arrives, signal readiness to navigate to quiz screen
-  - [ ] 2.4 Handle error categorization: network, timeout, insufficient content, auth error
+- [x] Task 2: Create `useQuizGeneration` hook (AC: #1, #2, #3, #4)
+  - [x] 2.1 Create `hooks/useQuizGeneration.ts` using TanStack Query `useMutation`
+  - [x] 2.2 Expose states: `isPending`, `isError`, `error`, `data` (quiz payload)
+  - [x] 2.3 Handle progressive loading: when `data` arrives, signal readiness to navigate to quiz screen
+  - [x] 2.4 Handle error categorization: network, timeout, insufficient content, auth error
 
-- [ ] Task 3: Create loading tips data (AC: #1)
-  - [ ] 3.1 Add `constants/tips.ts` with 15-20 Chinese learning tips
-  - [ ] 3.2 Include tip rotation logic (2-second interval, random non-repeating selection)
+- [x] Task 3: Create loading tips data (AC: #1)
+  - [x] 3.1 Add `constants/tips.ts` with 15-20 Chinese learning tips
+  - [x] 3.2 Include tip rotation logic (2-second interval, random non-repeating selection)
 
-- [ ] Task 4: Rewrite `app/quiz/loading.tsx` as full loading screen (AC: #1, #2, #3, #4)
-  - [ ] 4.1 Replace placeholder with full implementation
-  - [ ] 4.2 Display exercise type and chapter context in header
-  - [ ] 4.3 Add animated progress indicator (Tamagui `animation="slow"` on a progress bar)
-  - [ ] 4.4 Add rotating tips component with `AnimatePresence` for tip transitions
-  - [ ] 4.5 Add cancel button that navigates back to exercise type selection / chapter detail
-  - [ ] 4.6 On success: navigate to quiz screen (or transition in-place to first question)
-  - [ ] 4.7 On error: show error state with Retry and Back buttons
-  - [ ] 4.8 On insufficient content: show specific message suggesting Vocabulary or Grammar
+- [x] Task 4: Rewrite `app/quiz/loading.tsx` as full loading screen (AC: #1, #2, #3, #4)
+  - [x] 4.1 Replace placeholder with full implementation
+  - [x] 4.2 Display exercise type and chapter context in header
+  - [x] 4.3 Add animated progress indicator (Tamagui `animation="slow"` on a progress bar)
+  - [x] 4.4 Add rotating tips component with `AnimatePresence` for tip transitions
+  - [x] 4.5 Add cancel button that navigates back to exercise type selection / chapter detail
+  - [x] 4.6 On success: navigate to quiz screen (or transition in-place to first question)
+  - [x] 4.7 On error: show error state with Retry and Back buttons
+  - [x] 4.8 On insufficient content: show specific message suggesting Vocabulary or Grammar
 
-- [ ] Task 5: Update navigation flow from chapter detail (AC: #1)
-  - [ ] 5.1 Update `app/quiz/[chapterId].tsx` to pass `exerciseType` param when navigating to loading screen
-  - [ ] 5.2 Ensure route params include `chapterId`, `bookId`, `exerciseType`
+- [x] Task 5: Update navigation flow from chapter detail (AC: #1)
+  - [x] 5.1 Update `app/quiz/[chapterId].tsx` to pass `exerciseType` param when navigating to loading screen
+  - [x] 5.2 Ensure route params include `chapterId`, `bookId`, `exerciseType`
 
-- [ ] Task 6: Write tests (AC: all)
-  - [ ] 6.1 Unit test `useQuizGeneration` hook with mocked API responses (success, error, timeout)
-  - [ ] 6.2 Unit test loading screen renders correctly in each state (loading, error, insufficient content)
-  - [ ] 6.3 Unit test tip rotation logic
-  - [ ] 6.4 Update existing `app/quiz/loading.test.tsx`
+- [x] Task 6: Write tests (AC: all)
+  - [x] 6.1 Unit test `useQuizGeneration` hook with mocked API responses (success, error, timeout)
+  - [x] 6.2 Unit test loading screen renders correctly in each state (loading, error, insufficient content)
+  - [x] 6.3 Unit test tip rotation logic
+  - [x] 6.4 Update existing `app/quiz/loading.test.tsx`
 
 ## Dev Notes
 
@@ -508,10 +508,45 @@ Put this in `constants/app.ts` or `types/quiz.ts`.
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude claude-opus-4-6 (anthropic/claude-opus-4-6)
 
 ### Debug Log References
 
+- Fixed ESLint error: replaced `DOMException` check with `Error` check for AbortError (DOMException not defined in React Native)
+- Fixed ESLint warning: added inline disable comment for necessary `any` cast on Tamagui progress bar width string
+- Updated existing `app/quiz/[chapterId].test.tsx` to expect new `exerciseType` param in navigation calls
+- Pre-existing test failure in `hooks/useChapters.test.ts` (chapter title data mismatch) — not related to this story
+
 ### Completion Notes List
 
+- Implemented full API client in `lib/api.ts` with typed error handling (auth, validation, not_found, server, timeout, network)
+- Created `types/quiz.ts` with ExerciseType union, QuizResponse/QuizQuestion interfaces, QuizGenerationError class, and display labels
+- Created `useQuizGeneration` hook using TanStack Query `useMutation` with zero retry
+- Created 18 Chinese learning tips in `constants/tips.ts` with 2-second rotation interval and non-repeating random selection logic
+- Rewrote `app/quiz/loading.tsx` with full loading screen: animated progress bar, rotating tips with AnimatePresence, error/insufficient content states, cancel/retry/back buttons
+- Updated `app/quiz/[chapterId].tsx` to pass `exerciseType` param alongside legacy `quizType`
+- All Tamagui rules followed: token references only, named animation presets, AnimatePresence for enter/exit, declarative styles
+- 44 new/updated unit tests across 3 test files, all passing
+- TypeScript strict mode: zero errors
+- ESLint: zero errors/warnings on all changed files
+- Progressive loading: MVP approach (full quiz response, upgradeable to streaming later)
+
+### Change Log
+
+- 2026-02-20: Implemented Story 4.2 - Quiz Loading Screen with Progressive Loading. Created API client, quiz generation hook, loading tips, and full loading screen with error handling.
+
 ### File List
+
+**New files:**
+- dangdai-mobile/types/quiz.ts
+- dangdai-mobile/hooks/useQuizGeneration.ts
+- dangdai-mobile/hooks/useQuizGeneration.test.ts
+- dangdai-mobile/constants/tips.ts
+- dangdai-mobile/constants/tips.test.ts
+
+**Modified files:**
+- dangdai-mobile/lib/api.ts
+- dangdai-mobile/app/quiz/loading.tsx
+- dangdai-mobile/app/quiz/loading.test.tsx
+- dangdai-mobile/app/quiz/[chapterId].tsx
+- dangdai-mobile/app/quiz/[chapterId].test.tsx
