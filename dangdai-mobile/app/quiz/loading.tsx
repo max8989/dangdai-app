@@ -37,14 +37,14 @@ export default function QuizLoadingScreen() {
         testID="quiz-loading-screen"
       >
         <Spinner size="large" color="$blue9" testID="loading-spinner" />
-        <Text fontSize={18} testID="loading-text">
+        <Text fontSize="$6" testID="loading-text">
           Preparing {quizType} quiz...
         </Text>
-        <Text fontSize={12} color="$gray10" testID="chapter-info">
+        <Text fontSize="$2" color="$gray10" testID="chapter-info">
           Chapter {chapterId} (Book {bookId})
         </Text>
         <Text
-          fontSize={12}
+          fontSize="$2"
           color="$gray10"
           marginTop="$4"
           testID="placeholder-notice"

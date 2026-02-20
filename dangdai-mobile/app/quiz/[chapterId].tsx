@@ -97,13 +97,13 @@ export default function ChapterDetailScreen() {
       >
         {/* Chapter Info */}
         <YStack gap="$2" marginBottom="$6">
-          <Text fontSize={12} color="$gray10" testID="book-info">
+          <Text fontSize="$2" color="$gray10" testID="book-info">
             {book?.title} - {book?.titleChinese}
           </Text>
-          <H2 fontSize={28} fontWeight="bold" testID="chapter-title-english">
+          <H2 fontSize="$9" fontWeight="bold" testID="chapter-title-english">
             {chapter.titleEnglish}
           </H2>
-          <Text fontSize={20} color="$gray11" testID="chapter-title-chinese">
+          <Text fontSize="$7" color="$gray11" testID="chapter-title-chinese">
             {chapter.titleChinese}
           </Text>
         </YStack>
@@ -125,7 +125,7 @@ export default function ChapterDetailScreen() {
                     <Text fontWeight="600" color="$green11">
                       Mastered
                     </Text>
-                    <Text fontSize={14} color="$gray11">
+                    <Text fontSize="$4" color="$gray11">
                       You've achieved 80%+ on this chapter
                     </Text>
                   </YStack>
@@ -135,7 +135,7 @@ export default function ChapterDetailScreen() {
                   <YStack flex={1}>
                     <Text fontWeight="500">Current Progress</Text>
                     <Text
-                      fontSize={14}
+                      fontSize="$4"
                       color="$gray11"
                       testID="progress-percentage"
                     >
@@ -151,7 +151,7 @@ export default function ChapterDetailScreen() {
         {/* Quiz Type Selection */}
         <YStack gap="$4">
           <Text
-            fontSize={16}
+            fontSize="$5"
             fontWeight="500"
             marginBottom="$2"
             testID="quiz-section-label"
@@ -172,8 +172,8 @@ export default function ChapterDetailScreen() {
           >
             <XStack alignItems="center" gap="$3">
               <YStack
-                width={48}
-                height={48}
+                width="$4.5"
+                height="$4.5"
                 backgroundColor="$blue4"
                 borderRadius="$3"
                 justifyContent="center"
@@ -182,10 +182,10 @@ export default function ChapterDetailScreen() {
                 <BookOpen size={24} color="$blue11" />
               </YStack>
               <YStack flex={1}>
-                <Text fontSize={18} fontWeight="600">
+                <Text fontSize="$6" fontWeight="600">
                   Vocabulary Quiz
                 </Text>
-                <Text fontSize={14} color="$gray11">
+                <Text fontSize="$4" color="$gray11">
                   Practice characters, pinyin, and meanings
                 </Text>
               </YStack>
@@ -205,8 +205,8 @@ export default function ChapterDetailScreen() {
           >
             <XStack alignItems="center" gap="$3">
               <YStack
-                width={48}
-                height={48}
+                width="$4.5"
+                height="$4.5"
                 backgroundColor="$purple4"
                 borderRadius="$3"
                 justifyContent="center"
@@ -215,10 +215,10 @@ export default function ChapterDetailScreen() {
                 <MessageSquare size={24} color="$purple11" />
               </YStack>
               <YStack flex={1}>
-                <Text fontSize={18} fontWeight="600">
+                <Text fontSize="$6" fontWeight="600">
                   Grammar Quiz
                 </Text>
-                <Text fontSize={14} color="$gray11">
+                <Text fontSize="$4" color="$gray11">
                   Practice sentence patterns and structure
                 </Text>
               </YStack>
@@ -229,7 +229,7 @@ export default function ChapterDetailScreen() {
         {/* Helper Text for New Users */}
         {percentage === 0 && (
           <Text
-            fontSize={12}
+            fontSize="$2"
             color="$gray10"
             marginTop="$6"
             textAlign="center"

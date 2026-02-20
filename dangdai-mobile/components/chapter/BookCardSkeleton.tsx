@@ -21,15 +21,15 @@ function SingleSkeleton() {
       elevate
       bordered
       padding="$4"
-      borderRadius={12}
+      borderRadius="$4"
       animation="lazy"
       opacity={0.7}
     >
       <XStack gap="$4" alignItems="center">
         {/* Book Cover Skeleton */}
         <Stack
-          width={60}
-          height={80}
+          width="$6"
+          height="$8"
           backgroundColor="$gray6"
           borderRadius="$2"
           animation="lazy"
@@ -39,7 +39,7 @@ function SingleSkeleton() {
         <YStack flex={1} gap="$2">
           {/* Title skeleton */}
           <Stack
-            height={20}
+            height="$1"
             width="60%"
             backgroundColor="$gray6"
             borderRadius="$2"
@@ -47,7 +47,7 @@ function SingleSkeleton() {
           />
           {/* Chinese title skeleton */}
           <Stack
-            height={16}
+            height="$0.75"
             width="80%"
             backgroundColor="$gray5"
             borderRadius="$2"
@@ -57,14 +57,14 @@ function SingleSkeleton() {
           <XStack alignItems="center" gap="$2">
             <Stack
               flex={1}
-              height={8}
+              height="$0.5"
               backgroundColor="$gray5"
               borderRadius="$1"
               animation="lazy"
             />
             <Stack
-              width={40}
-              height={14}
+              width="$3.5"
+              height="$0.75"
               backgroundColor="$gray5"
               borderRadius="$2"
               animation="lazy"
@@ -74,8 +74,8 @@ function SingleSkeleton() {
 
         {/* Chevron skeleton */}
         <Stack
-          width={24}
-          height={24}
+          width="$1.5"
+          height="$1.5"
           backgroundColor="$gray5"
           borderRadius="$2"
           animation="lazy"

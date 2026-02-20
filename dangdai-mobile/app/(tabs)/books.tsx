@@ -25,7 +25,7 @@ export default function BooksScreen() {
   return (
     <YStack flex={1} backgroundColor="$background" testID="books-screen">
       <YStack padding="$4" paddingTop="$6">
-        <Text fontSize={28} fontWeight="bold" testID="books-header">
+        <Text fontSize="$9" fontWeight="bold" testID="books-header">
           Books
         </Text>
       </YStack>

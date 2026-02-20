@@ -52,10 +52,10 @@ export default function ChapterListScreen() {
       <YStack flex={1} backgroundColor="$background" testID="chapter-list-screen">
         {/* Book Header */}
         <YStack padding="$4" backgroundColor="$background">
-          <Text fontSize={14} color="$gray11" testID="book-chinese-title">
+          <Text fontSize="$4" color="$gray11" testID="book-chinese-title">
             {book?.titleChinese}
           </Text>
-          <Text fontSize={16} color="$gray11" marginTop="$2" testID="chapter-count">
+          <Text fontSize="$5" color="$gray11" marginTop="$2" testID="chapter-count">
             {chapters.length} chapters
           </Text>
         </YStack>
@@ -71,10 +71,10 @@ export default function ChapterListScreen() {
                 testID="chapter-list-error"
               >
                 <AlertCircle size={48} color="$orange9" />
-                <Text fontSize={16} fontWeight="500" textAlign="center">
+                <Text fontSize="$5" fontWeight="500" textAlign="center">
                   Oops! Couldn't load progress
                 </Text>
-                <Text fontSize={14} color="$gray11" textAlign="center">
+                <Text fontSize="$4" color="$gray11" textAlign="center">
                   Check your connection and try again
                 </Text>
                 <Button

@@ -30,7 +30,7 @@ export function ChapterListSkeleton({ count = 5 }: ChapterListSkeletonProps) {
           <XStack gap="$3" alignItems="center">
             {/* Badge Skeleton */}
             <Circle
-              size={44}
+              size="$4"
               backgroundColor="$gray4"
               testID={`skeleton-badge-${index}`}
             />
@@ -38,14 +38,14 @@ export function ChapterListSkeleton({ count = 5 }: ChapterListSkeletonProps) {
             {/* Content Skeleton */}
             <YStack flex={1} gap="$2">
               <YStack
-                height={16}
+                height="$0.75"
                 width="60%"
                 backgroundColor="$gray4"
                 borderRadius="$2"
                 testID={`skeleton-title-${index}`}
               />
               <YStack
-                height={14}
+                height="$0.75"
                 width="40%"
                 backgroundColor="$gray4"
                 borderRadius="$2"

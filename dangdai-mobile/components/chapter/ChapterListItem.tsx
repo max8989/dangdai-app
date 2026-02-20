@@ -79,7 +79,7 @@ export function ChapterListItem({ chapter, progress, onPress }: ChapterListItemP
       <XStack gap="$3" alignItems="center">
         {/* Chapter Number Badge with Status */}
         <Circle
-          size={44}
+          size="$4"
           backgroundColor={config.backgroundColor}
           testID={`chapter-number-badge-${chapter.id}`}
         >
@@ -91,7 +91,7 @@ export function ChapterListItem({ chapter, progress, onPress }: ChapterListItemP
             />
           ) : (
             <Text
-              fontSize={18}
+              fontSize="$6"
               fontWeight="600"
               color={config.textColor}
               testID={`chapter-number-text-${chapter.id}`}
@@ -105,14 +105,14 @@ export function ChapterListItem({ chapter, progress, onPress }: ChapterListItemP
         <YStack flex={1} gap="$1">
           <XStack justifyContent="space-between" alignItems="center">
             <Text
-              fontSize={16}
+              fontSize="$5"
               fontWeight="500"
               testID={`chapter-title-english-${chapter.id}`}
             >
               {chapter.titleEnglish}
             </Text>
             <Text
-              fontSize={12}
+              fontSize="$2"
               color={config.progressTextColor}
               testID={`chapter-progress-text-${chapter.id}`}
             >
@@ -120,7 +120,7 @@ export function ChapterListItem({ chapter, progress, onPress }: ChapterListItemP
             </Text>
           </XStack>
           <Text
-            fontSize={14}
+            fontSize="$4"
             color="$gray11"
             testID={`chapter-title-chinese-${chapter.id}`}
           >

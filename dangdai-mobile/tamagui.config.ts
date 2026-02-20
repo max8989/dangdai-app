@@ -39,10 +39,19 @@ const animations = createAnimations({
 // ─── Font Configuration (AC #4) ──────────────────────────────────────────────
 const interFont = createFont({
   family: 'Inter',
-  size: { 1: 12, 2: 14, 3: 16, 4: 18, 5: 20, 6: 24, 7: 32 },
+  // Match default Tamagui scale so $token values are consistent everywhere
+  size: {
+    1: 11, 2: 12, 3: 13, 4: 14, 5: 16, 6: 18, 7: 20,
+    8: 23, 9: 30, 10: 46, 11: 55, 12: 62, 13: 72,
+    14: 92, 15: 114, 16: 134, true: 14,
+  },
+  lineHeight: {
+    1: 21, 2: 22, 3: 23, 4: 24, 5: 26, 6: 28, 7: 30,
+    8: 33, 9: 40, 10: 56, 11: 65, 12: 72, 13: 82,
+    14: 102, 15: 124, 16: 144, true: 24,
+  },
   weight: { 4: '400', 5: '500', 6: '600', 7: '700' },
   letterSpacing: { 4: 0, 5: -0.2 },
-  lineHeight: { 1: 17, 2: 20, 3: 22, 4: 25, 5: 28, 6: 33, 7: 44 },
   // Native font face mapping - keys must match useFonts() keys in _layout.tsx
   face: {
     400: { normal: 'Inter' },
@@ -353,7 +362,8 @@ export const config = createTamagui({
   },
   settings: {
     ...defaultConfig.settings,
-    // Allow both shorthands and full CSS property names
+    // defaultConfig has onlyAllowShorthands: true — override to false
+    // so long-form CSS props (backgroundColor, alignItems, etc.) are accepted
     onlyAllowShorthands: false,
   },
 })

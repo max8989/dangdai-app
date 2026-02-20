@@ -30,7 +30,7 @@ export function BookCard({ book, progress, onPress }: BookCardProps) {
       elevate
       bordered
       padding="$4"
-      borderRadius={12}
+      borderRadius="$4"
       pressStyle={{ scale: 0.98 }}
       onPress={onPress}
       animation="quick"
@@ -41,32 +41,32 @@ export function BookCard({ book, progress, onPress }: BookCardProps) {
       <XStack gap="$4" alignItems="center">
         {/* Book Cover */}
         <YStack
-          width={60}
-          height={80}
+          width="$6"
+          height="$8"
           backgroundColor={book.coverColor as ColorTokens}
           borderRadius="$2"
           justifyContent="center"
           alignItems="center"
           testID={`book-cover-${book.id}`}
         >
-          <Text color="white" fontSize={24} fontWeight="bold">
+          <Text color="white" fontSize="$8" fontWeight="bold">
             {book.id}
           </Text>
         </YStack>
 
         {/* Book Info */}
         <YStack flex={1} gap="$2">
-          <Text fontSize={18} fontWeight="600" testID={`book-title-${book.id}`}>
+          <Text fontSize="$6" fontWeight="600" testID={`book-title-${book.id}`}>
             {book.title}
           </Text>
-          <Text fontSize={14} color="$gray11" testID={`book-title-chinese-${book.id}`}>
+          <Text fontSize="$4" color="$gray11" testID={`book-title-chinese-${book.id}`}>
             {book.titleChinese}
           </Text>
           <XStack alignItems="center" gap="$2">
             <Progress value={progressPercent} flex={1} testID={`book-progress-bar-${book.id}`}>
               <Progress.Indicator animation="bouncy" />
             </Progress>
-            <Text fontSize={12} color="$gray10" testID={`book-progress-text-${book.id}`}>
+            <Text fontSize="$2" color="$gray10" testID={`book-progress-text-${book.id}`}>
               {progress.chaptersCompleted}/{progress.totalChapters}
             </Text>
           </XStack>
