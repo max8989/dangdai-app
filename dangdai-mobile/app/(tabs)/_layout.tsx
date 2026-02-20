@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router'
 import { useTheme } from 'tamagui'
-import { Home, Settings, BookOpen } from '@tamagui/lucide-icons'
+import { Home, Settings, BookOpen, Palette } from '@tamagui/lucide-icons'
 
 export default function TabLayout() {
   const theme = useTheme()
@@ -39,6 +39,13 @@ export default function TabLayout() {
         options={{
           title: 'Settings',
           tabBarIcon: ({ color }) => <Settings color={color as never} />,
+        }}
+      />
+      <Tabs.Screen
+        name="theme-demo"
+        options={{
+          title: 'Theme Demo',
+          tabBarIcon: ({ color }) => <Palette color={color as never} />,
         }}
       />
     </Tabs>

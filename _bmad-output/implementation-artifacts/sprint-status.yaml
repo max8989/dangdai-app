@@ -43,7 +43,7 @@ development_status:
   # Epic 1: Project Foundation & Infrastructure
   epic-1: in-progress
   1-1-initialize-mobile-app-with-tamagui-expo-router: done
-  1-1b-configure-tamagui-theme-animation-presets: ready-for-dev
+  1-1b-configure-tamagui-theme-animation-presets: review
   1-2-initialize-python-backend-with-langgraph: done
   1-3-configure-supabase-project-and-base-schema: in-progress
   1-4-configure-mobile-app-environment-and-supabase-client: done

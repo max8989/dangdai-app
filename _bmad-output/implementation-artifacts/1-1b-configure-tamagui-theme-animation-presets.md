@@ -1,6 +1,6 @@
 # Story 1.1b: Configure Tamagui Theme, Sub-Themes & Animation Presets
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -28,41 +28,41 @@ So that all UI components have a consistent design foundation with light/dark mo
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Install animation dependencies (AC: #3)
-  - [ ] 1.1 Install `@tamagui/animations-moti` and `moti` packages
-  - [ ] 1.2 Verify `react-native-reanimated` already installed (from Story 1.1)
-  - [ ] 1.3 Verify babel.config.js has `react-native-reanimated/plugin` (add if missing)
-  - [ ] 1.4 Run `yarn install` and confirm no dependency conflicts
+- [x] Task 1: Install animation dependencies (AC: #3)
+  - [x] 1.1 Install `@tamagui/animations-moti` and `moti` packages
+  - [x] 1.2 Verify `react-native-reanimated` already installed (from Story 1.1)
+  - [x] 1.3 Verify babel.config.js has `react-native-reanimated/plugin` (add if missing)
+  - [x] 1.4 Run `yarn install` and confirm no dependency conflicts
 
-- [ ] Task 2: Configure animation presets in tamagui.config.ts (AC: #3)
-  - [ ] 2.1 Import `createAnimations` from `@tamagui/animations-moti`
-  - [ ] 2.2 Define 5 named spring presets (`quick`, `bouncy`, `medium`, `slow`, `lazy`)
-  - [ ] 2.3 Pass `animations` to `createTamagui()` config
-  - [ ] 2.4 Verify TypeScript types resolve correctly
+- [x] Task 2: Configure animation presets in tamagui.config.ts (AC: #3)
+  - [x] 2.1 Import `createAnimations` from `@tamagui/animations-moti`
+  - [x] 2.2 Define 5 named spring presets (`quick`, `bouncy`, `medium`, `slow`, `lazy`)
+  - [x] 2.3 Pass `animations` to `createTamagui()` config
+  - [x] 2.4 Verify TypeScript types resolve correctly
 
-- [ ] Task 3: Configure custom tokens (space, radius, fonts) (AC: #4)
-  - [ ] 3.1 Define custom spacing tokens (`xs=4, sm=8, md=16, lg=24, xl=32, 2xl=48`)
-  - [ ] 3.2 Define custom radius tokens (`sm=8, md=12, full=9999`)
-  - [ ] 3.3 Configure Inter font family using `createFont()` for body and heading
-  - [ ] 3.4 Verify media queries `$xs`, `$sm`, `$gtXs` from defaultConfig still available
+- [x] Task 3: Configure custom tokens (space, radius, fonts) (AC: #4)
+  - [x] 3.1 Define custom spacing tokens (`xs=4, sm=8, md=16, lg=24, xl=32, 2xl=48`)
+  - [x] 3.2 Define custom radius tokens (`sm=8, md=12, full=9999`)
+  - [x] 3.3 Configure Inter font family using `createFont()` for body and heading
+  - [x] 3.4 Verify media queries `$xs`, `$sm`, `$gtXs` from defaultConfig still available
 
-- [ ] Task 4: Add missing sub-themes (success, error, warning) (AC: #2)
-  - [ ] 4.1 Define `light_success` and `dark_success` sub-themes with correct token remapping
-  - [ ] 4.2 Define `light_error` and `dark_error` sub-themes
-  - [ ] 4.3 Define `light_warning` and `dark_warning` sub-themes
-  - [ ] 4.4 Verify existing `light_primary` and `dark_primary` still work correctly
+- [x] Task 4: Add missing sub-themes (success, error, warning) (AC: #2)
+  - [x] 4.1 Define `light_success` and `dark_success` sub-themes with correct token remapping
+  - [x] 4.2 Define `light_error` and `dark_error` sub-themes
+  - [x] 4.3 Define `light_warning` and `dark_warning` sub-themes
+  - [x] 4.4 Verify existing `light_primary` and `dark_primary` still work correctly
 
-- [ ] Task 5: Create theme verification demo screen (AC: #2, #5)
-  - [ ] 5.1 Create `app/(tabs)/theme-demo.tsx` (temporary dev screen)
-  - [ ] 5.2 Render all 4 sub-themes with example Button/Card in both light/dark mode
-  - [ ] 5.3 Render animated component using `animation="bouncy"` + `enterStyle`
-  - [ ] 5.4 Render `AnimatePresence` toggle to test enter/exit animations
-  - [ ] 5.5 Verify `<Theme name="primary"><Button>Test</Button></Theme>` renders teal bg + white text
+- [x] Task 5: Create theme verification demo screen (AC: #2, #5)
+  - [x] 5.1 Create `app/(tabs)/theme-demo.tsx` (temporary dev screen)
+  - [x] 5.2 Render all 4 sub-themes with example Button/Card in both light/dark mode
+  - [x] 5.3 Render animated component using `animation="bouncy"` + `enterStyle`
+  - [x] 5.4 Render `AnimatePresence` toggle to test enter/exit animations
+  - [x] 5.5 Verify `<Theme name="primary"><Button>Test</Button></Theme>` renders teal bg + white text
 
-- [ ] Task 6: Verify and clean up (AC: #1, #5)
-  - [ ] 6.1 Run `yarn tsc --noEmit` to confirm no type errors
-  - [ ] 6.2 Run linter to check for any issues
-  - [ ] 6.3 Grep all component files for hardcoded hex values (should be none)
+- [x] Task 6: Verify and clean up (AC: #1, #5)
+  - [x] 6.1 Run `yarn tsc --noEmit` to confirm no type errors
+  - [x] 6.2 Run linter to check for any issues
+  - [x] 6.3 Grep all component files for hardcoded hex values (should be none)
   - [ ] 6.4 Test app launch on iOS simulator (manual verification)
   - [ ] 6.5 Test app launch on Android emulator (manual verification)
 
@@ -291,10 +291,36 @@ All components MUST:
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+claude-opus-4-6 (anthropic/claude-opus-4-6)
 
 ### Debug Log References
 
+- Jest transformIgnorePatterns updated to include `moti` (ESM module incompatible with Jest CJS transform)
+- defaultConfig v5 media queries use `xs`/`sm`/`maxXs` pattern; `gtXs` added as custom media query (minWidth: 461)
+- Subtasks 6.4/6.5 (iOS/Android simulator launch) require manual verification
+
 ### Completion Notes List
 
+- **Task 1**: Installed `@tamagui/animations-moti@^1.121.10` and `moti@^0.30.0`. Verified `react-native-reanimated@~4.1.1` already present, `babel.config.js` already has reanimated plugin as last entry.
+- **Task 2**: Configured 5 named animation presets (quick, bouncy, medium, slow, lazy) using `createAnimations` from `@tamagui/animations-moti`. Passed animations to `createTamagui()`.
+- **Task 3**: Added custom spacing tokens (xs=4, sm=8, md=16, lg=24, xl=32, 2xl=48), radius tokens (sm=8, md=12, full=9999), Inter font via `createFont()` for body and heading, and `gtXs` media query.
+- **Task 4**: Added light/dark sub-themes for success, error, and warning. Each sub-theme remaps background, color, and borderColor tokens. Existing primary sub-themes preserved unchanged.
+- **Task 5**: Created `app/(tabs)/theme-demo.tsx` with SubThemeCard for all 4 sub-themes, bouncy animation demo, AnimatePresence toggle, primary button verification, and token spacing verification. Added tab navigation entry.
+- **Task 6**: TypeScript check passes (0 errors). ESLint passes (1 warn-level `any` in theme-demo.tsx). No hardcoded hex values in component files. Full test suite: 166/166 tests pass, 11/11 suites pass.
+
+### Change Log
+
+- 2026-02-20: Implemented Story 1.1b - Configured Tamagui theme system with animations, sub-themes, custom tokens, and demo screen.
+
 ### File List
+
+- `dangdai-mobile/tamagui.config.ts` (modified) - Added animation driver, custom tokens/fonts, success/error/warning sub-themes, gtXs media query
+- `dangdai-mobile/tamagui.config.test.ts` (new) - 14 unit tests for config: animations, theme tokens, sub-themes, custom tokens
+- `dangdai-mobile/app/(tabs)/theme-demo.tsx` (new) - Theme verification demo screen with sub-theme cards, animation demos
+- `dangdai-mobile/app/(tabs)/theme-demo.test.tsx` (new) - 6 unit tests for theme demo screen rendering
+- `dangdai-mobile/app/(tabs)/_layout.tsx` (modified) - Added theme-demo tab with Palette icon
+- `dangdai-mobile/package.json` (modified) - Added @tamagui/animations-moti, moti dependencies
+- `dangdai-mobile/yarn.lock` (modified) - Updated lock file with new dependencies
+- `dangdai-mobile/jest.config.js` (modified) - Added moti to transformIgnorePatterns
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (modified) - Updated story status
+- `_bmad-output/implementation-artifacts/1-1b-configure-tamagui-theme-animation-presets.md` (modified) - Updated task checkboxes, dev record, status
