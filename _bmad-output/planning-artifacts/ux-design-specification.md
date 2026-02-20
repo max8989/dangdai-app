@@ -259,9 +259,11 @@ Tamagui provides a performant, themeable foundation for React Native + Expo that
 - Correct/incorrect feedback overlays
 
 **Animation Strategy:**
-- Tamagui animations for UI transitions
-- React Native Reanimated for complex quiz feedback
-- Sound integration via expo-av
+- `@tamagui/animations-moti` (Reanimated-based driver) for all Tamagui component animations
+- Declarative `enterStyle`/`exitStyle`/`pressStyle` props on components with named animation presets (`quick`, `bouncy`, `medium`, `slow`)
+- `AnimatePresence` for quiz question transitions, feedback overlays, and completion screens
+- Raw Reanimated `useSharedValue`/`withTiming` only for numeric count-up animations (points counter)
+- Sound integration via expo-av, triggered alongside animation events
 
 ### Customization Strategy
 
@@ -274,6 +276,38 @@ Tamagui provides a performant, themeable foundation for React Native + Expo that
 - Extend Tamagui primitives for quiz-specific components
 - Build reusable feedback patterns (correct/incorrect states)
 - Create consistent touch targets for mobile quiz interaction
+
+### Sub-Theme Strategy
+
+Tamagui sub-themes use the `parentTheme_subTheme` naming convention (e.g., `light_primary`, `dark_primary`). Wrapping any component tree in `<Theme name="primary">` automatically remaps all semantic tokens (`background`, `color`, `borderColor`, etc.) to the sub-theme values. This is the primary mechanism for creating distinct visual contexts without one-off styling.
+
+**Required Sub-Themes:**
+
+| Sub-Theme | Purpose | Usage |
+|-----------|---------|-------|
+| `primary` | Primary action surfaces | CTA buttons, active tab indicators, selected states |
+| `success` | Correct answer context | FeedbackOverlay (correct), completion celebrations, mastery badges |
+| `error` | Incorrect answer context | FeedbackOverlay (incorrect), error states |
+| `warning` | Caution/hint context | Quiz hints, network warnings |
+
+**Usage Pattern:**
+
+Instead of manually setting `backgroundColor="$success"` and `color="$successText"` on individual elements, wrap the subtree:
+
+```tsx
+<Theme name="success">
+  <FeedbackOverlay /> {/* Automatically gets success background, text, border */}
+</Theme>
+```
+
+This ensures consistent color relationships (background + text contrast, border coordination) and simplifies dark mode -- each sub-theme has both `light_success` and `dark_success` variants that are resolved automatically.
+
+**Sub-Theme Values (example for `light_primary`):**
+- `background`: `#06B6D4` (primary color becomes the background)
+- `backgroundHover`: `#0891B2`
+- `backgroundPress`: `#0891B2`
+- `color`: `#FFFFFF` (white text on teal)
+- `borderColor`: `#06B6D4`
 
 ## Defining Experience
 
@@ -324,20 +358,36 @@ The satisfaction comes at **exercise completion**, not individual questions. Ind
 - User taps "Continue" or selects chapter
 - Exercise loads (10-15 questions from chapter content)
 
-**2. Interaction:**
-- Question appears (character/pinyin/meaning)
-- User taps answer from multiple choice
-- Immediate feedback: sound + visual (correct = green + ding, incorrect = gentle orange + encouraging)
-- Next question auto-advances
+**2. Interaction (Tamagui `AnimatePresence` pattern):**
+
+Each question is rendered inside `AnimatePresence` with `key={questionIndex}`. When the index changes, the current question animates out and the next animates in:
+
+```tsx
+<AnimatePresence custom={{ direction }}>
+  <QuizQuestionCard
+    key={questionIndex}
+    animation="medium"
+    enterStyle={{ opacity: 0, x: 20 }}    // slides in from right
+    exitStyle={{ opacity: 0, x: -20 }}     // slides out to left
+  />
+</AnimatePresence>
+```
+
+- Question appears with slide-in animation (`enterStyle`)
+- User taps answer from multiple choice (answer options use `pressStyle: { scale: 0.98 }`)
+- Immediate feedback via `<Theme name="success">` or `<Theme name="error">` wrapping the selected answer
+- Sound plays simultaneously (correct = ding, incorrect = gentle bonk)
+- After 1 second hold, `questionIndex` increments, triggering `AnimatePresence` exit/enter cycle
 
 **3. Feedback (per question):**
-- Correct: satisfying sound, brief green flash, small point increment
-- Incorrect: gentle sound, orange highlight, show correct answer, "nice try" energy
+- Correct: `<Theme name="success">` on answer + satisfying sound + small point increment visible
+- Incorrect: `<Theme name="error">` on answer + gentle sound + correct answer revealed
+- FeedbackOverlay uses `AnimatePresence` with `enterStyle: { opacity: 0, scale: 0.8 }` for pop-in
 
 **4. Completion (the big moment):**
-- All questions answered → celebration screen
-- Points tally up with animation + sound
-- "You struggled with: 會 vs 可以" summary
+- All questions answered → `CompletionScreen` enters via `AnimatePresence` with `enterStyle: { opacity: 0, y: 50 }` (slides up)
+- Points tally up with Reanimated count-up + Tamagui `animation="bouncy"` end-bounce
+- "You struggled with: 會 vs 可以" summary fades in with `animation="medium"`
 - Calendar square fills in for today
 - "Exercise complete! +85 points"
 
@@ -345,31 +395,49 @@ The satisfaction comes at **exercise completion**, not individual questions. Ind
 
 ### Color System
 
-**Primary Palette:**
+**Brand Color Values:**
 
 | Token | Color | Hex | Usage |
 |-------|-------|-----|-------|
-| Primary | Teal/Cyan | `#06B6D4` | Main actions, buttons, highlights |
-| Primary Dark | Deep Teal | `#0891B2` | Pressed states, emphasis |
-| Secondary | Warm Orange | `#F97316` | Accents, points, celebrations |
+| `primary` | Teal/Cyan | `#06B6D4` | Main actions, buttons, highlights |
+| `primaryDark` | Deep Teal | `#0891B2` | Pressed states, emphasis |
+| `primaryLight` | Light Cyan | `#22D3EE` | Dark mode primary, hover accents |
+| `secondary` | Warm Orange | `#F97316` | Accents, points, celebrations |
+| `success` | Soft Green | `#22C55E` | Correct answers, completion |
+| `error` | Gentle Orange | `#FB923C` | Wrong answers (encouraging, not harsh) |
+| `warning` | Amber | `#F59E0B` | Alerts, hints, cautions |
 
-**Semantic Colors:**
+**Tamagui Semantic Theme Tokens (Light Mode):**
 
-| Token | Color | Hex | Usage |
-|-------|-------|-----|-------|
-| Success | Soft Green | `#22C55E` | Correct answers, completion |
-| Error | Gentle Orange | `#FB923C` | Wrong answers (encouraging, not harsh) |
-| Warning | Amber | `#FBBF24` | Alerts, attention |
-| Background | Off-white | `#FAFAF9` | Main background |
-| Surface | White | `#FFFFFF` | Cards, elevated surfaces |
-| Text Primary | Dark Gray | `#1C1917` | Main text |
-| Text Secondary | Medium Gray | `#78716C` | Secondary text |
+Every theme must define the full set of Tamagui semantic tokens with interaction states. These are not arbitrary names -- Tamagui components consume them automatically for `background`, `color`, `borderColor`, etc.
+
+| Token | Value | Purpose |
+|-------|-------|---------|
+| `background` | `#FAFAF9` | Main screen background |
+| `backgroundHover` | `#F5F5F4` | Background on hover |
+| `backgroundPress` | `#E7E5E4` | Background on press |
+| `backgroundFocus` | `#D6D3D1` | Background on focus |
+| `backgroundStrong` | `#E7E5E4` | Emphasized background |
+| `surface` | `#FFFFFF` | Cards, elevated surfaces (custom token) |
+| `color` | `#1C1917` | Primary text |
+| `colorHover` | `#292524` | Text on hover |
+| `colorPress` | `#44403C` | Text on press |
+| `colorSubtle` | `#78716C` | Secondary/muted text (custom token) |
+| `borderColor` | `#D6D3D1` | Default borders |
+| `borderColorHover` | `#A8A29E` | Border on hover |
+| `borderColorFocus` | `#06B6D4` | Border on focus (uses primary) |
+| `placeholderColor` | `#78716C` | Input placeholders |
+
+Each semantic color (`success`, `error`, `warning`) also requires background/border/text variants for contextual UI (e.g., `successBackground: '#DCFCE7'`, `successBorder: '#BBF7D0'`, `successText: '#166534'`).
+
+**Dark Mode:** All tokens are redefined with inverted/adjusted values. Primary shifts to `primaryLight` (`#22D3EE`) for better contrast on dark backgrounds.
 
 **Color Rationale:**
 - Teal primary = fresh, modern, calming but energetic
 - Orange accents = celebratory, warm (points, rewards)
 - Gentle orange for errors = encouraging, not punishing (aligns with emotional goals)
 - Soft green for success = satisfying without being harsh
+- Interaction state variants (hover/press/focus) ensure consistent feedback across all Tamagui components without manual styling
 
 ### Typography System
 
@@ -491,9 +559,10 @@ Interactive mockups available at: `_bmad-output/planning-artifacts/ux-design-dir
 5. Completion celebration screen
 
 **Theme Implementation:**
-- Use Tamagui theme tokens for all colors
-- CSS variables approach for easy theme switching
-- Respect system preference with manual override option
+- Use Tamagui semantic theme tokens (`$background`, `$color`, `$borderColor`, etc.) for all colors
+- `<TamaguiProvider defaultTheme="light">` with system preference detection
+- Sub-themes (`light_primary`, `dark_primary`, `light_success`, etc.) for contextual color switching via `<Theme name="...">`
+- Manual override option in Settings (stored in Zustand `useSettingsStore`)
 
 ## User Journey Flows
 
@@ -707,15 +776,29 @@ flowchart TD
 - Secondary content (pinyin below character if applicable)
 - Container with rounded corners, elevation
 
-**States:**
-- Default (awaiting answer)
-- Correct (green border, success indicator)
-- Incorrect (orange border, shows correct answer)
+**Tamagui `styled()` Variants:**
 
-**Variants:**
-- Character display (large 72px character)
-- Pinyin display (medium 24px pinyin)
-- Meaning display (medium 20px English)
+```tsx
+const QuizQuestionCard = styled(Card, {
+  animation: 'medium',
+  enterStyle: { opacity: 0, scale: 0.95, y: 10 },
+
+  variants: {
+    display: {
+      character: { /* large 72px character layout */ },
+      pinyin: { /* medium 24px pinyin layout */ },
+      meaning: { /* medium 20px English layout */ },
+    },
+    feedback: {
+      none: {},
+      correct: { borderColor: '$success', borderWidth: 2 },
+      incorrect: { borderColor: '$error', borderWidth: 2 },
+    },
+  } as const,
+})
+```
+
+**Animation:** Uses `AnimatePresence` with `key={questionIndex}` to animate question transitions. Old question exits left (`exitStyle: { opacity: 0, x: -20 }`), new enters right (`enterStyle: { opacity: 0, x: 20 }`).
 
 ---
 
@@ -723,25 +806,38 @@ flowchart TD
 
 **Purpose:** Display answer options in flexible layouts
 
-**Variants:**
+**Tamagui `styled()` Variants:**
 
-| Variant | Layout | Use Case |
-|---------|--------|----------|
-| Grid 2x2 | 4 options in grid | Most common - vocabulary |
-| List | 2-4 vertical options | Longer answer text |
-| TextInput | Single input field | User types answer |
+```tsx
+const AnswerOption = styled(Button, {
+  animation: 'quick',
+  pressStyle: { scale: 0.98 },
+  minHeight: 48,
 
-**States (per option):**
-- Default (neutral border)
-- Hover/Press (primary color border)
-- Selected (primary fill)
-- Correct (green border + checkmark)
-- Incorrect (orange border)
-- Disabled (dimmed, after answer)
+  variants: {
+    state: {
+      default: { borderColor: '$borderColor' },
+      selected: { borderColor: '$primary', backgroundColor: '$backgroundPress' },
+      correct: { borderColor: '$success', backgroundColor: '$successBackground' },
+      incorrect: { borderColor: '$error', backgroundColor: '$errorBackground' },
+      disabled: { opacity: 0.5 },
+    },
+    layout: {
+      grid: { /* 2x2 grid sizing */ },
+      list: { /* full-width vertical */ },
+    },
+  } as const,
+})
+```
+
+| Layout Variant | Grid | Use Case |
+|----------------|------|----------|
+| `grid` | 2x2 | Most common - vocabulary |
+| `list` | Vertical stack | Longer answer text |
 
 **Accessibility:**
-- Minimum 48x48px touch targets
-- Focus states for keyboard navigation
+- Minimum 48x48px touch targets via `minHeight: 48`
+- `focusStyle: { borderColor: '$borderColorFocus' }` for keyboard navigation
 - ARIA labels for screen readers
 
 ---
@@ -755,12 +851,22 @@ flowchart TD
 - Submit button
 - Character counter (if applicable)
 
-**States:**
-- Empty (placeholder visible)
-- Focused (primary border)
-- Filled (user input shown)
-- Correct (green border + checkmark)
-- Incorrect (orange border + show correct)
+**Tamagui Style States:**
+
+```tsx
+<Input
+  animation="quick"
+  focusStyle={{ borderColor: '$borderColorFocus', borderWidth: 2 }}
+  placeholderTextColor="$placeholderColor"
+/>
+```
+
+| State | Tamagui Props |
+|-------|---------------|
+| Empty | Default + `placeholderColor` token |
+| Focused | `focusStyle: { borderColor: '$borderColorFocus' }` |
+| Correct | Wrap in `<Theme name="success">` or set `borderColor="$success"` |
+| Incorrect | Wrap in `<Theme name="error">` or set `borderColor="$error"` |
 
 **Behavior:**
 - Auto-submit on Enter key
@@ -805,14 +911,25 @@ flowchart TD
 - Points label
 - Optional: flame/trophy icon
 
-**Animation:**
-- Count-up animation on points earned
-- Satisfying "tick tick tick" timing
-- Subtle scale bounce at end
+**Tamagui `styled()` Variants:**
 
-**Variants:**
-- Inline (small, header badge)
-- Celebration (large, completion screen)
+```tsx
+const PointsCounter = styled(XStack, {
+  animation: 'bouncy',
+
+  variants: {
+    size: {
+      inline: { /* small, header badge */ },
+      celebration: { /* large, completion screen */ },
+    },
+  } as const,
+})
+```
+
+**Animation:**
+- Count-up uses React Native Reanimated `useSharedValue` + `withTiming` (not Tamagui -- numeric interpolation is outside Tamagui's scope)
+- End-of-count scale bounce via Tamagui `animation="bouncy"` with a state change
+- Satisfying "tick tick tick" sound paired with count-up
 
 ---
 
@@ -828,16 +945,31 @@ flowchart TD
 - Weak areas summary card
 - Continue button
 
-**Animation Sequence:**
-1. Screen slides up
-2. Trophy/emoji bounces in
-3. Points count up with sound
-4. Stats fade in
-5. Continue button appears
+**Tamagui Animation Implementation:**
+
+The screen is wrapped in `AnimatePresence` and uses staggered `enterStyle` for each child:
+
+```tsx
+<AnimatePresence>
+  <YStack key="completion" animation="medium"
+    enterStyle={{ opacity: 0, y: 50 }}>       {/* 1. Screen slides up */}
+    <Trophy animation="bouncy"
+      enterStyle={{ scale: 0, rotate: '-20deg' }} />  {/* 2. Bounces in */}
+    <PointsCounter animation="bouncy" />         {/* 3. Count up */}
+    <StatsRow animation="medium"
+      enterStyle={{ opacity: 0 }} />              {/* 4. Fades in */}
+    <Button animation="medium"
+      enterStyle={{ opacity: 0, y: 10 }} />       {/* 5. Appears */}
+  </YStack>
+</AnimatePresence>
+```
 
 **Variants:**
-- Normal completion
-- Chapter mastery (extra celebration, badge)
+
+| Variant | Behavior |
+|---------|----------|
+| Normal completion | Standard animation sequence |
+| Chapter mastery | Extra `<Theme name="success">` wrapper, badge element with `animation="bouncy"`, achievement sound |
 
 ---
 
@@ -851,14 +983,27 @@ flowchart TD
 - Chapter name (Chinese)
 - Progress indicator (% or checkmark)
 
-**States:**
-- Not started (gray badge, 0%)
-- In progress (primary badge, X%)
-- Completed (green badge, checkmark)
+**Tamagui `styled()` Variants:**
+
+```tsx
+const ChapterListItem = styled(XStack, {
+  animation: 'quick',
+  pressStyle: { scale: 0.98 },
+
+  variants: {
+    status: {
+      notStarted: { /* gray badge, 0% */ },
+      inProgress: { /* primary badge, X% */ },
+      completed: { /* green badge, checkmark */ },
+    },
+  } as const,
+})
+```
 
 **Behavior:**
 - Tap to start/continue quiz
 - All chapters tappable (no locks)
+- `pressStyle: { scale: 0.98 }` for tactile press feedback
 
 ---
 
@@ -870,10 +1015,20 @@ flowchart TD
 - Book cover (colored, with Chinese + number)
 - Book title
 - Progress summary (X/15 chapters)
-- Progress bar
+- Progress bar with `<Progress.Indicator animation="bouncy" />`
+
+**Tamagui Style States:**
+
+```tsx
+<Card animation="quick" pressStyle={{ scale: 0.98 }}>
+  ...
+  <Progress><Progress.Indicator animation="bouncy" /></Progress>
+</Card>
+```
 
 **Behavior:**
 - Tap to view chapters
+- `pressStyle: { scale: 0.98 }` for tactile press feedback
 
 ---
 
@@ -886,10 +1041,30 @@ flowchart TD
 - Icon (checkmark or X)
 - Optional: correct answer display
 
-**Animation:**
-- Quick fade in (100ms)
-- Hold (500ms)
-- Auto-dismiss and advance
+**Tamagui Animation Implementation:**
+
+Use `AnimatePresence` for enter/exit with `<Theme name="success">` or `<Theme name="error">` for automatic color resolution:
+
+```tsx
+<AnimatePresence>
+  {showFeedback && (
+    <Theme name={isCorrect ? 'success' : 'error'}>
+      <YStack
+        key="feedback"
+        animation="quick"
+        enterStyle={{ opacity: 0, scale: 0.8 }}
+        exitStyle={{ opacity: 0 }}
+        backgroundColor="$background"
+        borderColor="$borderColor"
+      >
+        <Icon /> {/* Checkmark or X */}
+      </YStack>
+    </Theme>
+  )}
+</AnimatePresence>
+```
+
+The sub-theme automatically resolves `$background` to `$successBackground` or `$errorBackground`, and `$borderColor` to `$successBorder` or `$errorBorder`.
 
 **Sound Integration:**
 - Correct: satisfying "ding"
@@ -923,13 +1098,16 @@ flowchart TD
 ### Implementation Approach
 
 **Tamagui Integration:**
-- Use Tamagui's `styled()` to extend base components
-- Leverage theme tokens for all colors
-- Use `@tamagui/animations` for micro-interactions
+- Use Tamagui's `styled()` with `variants` to create type-safe, state-driven components
+- Leverage theme tokens (`$background`, `$color`, `$borderColor`, etc.) for all colors -- never hardcode hex values in components
+- Use sub-themes (`<Theme name="success">`, `<Theme name="error">`) for contextual color contexts
+- Use `pressStyle`, `hoverStyle`, `focusStyle` for interactive state feedback
+- Use `enterStyle`/`exitStyle` with `AnimatePresence` for mount/unmount animations
 
 **Animation Library:**
-- React Native Reanimated for complex animations
-- Tamagui animations for simple transitions
+- `@tamagui/animations-moti` (Reanimated-based) as primary animation driver -- runs off JS thread for 60fps quiz interactions
+- Tamagui declarative animations (`animation="quick"`, `enterStyle`, `exitStyle`) for all component transitions
+- Raw React Native Reanimated only for numeric interpolation (e.g., points count-up) that Tamagui doesn't handle
 
 **Sound Integration:**
 - expo-av for audio playback
@@ -984,8 +1162,14 @@ flowchart TD
 | Tertiary | Text only, primary color | Minor action | "Skip", "Cancel" |
 | Destructive | Outlined, error color | Dangerous action | "Delete Progress" |
 
+**Tamagui Implementation:**
+- Primary buttons use `<Theme name="primary"><Button>...</Button></Theme>` -- the sub-theme automatically sets filled background + white text + hover/press variants
+- Secondary/Tertiary buttons use the default theme with `variant="outlined"` or unstyled
+- `pressStyle: { scale: 0.98 }` on all buttons for tactile feedback
+- `animation="quick"` for responsive press animations
+
 **Button States:**
-- Default → Hover/Press (darken 10%) → Disabled (50% opacity)
+- Default → `hoverStyle` (darken 10%) → `pressStyle` (scale 0.98) → Disabled (50% opacity)
 - Minimum height: 48px
 - Minimum width: 120px for primary buttons
 - Full-width on mobile for primary CTAs
@@ -1128,22 +1312,73 @@ flowchart TD
 
 ### Animation Patterns
 
-#### Timing Guidelines
+#### Animation Driver
 
-| Animation Type | Duration | Easing |
-|----------------|----------|--------|
-| Micro-interaction (button) | 100-150ms | ease-out |
-| Feedback (correct/incorrect) | 200ms in, 1000ms hold | ease-out |
-| Screen transition | 300ms | ease-in-out |
-| Celebration | 500-800ms | spring |
-| Points counter | 1500-2000ms | linear |
+The project uses `@tamagui/animations-moti` (Reanimated-based) as the animation driver. This runs animations off the JS thread for smooth 60fps performance during quiz interactions. The `@tamagui/animations-react-native` driver is also available as a fallback.
+
+#### Tamagui Animation Presets
+
+Tamagui uses spring physics parameters instead of CSS timing/easing. All animations are defined as named presets in `createAnimations()` and referenced by name on components via the `animation` prop.
+
+| Preset Name | Spring Parameters | Feel | Usage |
+|-------------|-------------------|------|-------|
+| `quick` | `damping: 20, stiffness: 250, mass: 1.2` | Snappy, responsive | Button press (`pressStyle`), micro-interactions, tab switches |
+| `bouncy` | `damping: 10, stiffness: 200, mass: 0.9` | Playful bounce | Celebration emoji, badge earned, points counter end-bounce |
+| `medium` | `damping: 15, stiffness: 150, mass: 1.0` | Smooth, natural | Screen transitions, card appearance, question enter/exit |
+| `slow` | `damping: 20, stiffness: 60, mass: 1.2` | Gentle, relaxed | Background elements, calendar square fill, skeleton loading |
+| `lazy` | (from defaultConfig) | Very slow fade | Skeleton shimmer placeholders |
+
+**Usage example:**
+```tsx
+<YStack animation="quick" pressStyle={{ scale: 0.98 }}>
+  <QuizAnswerButton />
+</YStack>
+```
+
+#### Declarative Animation Props
+
+Tamagui components support these animation-related style props that replace imperative animation code:
+
+| Prop | Purpose | Example |
+|------|---------|---------|
+| `enterStyle` | Styles when component mounts (animates FROM these values) | `{ opacity: 0, y: 10, scale: 0.9 }` |
+| `exitStyle` | Styles when component unmounts (animates TO these values) | `{ opacity: 0, y: -10, scale: 0.9 }` |
+| `pressStyle` | Styles while pressed | `{ scale: 0.98 }` |
+| `hoverStyle` | Styles on hover (web) | `{ scale: 1.02, backgroundColor: '$backgroundHover' }` |
+| `focusStyle` | Styles when focused | `{ borderColor: '$borderColorFocus' }` |
+
+These props are combined with the `animation` preset to control timing. The component animates between its default styles and the declared style props automatically.
+
+#### AnimatePresence for Conditional Rendering
+
+Use `AnimatePresence` from Tamagui to animate components in and out of the tree. This is required for:
+- Quiz question transitions (old question exits left, new enters right)
+- FeedbackOverlay appearance/disappearance
+- CompletionScreen slide-up entrance
+- Toast notifications
+
+```tsx
+<AnimatePresence>
+  {showFeedback && (
+    <FeedbackOverlay
+      key="feedback"
+      animation="quick"
+      enterStyle={{ opacity: 0, scale: 0.5 }}
+      exitStyle={{ opacity: 0, scale: 0.5 }}
+    />
+  )}
+</AnimatePresence>
+```
+
+Children of `AnimatePresence` must have a unique `key` prop that changes to trigger the animation cycle.
 
 #### Reduced Motion
 
 - Respect `prefers-reduced-motion` setting
-- Disable animations but keep feedback (color changes)
-- Sound feedback still works
+- Disable animations but keep feedback (color changes only)
+- Sound feedback still works with reduced motion
 - Instant transitions instead of animated
+- Tamagui respects this automatically when configured
 
 ---
 
@@ -1253,15 +1488,30 @@ flowchart TD
 **React Native Specifics:**
 - Lock to portrait: `expo.orientation: "portrait"`
 - Use `SafeAreaView` from `react-native-safe-area-context`
-- Check device width with `Dimensions.get('window')`
-- Define `isSmallDevice = width < 375` for conditional styling
 
-**Tamagui Responsive:**
-- Use Tamagui's responsive props where needed
-- Define size tokens for small/medium/large
-- Keep breakpoints simple (just small vs normal)
+**Tamagui Responsive (Declarative Media Queries):**
+
+Tamagui provides built-in `media` breakpoints (from `@tamagui/config/v5`) that work as declarative props on any component. Use these instead of imperative `Dimensions.get('window')` checks:
+
+```tsx
+// Instead of: const isSmall = Dimensions.get('window').width < 375
+// Use Tamagui media props directly:
+<Text fontSize={16} $xs={{ fontSize: 14 }}>Question</Text>
+<YStack padding="$4" $xs={{ padding: '$3' }}>...</YStack>
+<Card marginHorizontal="$4" $xs={{ marginHorizontal: '$3' }}>...</Card>
+```
+
+**Available breakpoints (from defaultConfig):**
+
+| Media Query | Condition | App Usage |
+|-------------|-----------|-----------|
+| `$xs` | `maxWidth: 660` | Small phones (iPhone SE, narrow Androids) -- tighter spacing, smaller fonts |
+| `$sm` | `maxWidth: 800` | Most phones fall here -- this is the primary design target |
+| `$gtXs` | `minWidth: 661` | Standard/large phones -- default spacing |
+
+Since the app is mobile-only and portrait-locked, only `$xs` is practically needed for small-device adjustments. The default styles target the 375-430px range, and `$xs` overrides handle narrower screens.
 
 **Font Scaling:**
 - Allow system font scaling up to 1.2x
 - Test UI doesn't break at larger sizes
-- Consider max font size for critical UI
+- Consider max font size for critical UI elements
