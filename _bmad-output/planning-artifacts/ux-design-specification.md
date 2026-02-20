@@ -5,12 +5,16 @@ completedAt: 2026-02-14
 inputDocuments:
   - '/home/maxime/repos/dangdai-app/_bmad-output/planning-artifacts/prd.md'
   - '/home/maxime/repos/dangdai-app/_bmad-output/brainstorming/brainstorming-session-20260214.md'
+lastEdited: 'Thu Feb 20 2026'
+editHistory:
+  - date: 'Thu Feb 20 2026'
+    changes: 'Major UX update to align with PRD v2.0: Added 7 exercise types with type-specific interaction patterns (matching, sentence construction, dialogue completion, fill-in-blank, reading comprehension), exercise type selection screen, weakness dashboard, adaptive quiz feedback patterns, 8 new custom components, 6 new screen layouts, updated all 4 user journeys + new Journey 5 (Reviewing Weak Areas), progressive loading for quiz generation (8s NFR).'
 ---
 
 # UX Design Specification dangdai-app
 
 **Author:** Maxime
-**Date:** Sat Feb 14 2026
+**Date:** Sat Feb 14 2026 (Updated: Thu Feb 20 2026)
 
 ---
 
@@ -42,6 +46,10 @@ A gamified mobile app enabling NTNU 當代中文課程 (Dangdai) alumni to conti
 
 4. **Motivation for Small User Group** - MVP gamification (streaks, points) must drive 3x/week engagement among 5 friends without Phase 2 social features.
 
+5. **Exercise Type Selection UX** - Users need to choose from 7 exercise types per chapter (Vocabulary, Grammar, Fill-in-the-Blank, Matching, Dialogue Completion, Sentence Construction, Reading Comprehension, or "Mixed") without feeling overwhelmed. The selection UI must communicate per-type progress at a glance and guide users toward uncovered or weak areas without being prescriptive.
+
+6. **Weakness Dashboard Presentation** - Presenting learner weakness data (missed vocabulary, low-accuracy grammar patterns, weak exercise types) in a motivating, non-judgmental way. The dashboard must encourage targeted practice without making users feel bad about their gaps. Data framing matters: "improving" > "failing," "focus area" > "weakness."
+
 ### Design Opportunities
 
 1. **Familiar Curriculum = Reduced Cognitive Load** - Users know Dangdai structure from NTNU. UX can leverage this familiarity - "pick up where you left off" feels like returning to class, not learning a new app.
@@ -54,14 +62,21 @@ A gamified mobile app enabling NTNU 當代中文課程 (Dangdai) alumni to conti
 
 ### Defining Experience
 
-The core experience is the **quiz interaction loop**: question → answer → immediate feedback → points reward. This is what users will do most frequently and must feel polished and satisfying.
+The core experience is the **exercise interaction loop**: select exercise type → answer questions with type-specific interactions → immediate feedback → weakness-aware summary. This is what users will do most frequently and must feel polished and satisfying.
 
 **Core Loop:**
-1. User sees question (character, pinyin, or meaning)
-2. User selects/inputs answer
-3. Instant feedback with sound + animation (correct/incorrect)
-4. Points animate upward
-5. Next question or completion celebration
+1. User selects exercise type for a chapter (or "Mixed" for adaptive variety)
+2. AI generates questions from RAG-retrieved textbook/workbook content filtered by exercise type
+3. User interacts with type-specific question format:
+   - **Vocabulary / Grammar / Reading Comprehension:** Multiple choice (tap answer from 2x2 grid or vertical list)
+   - **Fill-in-the-Blank:** Select word from horizontal scrollable word bank, or type answer
+   - **Matching:** Tap-to-pair interaction connecting related items (character ↔ pinyin, question ↔ response)
+   - **Dialogue Completion:** Read conversation bubbles, select appropriate response to fill the blank
+   - **Sentence Construction:** Drag/tap word tiles to reorder into correct sentence
+4. Instant feedback with sound + animation (correct/incorrect) — consistent across all types
+5. Points animate upward
+6. Next question or completion celebration
+7. Post-quiz: weakness summary updates ("You struggled with: 會 vs 可以"), feeds into future adaptive quizzes
 
 ### Platform Strategy
 
@@ -315,9 +330,9 @@ This ensures consistent color relationships (background + text contrast, border 
 
 **One-sentence description:** "A cool app that feels like a game but to continue learning Taiwan Chinese in the NTNU books where you left it."
 
-**Defining experience:** Complete a workbook-style exercise and see your progress fill up the calendar.
+**Defining experience:** Pick an exercise TYPE (or "Mixed"), complete an AI-generated workbook-style exercise built from the actual Dangdai textbook/workbook content via RAG, and see your per-type mastery grow across the chapter.
 
-The satisfaction comes at **exercise completion**, not individual questions. Individual correct answers are small wins leading to the big payoff.
+The satisfaction comes from seeing **multiple exercise types mastered per chapter**, not just one quiz score. Each type completed fills in another piece of the chapter mastery puzzle. Individual correct answers are small wins; completing an exercise type is a medium win; full chapter coverage across types is the big payoff.
 
 ### User Mental Model
 
@@ -327,18 +342,22 @@ The satisfaction comes at **exercise completion**, not individual questions. Ind
 - Familiar structure reduces learning curve
 
 **User expectations:**
-- Exercise = set of 10-15 related questions (like a workbook page)
-- Completion = satisfying moment of accomplishment
-- Progress = visible, cumulative, non-judgmental
+- Exercise = set of 10-15 related questions of a specific type (like a workbook page section)
+- Multiple exercise types per chapter mirror the variety in the physical workbook
+- "Mixed" mode = AI picks the best exercise types based on what you need to practice
+- Completion = satisfying moment of accomplishment per exercise type
+- Progress = visible per-type coverage, cumulative, non-judgmental
 
 ### Success Criteria
 
 | Criteria | What Success Looks Like |
 |----------|------------------------|
-| Exercise completion | Clear celebration moment with sound + animation |
-| Progress visibility | Calendar fills up, points tally animates |
-| Session satisfaction | User feels productive after 15 minutes |
-| Return motivation | "I want to fill more calendar squares" |
+| Exercise type completion | Clear celebration moment with sound + animation per exercise type |
+| Chapter coverage | User sees per-type progress indicators filling up (Vocabulary done, Grammar 60%, Matching not started) |
+| Progress visibility | Calendar fills up, points tally animates, per-type mastery grows |
+| Session satisfaction | User feels productive after 15 minutes across different exercise types |
+| Weakness improvement | User sees weakness areas shrinking over time |
+| Return motivation | "I want to master more exercise types" and "I want to improve my weak areas" |
 
 ### Pattern Analysis
 
@@ -354,9 +373,12 @@ The satisfaction comes at **exercise completion**, not individual questions. Ind
 
 ### Experience Mechanics
 
-**1. Initiation:**
-- User taps "Continue" or selects chapter
-- Exercise loads (10-15 questions from chapter content)
+**1. Exercise Type Selection:**
+- User taps "Continue" or selects chapter → arrives at Exercise Type Selection screen
+- Sees grid of exercise type cards (Vocabulary, Grammar, Fill-in-the-Blank, Matching, Dialogue Completion, Sentence Construction, Reading Comprehension) plus "Mixed" option
+- Each card shows per-type progress (e.g., "80%", "Not started", checkmark for mastered)
+- User taps an exercise type (or "Mixed" for AI-selected adaptive variety)
+- AI generates exercise from RAG-retrieved content filtered by chapter + exercise type
 
 **2. Interaction (Tamagui `AnimatePresence` pattern):**
 
@@ -373,9 +395,17 @@ Each question is rendered inside `AnimatePresence` with `key={questionIndex}`. W
 </AnimatePresence>
 ```
 
-- Question appears with slide-in animation (`enterStyle`)
-- User taps answer from multiple choice (answer options use `pressStyle: { scale: 0.98 }`)
-- Immediate feedback via `<Theme name="success">` or `<Theme name="error">` wrapping the selected answer
+**Type-specific interaction patterns:**
+
+- **Vocabulary / Grammar / Reading Comprehension:** Question appears with slide-in → user taps answer from multiple choice grid → immediate feedback
+- **Fill-in-the-Blank:** Sentence with blank displayed → horizontal scrollable word bank below → user taps word to fill blank (or types answer) → feedback
+- **Matching:** Two columns displayed (e.g., characters left, pinyin right) → user taps item in left column, then taps matching item in right column to pair → matched pairs animate together with `<Theme name="success">` → incorrect pairs shake with `animation="quick"` and reset
+- **Dialogue Completion:** Conversation bubble layout (A/B alternating) with one blank bubble → user selects response from options below → selected response fills the blank bubble with slide-in animation
+- **Sentence Construction:** Scrambled word tiles displayed in a tappable/draggable row → user taps tiles in order (or drags to reorder) to construct sentence → tiles snap into sentence area → submit to check order
+
+Common across all types:
+- Answer options use `pressStyle: { scale: 0.98 }`
+- Immediate feedback via `<Theme name="success">` or `<Theme name="error">` wrapping the interaction
 - Sound plays simultaneously (correct = ding, incorrect = gentle bonk)
 - After 1 second hold, `questionIndex` increments, triggering `AnimatePresence` exit/enter cycle
 
@@ -383,11 +413,14 @@ Each question is rendered inside `AnimatePresence` with `key={questionIndex}`. W
 - Correct: `<Theme name="success">` on answer + satisfying sound + small point increment visible
 - Incorrect: `<Theme name="error">` on answer + gentle sound + correct answer revealed
 - FeedbackOverlay uses `AnimatePresence` with `enterStyle: { opacity: 0, scale: 0.8 }` for pop-in
+- For matching/sentence construction: partial credit feedback shows which pairs/positions were correct
 
 **4. Completion (the big moment):**
 - All questions answered → `CompletionScreen` enters via `AnimatePresence` with `enterStyle: { opacity: 0, y: 50 }` (slides up)
 - Points tally up with Reanimated count-up + Tamagui `animation="bouncy"` end-bounce
-- "You struggled with: 會 vs 可以" summary fades in with `animation="medium"`
+- **Per-exercise-type breakdown** shown: "Vocabulary: 90%, Grammar: 75%, Matching: 80%"
+- "You struggled with: 會 vs 可以" weakness summary fades in with `animation="medium"`
+- Weakness profile updates in real-time — feeds into future adaptive quiz generation
 - Calendar square fills in for today
 - "Exercise complete! +85 points"
 
@@ -568,9 +601,9 @@ Interactive mockups available at: `_bmad-output/planning-artifacts/ux-design-dir
 
 ### Journey 1: First-Time User (Onboarding)
 
-**Goal:** Get new user from signup to first quiz completion as fast as possible.
+**Goal:** Get new user from signup to first exercise completion as fast as possible.
 
-**Flow Summary:** Signup → Book Selection → Chapter Selection → First Quiz → Completion Celebration
+**Flow Summary:** Signup → Book Selection → Chapter Selection → Exercise Type Selection → First Exercise → Completion Celebration
 
 ```mermaid
 flowchart TD
@@ -585,58 +618,71 @@ flowchart TD
     H --> I[Select Book 1 or 2]
     I --> J[Chapter Selection Screen]
     J --> K[Select Any Chapter]
-    K --> L[Quiz Starts Immediately]
-    L --> M[Complete 10-15 Questions]
-    M --> N[Completion Celebration]
-    N --> O[Return to Dashboard]
-    O --> P[Calendar Shows First Day!]
+    K --> L[Exercise Type Selection Screen]
+    L --> M{User Sees 7 Exercise Types + Mixed}
+    M --> N[Selects Vocabulary - Most Familiar]
+    N --> O[AI Generates Quiz via RAG]
+    O --> P[Complete 10-15 Questions]
+    P --> Q[Completion Celebration]
+    Q --> R[Return to Dashboard]
+    R --> S[Calendar Shows First Day!]
+    S --> T[Chapter Shows: Vocabulary ✓, 6 Types Remaining]
 ```
 
 **Key Design Decisions:**
 - No tutorial/intro - get to learning immediately
 - Book/chapter selection is required (no default)
 - All chapters accessible from day one
-- First completion = first calendar square filled
+- Exercise type selection screen shows all 7 types + "Mixed" with clear labels and icons
+- For first-time users, "Vocabulary" is visually suggested (top-left position, slightly emphasized) as the most familiar entry point
+- First completion = first calendar square filled + first exercise type progress indicator filled
 
-**Success Moment:** "Day 1 started! +X points" with calendar visual
+**Success Moment:** "Day 1 started! +X points" with calendar visual + "Vocabulary complete! 6 more exercise types to explore"
 
 ---
 
 ### Journey 2: Daily Quiz Session (Core Loop)
 
-**Goal:** Minimal friction from app open to learning.
+**Goal:** Minimal friction from app open to learning, with adaptive content targeting weak areas.
 
-**Flow Summary:** Open App → Dashboard → Continue → Quiz → Completion → Dashboard
+**Flow Summary:** Open App → Dashboard (with weakness summary) → Continue or Mixed Mode → Adaptive Quiz → Completion with Weakness Update → Dashboard
 
 ```mermaid
 flowchart TD
     A[Open App] --> B[Dashboard]
-    B --> C{Previous Chapter in Progress?}
-    C -->|Yes| D[Show Continue Card]
+    B --> B1[Dashboard Shows Weakness Summary]
+    B1 --> C{Previous Chapter in Progress?}
+    C -->|Yes| D[Show Continue Card + Last Exercise Type]
     C -->|No| E[Show Book Selection]
-    D --> F[Tap Continue Button]
-    F --> G[Quiz Starts Immediately]
-    G --> H[Question Appears]
-    H --> I[User Taps Answer]
-    I --> J{Correct?}
-    J -->|Yes| K[Green Flash + Ding + Points]
-    J -->|No| L[Orange Highlight + Show Correct]
-    K --> M{More Questions?}
-    L --> M
-    M -->|Yes| H
-    M -->|No| N[Completion Screen]
-    N --> O[Points Tally Animation]
-    O --> P[Show Weak Areas Summary]
-    P --> Q[Tap Continue]
-    Q --> R[Return to Dashboard]
-    R --> S[Calendar Updated]
+    D --> F{User Choice}
+    F -->|Continue Same Type| G[Resume Last Exercise Type]
+    F -->|Try Mixed Mode| H[AI Selects Types Based on Weaknesses]
+    G --> I[AI Generates Quiz - Biased Toward Weak Areas]
+    H --> I
+    I --> J[Question Appears - Type-Specific Interaction]
+    J --> K[User Answers]
+    K --> L{Correct?}
+    L -->|Yes| M[Green Flash + Ding + Points]
+    L -->|No| N[Orange Highlight + Show Correct]
+    M --> O{More Questions?}
+    N --> O
+    O -->|Yes| J
+    O -->|No| P[Completion Screen]
+    P --> Q[Points Tally Animation]
+    Q --> R[Per-Exercise-Type Breakdown]
+    R --> S[Weakness Summary Update]
+    S --> T[Tap Continue]
+    T --> U[Return to Dashboard]
+    U --> V[Calendar Updated + Weakness Dashboard Refreshed]
 ```
 
 **Key Design Decisions:**
-- One tap from dashboard to quiz (no confirmation screens)
+- Dashboard prominently shows weakness summary: "Focus areas: 會 vs 可以, Sentence Construction (40%)"
+- "Mixed" mode available from dashboard — AI generates questions biased toward documented weak areas (30-50% of questions target weaknesses)
 - Auto-advance between questions after feedback
-- Completion screen shows: points, accuracy, weak areas
-- Dashboard updates immediately with new calendar state
+- Completion screen shows: points, accuracy, **per-exercise-type breakdown**, and weakness summary
+- Weakness dashboard updates in real-time after each quiz completion
+- Dashboard updates immediately with new calendar state and refreshed weakness indicators
 
 **Timing:**
 - Question feedback: ~1 second display
@@ -647,9 +693,9 @@ flowchart TD
 
 ### Journey 3: Chapter Navigation
 
-**Goal:** Allow flexible navigation to any chapter in any book.
+**Goal:** Allow flexible navigation to any chapter in any book, with per-exercise-type progress visibility.
 
-**Flow Summary:** Dashboard → Books → Select Book → Chapters → Select Any Chapter → Quiz
+**Flow Summary:** Dashboard → Books → Select Book → Chapters (with per-type progress) → Select Chapter → Exercise Type Selection → Exercise
 
 ```mermaid
 flowchart TD
@@ -657,48 +703,107 @@ flowchart TD
     B --> C[Books List Screen]
     C --> D[Select Book 1 or 2]
     D --> E[Chapter List Screen]
-    E --> F[View All Chapters]
+    E --> F[View All Chapters with Per-Type Progress]
     F --> G{Chapter Status}
-    G -->|Completed ✓| H[Shows 100% - Can Redo]
-    G -->|In Progress| I[Shows X% - Continue]
-    G -->|Not Started| J[Shows 0% - Start]
-    H --> K[Tap to Start Quiz]
-    I --> K
+    G -->|All Types Mastered ✓| H[Shows Mastered - Can Redo Any Type]
+    G -->|Some Types Done| I[Shows Per-Type Indicators]
+    G -->|Not Started| J[Shows No Progress - Start]
+    I --> I1[e.g. Vocabulary ✓, Grammar 60%, Matching Not Started]
+    H --> K[Tap Chapter]
+    I1 --> K
     J --> K
-    K --> L[Quiz Starts Immediately]
+    K --> L[Exercise Type Selection Screen]
+    L --> M[Select Exercise Type or Mixed]
+    M --> N[AI Generates Exercise via RAG]
+    N --> O[Exercise Starts]
 ```
 
 **Key Design Decisions:**
 - All chapters visible and accessible (no locks)
-- Clear visual states: Completed (✓), In Progress (%), Not Started
-- Can redo completed chapters anytime
+- **Per-exercise-type progress indicators** on each chapter list item (e.g., "Vocabulary ✓, Grammar 60%, Matching not started")
+- Compact indicator row uses small icons/dots per exercise type with color-coded status (green = mastered, teal = in progress, gray = not started)
+- Tapping a chapter goes to Exercise Type Selection, not directly to quiz
+- Can redo completed exercise types anytime
 - Back navigation always available
 
 ---
 
 ### Journey 4: Chapter Completion (Mastery)
 
-**Goal:** Celebrate chapter mastery when reaching 80%+.
+**Goal:** Celebrate chapter mastery, which now requires coverage across multiple exercise types.
 
 ```mermaid
 flowchart TD
-    A[Complete Exercise] --> B{Chapter Progress >= 80%?}
-    B -->|No| C[Normal Completion Screen]
-    B -->|Yes, First Time| D[Chapter Mastery Celebration!]
-    D --> E[Special Animation + Sound]
-    E --> F[Show Badge Earned]
-    F --> G[Chapter 12 Mastered!]
-    G --> H[Tap Continue]
-    H --> I[Return to Dashboard]
-    C --> I
-    I --> J[Chapter Shows ✓ in List]
+    A[Complete Exercise] --> B[Show Normal Completion + Per-Type Breakdown]
+    B --> C{Sufficient Exercise Type Coverage?}
+    C -->|No| D[Show Progress: 4/7 Types Attempted]
+    C -->|Yes| E{Average Score >= 80% Across Types?}
+    D --> F[Encourage: Try Matching or Sentence Construction Next!]
+    F --> G[Return to Exercise Type Selection]
+    E -->|No| H[Show Per-Type Scores: Grammar 65% - Keep Practicing!]
+    H --> G
+    E -->|Yes, First Time| I[Chapter Mastery Celebration!]
+    I --> J[Special Animation + Sound]
+    J --> K[Show Per-Type Breakdown]
+    K --> L[Vocabulary 95% ✓ Grammar 82% ✓ Matching 88% ✓ ...]
+    L --> M[Badge Earned: Chapter 12 Mastered!]
+    M --> N[Tap Continue]
+    N --> O[Return to Dashboard]
+    O --> P[Chapter Shows ✓ in List with All Types Green]
 ```
 
 **Key Design Decisions:**
-- 80% threshold triggers mastery celebration
+- Chapter mastery requires **coverage across multiple exercise types**, not just a single quiz score
+- Completion screen shows **per-exercise-type breakdown** (score per type attempted)
+- 80% average across attempted types triggers mastery celebration
+- Minimum type coverage threshold before mastery is possible (e.g., at least 4 of 7 types attempted)
 - Extra celebration for first-time mastery (not on redo)
 - Badge/achievement earned
-- Return to dashboard (no auto-prompt for next chapter)
+- Encourages trying uncovered exercise types: "Try Matching next!"
+- Return to exercise type selection or dashboard (no auto-prompt for next chapter)
+
+---
+
+### Journey 5: Reviewing Weak Areas
+
+**Goal:** User sees weakness dashboard, identifies specific weak areas, and launches focused drills to improve.
+
+```mermaid
+flowchart TD
+    A[Open App] --> B[Dashboard]
+    B --> C[Weakness Summary Card Visible]
+    C --> D[Tap 'View All Weaknesses']
+    D --> E[Weakness Dashboard Screen]
+    E --> F[See Three Sections:]
+    F --> G[Weak Vocabulary: 會/可以, 應該/該]
+    F --> H[Weak Grammar: Comparison Patterns, 把 Construction]
+    F --> I[Exercise Type Accuracy: Sentence Construction 40%, Matching 55%]
+    G --> J[Tap Weak Vocab Item]
+    H --> K[Tap Weak Grammar Pattern]
+    I --> L[Tap Low-Accuracy Exercise Type]
+    J --> M[AI Generates Focused Vocabulary Drill]
+    K --> N[AI Generates Focused Grammar Drill]
+    L --> O[AI Generates Exercise of That Type]
+    M --> P[Complete Drill - 10 Questions]
+    N --> P
+    O --> P
+    P --> Q[Completion: Weakness-Specific Feedback]
+    Q --> R{Improvement Detected?}
+    R -->|Yes| S[Celebrate: '會 vs 可以 - Improving! 60% → 80%']
+    R -->|No| T[Encourage: 'Keep Practicing - You'll Get It!']
+    S --> U[Weakness Dashboard Updates]
+    T --> U
+    U --> V[Return to Dashboard]
+```
+
+**Key Design Decisions:**
+- Weakness dashboard accessible from dashboard summary card (always visible) and from Progress tab
+- Three weakness categories: vocabulary items, grammar patterns, exercise type accuracy
+- Each weak area is a **tappable action card** that launches a focused drill
+- Framing is always positive: "Focus area" not "weakness," "Improving" not "failing"
+- Progress bars show improvement over time (last 5 sessions)
+- After drill completion, specific improvement feedback: "會 vs 可以: 60% → 80%"
+- Weakness data updates in real-time after every completed exercise
 
 ---
 
@@ -935,15 +1040,17 @@ const PointsCounter = styled(XStack, {
 
 #### CompletionScreen
 
-**Purpose:** Celebrate exercise completion
+**Purpose:** Celebrate exercise completion with per-exercise-type breakdown
 
 **Anatomy:**
 - Celebration icon/emoji
 - "Exercise Complete!" title
 - Points earned (animated)
 - Stats row (correct count, accuracy %)
-- Weak areas summary card
-- Continue button
+- **Per-exercise-type breakdown card** (shows score per type attempted in this session)
+- Weak areas summary card (updated weakness profile)
+- **Improvement indicators** ("會 vs 可以: 60% → 80% - Improving!")
+- Continue button (returns to exercise type selection or dashboard)
 
 **Tamagui Animation Implementation:**
 
@@ -975,13 +1082,21 @@ The screen is wrapped in `AnimatePresence` and uses staggered `enterStyle` for e
 
 #### ChapterListItem
 
-**Purpose:** Display chapter in list with progress
+**Purpose:** Display chapter in list with per-exercise-type progress indicators
 
 **Anatomy:**
 - Chapter number badge
 - Chapter name (English)
 - Chapter name (Chinese)
-- Progress indicator (% or checkmark)
+- **Per-exercise-type progress indicator row** (compact icons/dots showing status per type)
+- Overall progress indicator (% or checkmark)
+
+**Per-Exercise-Type Indicator Row:**
+A compact horizontal row of 7 small dots/icons below the chapter name, one per exercise type:
+- Green filled dot = mastered (80%+)
+- Teal partially-filled dot = in progress (attempted, < 80%)
+- Gray empty dot = not started
+- Tooltip or legend available on long-press
 
 **Tamagui `styled()` Variants:**
 
@@ -992,18 +1107,33 @@ const ChapterListItem = styled(XStack, {
 
   variants: {
     status: {
-      notStarted: { /* gray badge, 0% */ },
-      inProgress: { /* primary badge, X% */ },
-      completed: { /* green badge, checkmark */ },
+      notStarted: { /* gray badge, no dots filled */ },
+      inProgress: { /* primary badge, some dots filled */ },
+      completed: { /* green badge, all dots filled, checkmark */ },
+    },
+  } as const,
+})
+
+const ExerciseTypeIndicator = styled(Stack, {
+  width: 8,
+  height: 8,
+  borderRadius: 4,
+
+  variants: {
+    status: {
+      notStarted: { backgroundColor: '$backgroundStrong' },
+      inProgress: { backgroundColor: '$primary' },
+      mastered: { backgroundColor: '$success' },
     },
   } as const,
 })
 ```
 
 **Behavior:**
-- Tap to start/continue quiz
+- Tap to go to Exercise Type Selection screen (not directly to quiz)
 - All chapters tappable (no locks)
 - `pressStyle: { scale: 0.98 }` for tactile press feedback
+- Per-type indicators give at-a-glance coverage visibility
 
 ---
 
@@ -1029,6 +1159,350 @@ const ChapterListItem = styled(XStack, {
 **Behavior:**
 - Tap to view chapters
 - `pressStyle: { scale: 0.98 }` for tactile press feedback
+
+---
+
+#### ExerciseTypeSelector
+
+**Purpose:** Grid/list of exercise type cards for a chapter, showing per-type progress. User picks one or "Mixed."
+
+**Anatomy:**
+- Chapter header (Book X, Chapter Y)
+- Grid of exercise type cards (2 columns, 4 rows)
+- Each card: exercise type icon, label, progress indicator (%, checkmark, or "New")
+- "Mixed" card at top or bottom with distinct styling (adaptive AI badge)
+- Subtitle on Mixed: "AI picks exercises based on your weak areas"
+
+**Tamagui `styled()` Variants:**
+
+```tsx
+const ExerciseTypeCard = styled(Card, {
+  animation: 'quick',
+  pressStyle: { scale: 0.98 },
+  minHeight: 80,
+  padding: '$3',
+
+  variants: {
+    status: {
+      notStarted: { borderColor: '$borderColor' },
+      inProgress: { borderColor: '$primary', borderWidth: 2 },
+      mastered: { borderColor: '$success', borderWidth: 2 },
+    },
+    type: {
+      mixed: { backgroundColor: '$backgroundStrong' },
+      standard: {},
+    },
+  } as const,
+})
+```
+
+**Behavior:**
+- Tap card to start exercise of that type
+- Progress shown per card (e.g., "80%", "Not started", checkmark)
+- "Mixed" card uses `<Theme name="primary">` for emphasis
+- Cards animate in with staggered `enterStyle: { opacity: 0, y: 10 }` using `AnimatePresence`
+
+---
+
+#### MatchingExercise
+
+**Purpose:** Drag-and-connect or tap-to-pair interaction for matching exercises (character ↔ pinyin, question ↔ response)
+
+**Anatomy:**
+- Two columns: left items and right items (shuffled)
+- Visual connection lines between paired items
+- Unpaired items in default state, paired items in success state
+- Progress indicator (X/Y pairs matched)
+
+**Interaction Pattern:**
+1. User taps item in left column → item highlights with `<Theme name="primary">`
+2. User taps matching item in right column
+3. If correct: both items animate to `<Theme name="success">` + connection line draws + "ding" sound
+4. If incorrect: both items shake with `animation="quick"` + `<Theme name="error">` flash + "bonk" sound, then reset
+5. Matched pairs remain highlighted and non-interactive
+
+**Tamagui `styled()` Variants:**
+
+```tsx
+const MatchItem = styled(Button, {
+  animation: 'quick',
+  pressStyle: { scale: 0.98 },
+  minHeight: 48,
+
+  variants: {
+    state: {
+      default: { borderColor: '$borderColor' },
+      selected: { borderColor: '$primary', backgroundColor: '$backgroundPress' },
+      matched: { borderColor: '$success', backgroundColor: '$successBackground', opacity: 0.7 },
+      incorrect: { borderColor: '$error' },
+    },
+    column: {
+      left: { /* left-aligned text */ },
+      right: { /* right-aligned text */ },
+    },
+  } as const,
+})
+```
+
+**Accessibility:**
+- Minimum 48px touch targets per item
+- Chinese characters displayed at 72px minimum in matching items
+- Connected pairs announced to screen reader
+- Color + icon indicators (not color alone)
+
+---
+
+#### SentenceBuilder
+
+**Purpose:** Draggable/tappable word tiles that user reorders into correct sentence
+
+**Anatomy:**
+- Instruction text ("Arrange the words into a correct sentence")
+- **Answer area:** Empty slots at top where tiles snap into place
+- **Word bank area:** Scrambled word tiles below
+- Submit button (enabled when all tiles placed)
+- Clear/reset button
+
+**Interaction Pattern:**
+1. User taps a word tile → tile animates from word bank to next empty slot in answer area (`animation="medium"`, `enterStyle: { scale: 0.8, opacity: 0 }`)
+2. User can tap a placed tile to return it to the word bank
+3. User can tap tiles in answer area to reorder (tap to remove, tap again to re-add)
+4. When all tiles placed → submit button enables
+5. On submit: correct tiles flash `<Theme name="success">`, incorrect positions flash `<Theme name="error">`
+
+**Tamagui `styled()` Variants:**
+
+```tsx
+const WordTile = styled(Button, {
+  animation: 'medium',
+  pressStyle: { scale: 0.95 },
+  paddingHorizontal: '$3',
+  paddingVertical: '$2',
+  borderRadius: 8,
+
+  variants: {
+    state: {
+      available: { backgroundColor: '$surface', borderColor: '$borderColor' },
+      placed: { backgroundColor: '$backgroundPress', borderColor: '$primary' },
+      correct: { backgroundColor: '$successBackground', borderColor: '$success' },
+      incorrect: { backgroundColor: '$errorBackground', borderColor: '$error' },
+    },
+  } as const,
+})
+
+const SlotArea = styled(XStack, {
+  minHeight: 48,
+  borderWidth: 1,
+  borderStyle: 'dashed',
+  borderColor: '$borderColor',
+  borderRadius: 8,
+  padding: '$2',
+  flexWrap: 'wrap',
+  gap: '$2',
+})
+```
+
+**Accessibility:**
+- Tiles are minimum 48px touch targets
+- Chinese character tiles use 72px minimum font size
+- Tap-to-place as primary interaction (drag-to-reorder as optional enhancement)
+
+---
+
+#### DialogueCard
+
+**Purpose:** Conversation bubble layout showing A/B dialogue with blank to fill
+
+**Anatomy:**
+- Conversation header (speakers: A and B with labels)
+- Alternating speech bubbles (left-aligned for A, right-aligned for B)
+- One bubble has a blank/highlighted area to fill
+- Answer options below the dialogue
+
+**Tamagui `styled()` Variants:**
+
+```tsx
+const DialogueBubble = styled(YStack, {
+  animation: 'medium',
+  enterStyle: { opacity: 0, y: 5 },
+  padding: '$3',
+  borderRadius: 12,
+  maxWidth: '80%',
+
+  variants: {
+    speaker: {
+      a: { alignSelf: 'flex-start', backgroundColor: '$surface', borderColor: '$borderColor', borderWidth: 1 },
+      b: { alignSelf: 'flex-end', backgroundColor: '$primary', borderColor: '$primary' },
+    },
+    hasBlank: {
+      true: { borderStyle: 'dashed', borderColor: '$primary', borderWidth: 2 },
+    },
+  } as const,
+})
+```
+
+**Behavior:**
+- Dialogue bubbles appear sequentially with staggered `enterStyle` for natural conversation feel
+- Blank bubble is visually distinct (dashed border, `<Theme name="primary">`)
+- User taps answer option → selected text fills the blank bubble with slide-in animation
+- Correct/incorrect feedback wraps the filled bubble in `<Theme name="success">` or `<Theme name="error">`
+
+---
+
+#### WordBankSelector
+
+**Purpose:** Horizontal scrollable word bank for fill-in-the-blank exercises
+
+**Anatomy:**
+- Sentence with blank (highlighted gap)
+- Horizontal scrollable row of word options (pill-shaped buttons)
+- Selected word fills the blank with animation
+
+**Tamagui `styled()` Variants:**
+
+```tsx
+const WordBankItem = styled(Button, {
+  animation: 'quick',
+  pressStyle: { scale: 0.95 },
+  paddingHorizontal: '$3',
+  paddingVertical: '$2',
+  borderRadius: 20,
+  minHeight: 48,
+
+  variants: {
+    state: {
+      available: { backgroundColor: '$surface', borderColor: '$borderColor', borderWidth: 1 },
+      selected: { backgroundColor: '$primary', borderColor: '$primary' },
+      correct: { backgroundColor: '$successBackground', borderColor: '$success' },
+      incorrect: { backgroundColor: '$errorBackground', borderColor: '$error' },
+      used: { opacity: 0.4 },
+    },
+  } as const,
+})
+```
+
+**Behavior:**
+- Horizontal `ScrollView` with word bank items
+- Tap word → word animates to fill the blank in the sentence above (`animation="medium"`)
+- If multiple blanks, user fills them in order
+- Used words become semi-transparent (`opacity: 0.4`)
+- Word bank scrolls automatically to keep unused words visible
+
+---
+
+#### ReadingPassageCard
+
+**Purpose:** Scrollable Chinese text passage with comprehension questions below
+
+**Anatomy:**
+- Passage header ("Read the following passage:")
+- Scrollable Chinese text area (72px minimum for characters in passage)
+- Separator
+- Comprehension questions below (standard multiple choice via AnswerOptionGrid)
+- Passage remains accessible (scrollable) while answering questions
+
+**Tamagui `styled()` Variants:**
+
+```tsx
+const PassageContainer = styled(Card, {
+  animation: 'medium',
+  enterStyle: { opacity: 0 },
+  padding: '$4',
+  maxHeight: 300,
+
+  variants: {
+    size: {
+      short: { maxHeight: 200 },
+      medium: { maxHeight: 300 },
+      long: { maxHeight: 400 },
+    },
+  } as const,
+})
+```
+
+**Behavior:**
+- Passage is independently scrollable within its container
+- Questions appear below the passage — user can scroll passage while answering
+- Chinese characters in passage are minimum 20px (body reading size), key vocabulary highlighted
+- Pinyin toggle available (tap to show/hide pinyin above characters)
+- Standard answer feedback applies to comprehension questions
+
+---
+
+#### WeaknessDashboard
+
+**Purpose:** Shows weak vocabulary items, grammar patterns, exercise type accuracy bars in a motivating, non-judgmental way
+
+**Anatomy:**
+- Header: "Your Focus Areas" (not "Weaknesses")
+- Three sections in scrollable list:
+  1. **Vocabulary Focus:** Cards for each weak vocabulary item (character + pinyin + correct meaning + miss count + trend arrow)
+  2. **Grammar Focus:** Cards for weak grammar patterns (pattern name + example + accuracy %)
+  3. **Exercise Type Accuracy:** Horizontal bar chart showing accuracy per exercise type
+- Each item is a **tappable WeakAreaDrillCard** that launches a focused drill
+- Overall trend indicator: "Improving this week" or "Keep practicing"
+
+**Tamagui `styled()` Variants:**
+
+```tsx
+const AccuracyBar = styled(XStack, {
+  height: 8,
+  borderRadius: 4,
+  backgroundColor: '$backgroundStrong',
+
+  variants: {
+    level: {
+      low: {},     /* bar fill < 50% - shown in error/orange color */
+      medium: {},  /* bar fill 50-79% - shown in warning/amber color */
+      high: {},    /* bar fill 80%+ - shown in success/green color */
+    },
+  } as const,
+})
+```
+
+**Emotional Design:**
+- Language is always encouraging: "Focus area" not "weakness"
+- Trend arrows show improvement direction (up arrow = improving, shown in green)
+- No red/harsh colors for low scores — use warm orange (`$error` which is gentle `#FB923C`)
+- Celebrate improvements: "會 vs 可以 — Improving! 40% → 65%"
+- Items that improve past threshold disappear from focus areas with celebration animation
+
+---
+
+#### WeakAreaDrillCard
+
+**Purpose:** Quick-action card for targeting a specific weakness — tappable to launch a focused drill
+
+**Anatomy:**
+- Weak area label (vocabulary item, grammar pattern, or exercise type)
+- Brief context (e.g., "Missed 4 times in Chapter 10-12")
+- Accuracy indicator (small progress bar or %)
+- Trend indicator (improving/stable/needs work)
+- CTA: "Practice Now" button
+
+**Tamagui `styled()` Variants:**
+
+```tsx
+const WeakAreaDrillCard = styled(Card, {
+  animation: 'quick',
+  pressStyle: { scale: 0.98 },
+  padding: '$3',
+
+  variants: {
+    trend: {
+      improving: { borderLeftColor: '$success', borderLeftWidth: 3 },
+      stable: { borderLeftColor: '$warning', borderLeftWidth: 3 },
+      needsWork: { borderLeftColor: '$error', borderLeftWidth: 3 },
+    },
+  } as const,
+})
+```
+
+**Behavior:**
+- Tap card → AI generates a 10-question focused drill on that specific weakness
+- Drill uses RAG retrieval filtered to chapters where the item was weak
+- After drill completion, card updates with new accuracy (real-time)
+- Cards that reach 80%+ accuracy celebrate and move to "Mastered" section
 
 ---
 
@@ -1082,18 +1556,30 @@ The sub-theme automatically resolves `$background` to `$successBackground` or `$
 3. TextInputAnswer
 4. FeedbackOverlay
 5. ProgressBar (animated)
-6. CompletionScreen
+6. CompletionScreen (with per-exercise-type breakdown)
+7. WordBankSelector (fill-in-the-blank)
 
-**Phase 2 - Navigation & Progress:**
-7. ChapterListItem
-8. BookCard
-9. ActivityCalendar (week view)
-10. PointsCounter
+**Phase 2 - Exercise Type Variety:**
+8. ExerciseTypeSelector (per-chapter exercise type grid)
+9. MatchingExercise (tap-to-pair interaction)
+10. SentenceBuilder (word tile reordering)
+11. DialogueCard (conversation bubble layout)
+12. ReadingPassageCard (scrollable passage + questions)
 
-**Phase 3 - Enhanced Experience:**
-11. ActivityCalendar (full month, scrollable)
-12. Chapter mastery celebration variant
-13. Sound integration across components
+**Phase 3 - Navigation & Progress:**
+13. ChapterListItem (with per-exercise-type progress indicators)
+14. BookCard
+15. ActivityCalendar (week view)
+16. PointsCounter
+
+**Phase 4 - Adaptive Learning & Weakness Tracking:**
+17. WeaknessDashboard (vocabulary, grammar, exercise type accuracy)
+18. WeakAreaDrillCard (quick-action focused drill launcher)
+
+**Phase 5 - Enhanced Experience:**
+19. ActivityCalendar (full month, scrollable)
+20. Chapter mastery celebration variant (per-type breakdown)
+21. Sound integration across components
 
 ### Implementation Approach
 
@@ -1222,20 +1708,28 @@ The sub-theme automatically resolves `$background` to `$successBackground` or `$
 
 #### Quiz Generation Loading
 
-**Trigger:** Starting new quiz (LLM generating questions ~5 seconds)
+**Trigger:** Starting new exercise (RAG retrieval + LLM generation, up to ~8 seconds per NFR1)
+
+The LLM generates exercises from RAG-retrieved textbook/workbook content filtered by the selected exercise type and chapter. Loading time may be up to 8 seconds for complex exercise types (matching, sentence construction).
 
 **Display:**
 - Fun animation (rotating Chinese character or bouncing mascot)
+- Exercise type context: "Generating your [Matching] exercise for Chapter 12..."
 - Rotating tips about Chinese learning:
   - "Did you know? 你好 literally means 'you good'!"
   - "Tip: Practice writing characters by hand too!"
   - "Fun fact: Mandarin has 4 tones (plus neutral)!"
-- Progress indicator (spinner or bar)
+- Progress indicator (animated progress bar, not just spinner)
+- **Progressive loading:** Show the first question as soon as it's ready while the rest generate in background. User can start answering immediately.
 
 **Behavior:**
 - Tips rotate every 2 seconds
-- Cancel button available (returns to previous screen)
-- Graceful error if generation fails
+- Progress bar advances as RAG retrieval completes (~2s) then as questions generate
+- First question displayed as soon as available (progressive reveal)
+- Remaining questions load in background — seamless transition when user finishes question 1
+- Cancel button available (returns to exercise type selection screen)
+- Graceful error if generation fails: "Couldn't generate [Matching] exercise. Try another type or retry." with Retry + Back buttons
+- If RAG retrieval returns insufficient content for the exercise type, fallback message: "Not enough content for [Sentence Construction] in this chapter. Try Vocabulary or Grammar instead."
 
 #### Empty States
 
@@ -1382,6 +1876,70 @@ Children of `AnimatePresence` must have a unique `key` prop that changes to trig
 
 ---
 
+### Exercise-Type-Specific Interaction Patterns
+
+Each exercise type has a distinct interaction model, but all share common feedback patterns (sound, color, animation timing). This ensures variety feels intentional, not inconsistent.
+
+| Exercise Type | Primary Interaction | Input Method | Feedback Style |
+|---------------|-------------------|--------------|----------------|
+| Vocabulary | Tap answer from grid | Multiple choice (2x2) | Standard correct/incorrect overlay |
+| Grammar | Tap answer from list | Multiple choice (vertical list) | Standard correct/incorrect overlay |
+| Fill-in-the-Blank | Tap word from bank | WordBankSelector (horizontal scroll) | Word animates into blank, then correct/incorrect |
+| Matching | Tap-to-pair (left → right) | Sequential tap selection | Paired items connect + success/error flash |
+| Dialogue Completion | Tap response option | Multiple choice below dialogue | Response fills bubble, then correct/incorrect |
+| Sentence Construction | Tap tiles in order | SentenceBuilder (tap-to-place) | Tiles snap to slots, submit reveals correct/incorrect positions |
+| Reading Comprehension | Tap answer after reading | Multiple choice below passage | Standard correct/incorrect overlay |
+
+**Common Patterns Across All Types:**
+- Answer feedback appears within 100ms of interaction
+- Sound plays simultaneously with visual feedback (ding/bonk)
+- 1-second hold before auto-advance to next question
+- Progress bar updates after each question regardless of type
+- Points increment visible on correct answer
+- `AnimatePresence` wraps all question transitions
+
+---
+
+### Adaptive Quiz Feedback Pattern
+
+When a quiz uses adaptive generation (targets weak areas), the feedback should acknowledge this transparently:
+
+**During Quiz:**
+- No explicit indicator that a question targets a weakness (avoids anxiety)
+- Questions feel natural, not punitive
+
+**Post-Quiz Completion Screen:**
+- Summary card: "This quiz focused on your focus areas: 會 vs 可以, Sentence Construction"
+- Per-weakness improvement shown: "會 vs 可以: 3/4 correct (up from 1/4 last time)"
+- Encouraging framing: "Getting stronger!" or "Keep at it — improvement takes time"
+- Uses `<Theme name="success">` for improved areas, neutral styling for areas still needing work (no `<Theme name="error">` for weakness summaries)
+
+---
+
+### Weakness Dashboard Update Pattern
+
+The weakness dashboard updates in real-time after each quiz completion. The update follows this pattern:
+
+**Timing:** Weakness profile recalculates within 2 seconds of quiz submission (NFR4)
+
+**Visual Update Flow:**
+1. Quiz completion screen shows weakness summary
+2. User returns to dashboard → weakness summary card reflects new data
+3. If user navigates to full Weakness Dashboard → all metrics are current
+
+**Animation:**
+- Accuracy bars animate to new values with `animation="medium"` (smooth transition, not jarring jump)
+- Improved items slide up in list (improving items rise to show progress)
+- Items that cross 80% threshold celebrate: `<Theme name="success">` flash + move to "Mastered" section with `AnimatePresence` exit/enter
+- New weakness items appear with `enterStyle: { opacity: 0, y: 10 }` (gentle fade-in, not alarming)
+
+**Emotional Design:**
+- Improvements always highlighted before regressions
+- Trend arrows (up = improving in green, stable = amber, down = gentle orange) provide quick scan
+- No items are ever labeled "bad" — language is "focus area," "needs practice," "improving"
+
+---
+
 ### Consistency Rules
 
 1. **One primary action per screen** - Never compete for attention
@@ -1390,6 +1948,290 @@ Children of `AnimatePresence` must have a unique `key` prop that changes to trig
 4. **Forgiving interactions** - Confirm destructive actions, allow undo
 5. **Celebration over shame** - Emphasize success, gentle on failure
 6. **Sound enhances, never annoys** - Meaningful moments only
+7. **Exercise types feel varied but unified** - Different interactions, same feedback language
+8. **Weakness data motivates, never shames** - Positive framing, improvement focus
+
+## Screen Layouts
+
+### Exercise Type Selection Screen
+
+**Context:** Displayed after user selects a chapter, before exercise begins.
+
+**Layout:**
+```
+┌─────────────────────────────────┐
+│ ← Book 2, Chapter 12            │
+│    第十二課                       │
+├─────────────────────────────────┤
+│                                 │
+│  ┌─────────┐  ┌─────────┐      │
+│  │ 🔤 Mixed │  │ 📝 Vocab │      │
+│  │ AI Picks │  │   85% ✓  │      │
+│  └─────────┘  └─────────┘      │
+│                                 │
+│  ┌─────────┐  ┌─────────┐      │
+│  │ 📖 Grammar│ │ ✏️ Fill  │      │
+│  │   60%    │  │   New    │      │
+│  └─────────┘  └─────────┘      │
+│                                 │
+│  ┌─────────┐  ┌─────────┐      │
+│  │ 🔗 Match │  │ 💬 Dialog│      │
+│  │   New    │  │   40%    │      │
+│  └─────────┘  └─────────┘      │
+│                                 │
+│  ┌─────────┐  ┌─────────┐      │
+│  │ 🏗️ Sent. │  │ 📚 Read │      │
+│  │   New    │  │   New    │      │
+│  └─────────┘  └─────────┘      │
+│                                 │
+└─────────────────────────────────┘
+```
+
+**Key Elements:**
+- 2-column grid of exercise type cards
+- "Mixed" card at top-left position with distinct `<Theme name="primary">` styling and "AI Picks" subtitle
+- Each card: icon + label + progress (%, "New", or checkmark)
+- Cards use `ExerciseTypeCard` component with `status` variant
+- Progress indicators use color coding: green (mastered), teal (in progress), gray (new)
+- Minimum 48px card height for touch targets
+
+---
+
+### Weakness Dashboard Screen
+
+**Context:** Accessible from dashboard weakness summary card or Progress tab.
+
+**Layout:**
+```
+┌─────────────────────────────────┐
+│ ← Your Focus Areas              │
+│   Improving this week ↑         │
+├─────────────────────────────────┤
+│                                 │
+│ VOCABULARY FOCUS                │
+│ ┌───────────────────────────┐   │
+│ │ 會 vs 可以                 │   │
+│ │ Missed 4x in Ch. 10-12   │   │
+│ │ ██████░░░░ 60% ↑         │   │
+│ │            [Practice Now]  │   │
+│ └───────────────────────────┘   │
+│ ┌───────────────────────────┐   │
+│ │ 應該 vs 該                 │   │
+│ │ Missed 3x in Ch. 11       │   │
+│ │ ████░░░░░░ 40%            │   │
+│ │            [Practice Now]  │   │
+│ └───────────────────────────┘   │
+│                                 │
+│ GRAMMAR FOCUS                   │
+│ ┌───────────────────────────┐   │
+│ │ 把 Construction            │   │
+│ │ Accuracy: 45% ↑           │   │
+│ │            [Practice Now]  │   │
+│ └───────────────────────────┘   │
+│                                 │
+│ EXERCISE TYPE ACCURACY          │
+│ Vocabulary    ████████░░ 85%    │
+│ Grammar       ██████░░░░ 65%    │
+│ Fill-in-Blank ███████░░░ 70%    │
+│ Matching      █████░░░░░ 55%    │
+│ Dialogue      ████░░░░░░ 40%    │
+│ Sent. Constr. ████░░░░░░ 40%    │
+│ Reading       ░░░░░░░░░░ New    │
+│                                 │
+└─────────────────────────────────┘
+```
+
+**Key Elements:**
+- Header with overall trend indicator
+- Three scrollable sections: Vocabulary, Grammar, Exercise Type Accuracy
+- Each weakness item is a `WeakAreaDrillCard` — tappable to launch focused drill
+- Accuracy bars use `AccuracyBar` component with color by level (green >80%, amber 50-79%, orange <50%)
+- Trend arrows (up/stable) shown per item
+- Encouraging language throughout — "Focus Areas" not "Weaknesses"
+
+---
+
+### Updated Completion Screen (Per-Type Breakdown)
+
+**Context:** Displayed after completing any exercise, now with per-type breakdown.
+
+**Layout:**
+```
+┌─────────────────────────────────┐
+│                                 │
+│            🎉                   │
+│     Exercise Complete!          │
+│                                 │
+│         +85 points              │
+│                                 │
+│  ┌───────────────────────────┐  │
+│  │ Score: 8/10 (80%)         │  │
+│  │ Time: 8 minutes           │  │
+│  └───────────────────────────┘  │
+│                                 │
+│  CHAPTER 12 PROGRESS            │
+│  Vocabulary    ████████░░ 85% ✓ │
+│  Grammar       ██████░░░░ 65%   │
+│  Matching      █████████░ 88%   │ ← Just completed
+│  Fill-in-Blank ░░░░░░░░░░ New   │
+│  Dialogue      ░░░░░░░░░░ New   │
+│  Sent. Constr. ░░░░░░░░░░ New   │
+│  Reading       ░░░░░░░░░░ New   │
+│                                 │
+│  FOCUS AREAS UPDATE             │
+│  ┌───────────────────────────┐  │
+│  │ 會 vs 可以: 60% → 80% ↑  │  │
+│  │ Getting stronger!         │  │
+│  └───────────────────────────┘  │
+│                                 │
+│     [ Continue ]                │
+│                                 │
+└─────────────────────────────────┘
+```
+
+**Key Elements:**
+- Standard celebration header (trophy/emoji, points, score)
+- **Per-exercise-type progress bars** for the chapter — shows which types are done, in progress, or new
+- Currently completed type highlighted (e.g., "← Just completed")
+- **Focus areas update** section: shows changes to weakness profile with before/after percentages
+- Improvement celebrated with `<Theme name="success">` and encouraging text
+- Continue button returns to Exercise Type Selection (to try another type) or Dashboard
+
+---
+
+### Matching Exercise Interaction
+
+**Context:** Active matching exercise within quiz flow.
+
+**Layout:**
+```
+┌─────────────────────────────────┐
+│ Matching - Ch. 12    3/6 paired │
+│ ████████░░░░░░░░░░░░            │
+├─────────────────────────────────┤
+│                                 │
+│  ┌────────┐    ┌────────┐       │
+│  │   她   │    │  tā    │       │  ← Matched (green, dimmed)
+│  └────────┘    └────────┘       │
+│       ─────────────             │
+│  ┌────────┐    ┌────────┐       │
+│  │  喜歡  │    │ kāfēi  │       │  ← Left selected (teal border)
+│  └────────┘    └────────┘       │
+│                                 │
+│  ┌────────┐    ┌────────┐       │
+│  │  咖啡  │    │ xǐhuān │       │
+│  └────────┘    └────────┘       │
+│                                 │
+│  ┌────────┐    ┌────────┐       │
+│  │   吃   │    │  chī   │       │
+│  └────────┘    └────────┘       │
+│                                 │
+└─────────────────────────────────┘
+```
+
+**Key Elements:**
+- Two columns: left (characters) and right (pinyin/meanings), shuffled independently
+- Matched pairs show connection line + `<Theme name="success">` + dimmed opacity
+- Selected item highlighted with `<Theme name="primary">` border
+- Progress shows "X/Y paired" + progress bar
+- Chinese characters at 72px minimum in match items
+- Touch targets minimum 48px per item
+- Items use `MatchItem` component with `state` and `column` variants
+
+---
+
+### Sentence Construction Interaction
+
+**Context:** Active sentence construction exercise within quiz flow.
+
+**Layout:**
+```
+┌─────────────────────────────────┐
+│ Sentence Construction - Ch. 12  │
+│ ████████████░░░░░░░░  Q 4/10    │
+├─────────────────────────────────┤
+│                                 │
+│ Arrange the words:              │
+│                                 │
+│ ANSWER AREA:                    │
+│ ┌─────────────────────────────┐ │
+│ │ [我]  [很]  [___]  [___]    │ │  ← Placed tiles + empty slots
+│ └─────────────────────────────┘ │
+│                                 │
+│ WORD BANK:                      │
+│ ┌──────┐ ┌──────┐ ┌──────┐     │
+│ │ 咖啡 │ │ 喜歡 │ │  。  │     │  ← Available tiles
+│ └──────┘ └──────┘ └──────┘     │
+│                                 │
+│         [ Submit ]              │
+│                                 │
+│ After submit:                   │
+│ ┌─────────────────────────────┐ │
+│ │ ✓我  ✓很  ✓喜歡  ✗咖啡。   │ │  ← Green/orange per tile
+│ │ Correct: 我很喜歡咖啡。      │ │
+│ └─────────────────────────────┘ │
+│                                 │
+└─────────────────────────────────┘
+```
+
+**Key Elements:**
+- Answer area with dashed-border slots (`SlotArea` component)
+- Word bank below with tappable tiles (`WordTile` component)
+- Tap tile → animates from bank to next slot in answer area
+- Tap placed tile → returns to word bank
+- Submit button enables when all tiles placed
+- Post-submit: correct tiles flash green, incorrect flash orange, correct sentence shown
+- Chinese characters at 72px minimum in tiles
+- Touch targets minimum 48px per tile
+
+---
+
+### Dialogue Completion Interaction
+
+**Context:** Active dialogue completion exercise within quiz flow.
+
+**Layout:**
+```
+┌─────────────────────────────────┐
+│ Dialogue - Chapter 12    Q 3/10 │
+│ ██████████████░░░░░░            │
+├─────────────────────────────────┤
+│                                 │
+│ ┌──────────────────┐            │
+│ │ A: 你要喝什麼？   │            │  ← Speaker A bubble (left)
+│ └──────────────────┘            │
+│                                 │
+│          ┌──────────────────┐   │
+│          │ B: 我要喝________│   │  ← Speaker B bubble (right, with blank)
+│          └──────────────────┘   │
+│                                 │
+│ ┌──────────────────┐            │
+│ │ A: 好的，我也是。  │            │
+│ └──────────────────┘            │
+│                                 │
+│ Select the best response:       │
+│                                 │
+│ ┌───────────────────────────┐   │
+│ │ A) 咖啡                    │   │
+│ └───────────────────────────┘   │
+│ ┌───────────────────────────┐   │
+│ │ B) 你好                    │   │
+│ └───────────────────────────┘   │
+│ ┌───────────────────────────┐   │
+│ │ C) 謝謝                    │   │
+│ └───────────────────────────┘   │
+│                                 │
+└─────────────────────────────────┘
+```
+
+**Key Elements:**
+- Conversation bubbles using `DialogueBubble` component with `speaker` variant (left/right alignment)
+- Blank bubble has dashed border with `hasBlank` variant
+- Answer options below dialogue area (vertical list layout)
+- Selected answer fills the blank bubble with slide-in animation
+- Standard correct/incorrect feedback after selection
+- Dialogue area scrollable if conversation is long
+- Chinese characters at 72px minimum in bubbles
 
 ## Responsive Design & Accessibility
 
