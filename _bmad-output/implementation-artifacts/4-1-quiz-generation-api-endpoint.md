@@ -1,6 +1,6 @@
 # Story 4.1: Quiz Generation API Endpoint (All Exercise Types)
 
-Status: ready-for-dev
+Status: in-progress
 
 ## Story
 
