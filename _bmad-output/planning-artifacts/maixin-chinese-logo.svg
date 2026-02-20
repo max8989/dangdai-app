@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 160" width="600" height="160">
+  <defs>
+    <!-- Warm gradient for the main wordmark -->
+    <linearGradient id="warmGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#E8634A;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#F2855E;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#F4A261;stop-opacity:1" />
+    </linearGradient>
+    <!-- Subtle accent gradient -->
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#C45B3E;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#E07B4F;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background (transparent - this is just the artboard) -->
+
+  <!-- Decorative brush stroke accent under "Maixin" -->
+  <path d="M 38 108 Q 80 115, 140 106 Q 200 97, 260 104 Q 290 108, 310 103"
+        stroke="url(#accentGrad)" stroke-width="3.5" fill="none"
+        stroke-linecap="round" opacity="0.45"/>
+
+  <!-- Main wordmark: "Maixin" in bold rounded style -->
+  <text x="40" y="95" font-family="'SF Pro Rounded', 'Nunito', 'Poppins', 'Helvetica Neue', Arial, sans-serif"
+        font-size="72" font-weight="800" fill="url(#warmGrad)"
+        letter-spacing="-1">
+    Maixin
+  </text>
+
+  <!-- "Chinese" in lighter weight, same baseline -->
+  <text x="332" y="95" font-family="'SF Pro Rounded', 'Nunito', 'Poppins', 'Helvetica Neue', Arial, sans-serif"
+        font-size="72" font-weight="300" fill="#5A3E36"
+        letter-spacing="-0.5">
+    Chinese
+  </text>
+
+  <!-- Tiny 麥新 characters tucked under the brush stroke as an insider easter egg -->
+  <text x="316" y="108" font-family="'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif"
+        font-size="11" fill="#C45B3E" opacity="0.35"
+        letter-spacing="1">
+    麥新
+  </text>
+
+  <!-- Small decorative dot accent (like a period/seal mark) -->
+  <circle cx="560" cy="88" r="5" fill="#E8634A" opacity="0.7"/>
+
+</svg>

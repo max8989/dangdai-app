@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#E8634A;stop-opacity:1" />
+      <stop offset="60%" style="stop-color:#F2855E;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#F4A261;stop-opacity:1" />
+    </linearGradient>
+    <clipPath id="roundedSquare">
+      <rect x="0" y="0" width="200" height="200" rx="44" ry="44"/>
+    </clipPath>
+  </defs>
+
+  <!-- Rounded square background -->
+  <rect x="0" y="0" width="200" height="200" rx="44" ry="44" fill="url(#bgGrad)"/>
+
+  <!-- Subtle texture overlay -->
+  <rect x="0" y="0" width="200" height="200" rx="44" ry="44" fill="white" opacity="0.04" clip-path="url(#roundedSquare)"/>
+
+  <!-- Bold "M" lettermark -->
+  <text x="100" y="122" font-family="'SF Pro Rounded', 'Nunito', 'Poppins', 'Helvetica Neue', Arial, sans-serif"
+        font-size="110" font-weight="800" fill="white"
+        text-anchor="middle" letter-spacing="-3">
+    M
+  </text>
+
+  <!-- Small 麥 character tucked into bottom right as subtle detail -->
+  <text x="148" y="168" font-family="'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif"
+        font-size="22" fill="white" opacity="0.3">
+    麥
+  </text>
+
+  <!-- Decorative brush dot -->
+  <circle cx="152" cy="52" r="6" fill="white" opacity="0.25"/>
+
+</svg>
