@@ -8,7 +8,10 @@
  * - Displays one question at a time with slide-in animation (AnimatePresence)
  * - Shows QuizProgress bar and counter
  * - Validates answers locally against correct_answer (exact match)
- * - Shows 1-second feedback delay before advancing to next question
+ * - Shows FeedbackOverlay with explanation after each answer
+ * - Plays sound effect (ding/bonk) simultaneously with feedback display
+ * - Auto-advances after ~1 second feedback display
+ * - Disables all interaction during feedback display
  * - Exit confirmation dialog: "Leave exercise? Your progress will be saved."
  * - Graceful edge case handling: empty quiz, null payload
  * - fill_in_blank: word bank + sentence with blank slots, auto-submit when all filled
@@ -29,12 +32,17 @@
  * │  ┌──────────┐  ┌──────────┐      │
  * │  │ to read  │  │ to write │      │
  * │  └──────────┘  └──────────┘      │
+ * ├─────────────────────────────────┤
+ * │  ✓ Correct!                  +10 │
+ * │  咖啡 means coffee...             │  ← FeedbackOverlay (bottom)
+ * │  Book 1, Ch 8 - Vocabulary       │
  * └─────────────────────────────────┘
  *
  * Story 4.3: Vocabulary & Grammar Quiz (Multiple Choice)
  * Story 4.4: Fill-in-the-Blank Exercise (Word Bank)
  * Story 4.6: Dialogue Completion Exercise
  * Story 4.7: Sentence Construction Exercise
+ * Story 4.9: Immediate Answer Feedback (FeedbackOverlay + useSound)
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -49,6 +57,7 @@ import { AnswerOptionGrid } from '../../components/quiz/AnswerOptionGrid'
 import { QuizProgress } from '../../components/quiz/QuizProgress'
 import { WordBankSelector } from '../../components/quiz/WordBankSelector'
 import { FillInBlankSentence } from '../../components/quiz/FillInBlankSentence'
+import { FeedbackOverlay } from '../../components/quiz/FeedbackOverlay'
 import { validateFillInBlank, parseCorrectAnswers, allBlanksFilled } from '../../lib/validateFillInBlank'
 import { EXERCISE_TYPE_LABELS } from '../../types/quiz'
 import type { ExerciseType, QuizQuestion, DialogueQuestion } from '../../types/quiz'
@@ -56,6 +65,7 @@ import type { QuizDisplayVariant, QuizFeedbackVariant } from '../../components/q
 import { DialogueCard } from '../../components/quiz/DialogueCard'
 import type { DialogueAnswerResult } from '../../components/quiz/DialogueCard'
 import { SentenceBuilder } from '../../components/quiz/SentenceBuilder'
+import { preloadSounds, unloadSounds, playSound } from '../../hooks/useSound'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -98,8 +108,11 @@ function getPrimaryContent(question: QuizQuestion, displayVariant: QuizDisplayVa
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-/** Feedback delay in milliseconds before advancing to next question (1s per UX spec) */
-const FEEDBACK_DELAY_MS = 1000
+/** Feedback display duration in milliseconds before auto-advancing (1s per UX spec) */
+const FEEDBACK_DISPLAY_MS = 1_000
+
+/** Points awarded for a correct answer */
+const POINTS_PER_CORRECT = 10
 
 export default function QuizPlayScreen() {
   const router = useRouter()
@@ -124,6 +137,12 @@ export default function QuizPlayScreen() {
   // Sentence construction store state (Story 4.7)
   const clearTiles = useQuizStore((state) => state.clearTiles)
 
+  // Feedback overlay store state (Story 4.9)
+  const showFeedback = useQuizStore((state) => state.showFeedback)
+  const feedbackIsCorrect = useQuizStore((state) => state.feedbackIsCorrect)
+  const triggerShowFeedback = useQuizStore((state) => state.triggerShowFeedback)
+  const hideFeedback = useQuizStore((state) => state.hideFeedback)
+
   // ─── Local state ──────────────────────────────────────────────────────────
 
   /** The answer selected by the user for the current question (null = not answered yet) */
@@ -144,13 +163,18 @@ export default function QuizPlayScreen() {
   /** Whether fill-in-blank has been validated (disables all interaction) */
   const [fillInBlankValidated, setFillInBlankValidated] = useState(false)
 
-  // ─── On mount: initialize quiz session ───────────────────────────────────
+  // ─── On mount: initialize quiz session + preload sounds ──────────────────
 
   // Run once on mount only. quizPayload is guaranteed set by loading.tsx before navigation.
   // startQuiz intentionally omitted from deps — this is a mount-only initialization.
   useEffect(() => {
     if (quizPayload) {
       startQuiz(quizPayload.quiz_id)
+    }
+    // Preload sounds on quiz screen mount; unload on unmount (Story 4.9)
+    void preloadSounds()
+    return () => {
+      void unloadSounds()
     }
   }, []) // mount-only intentional
 
@@ -170,7 +194,36 @@ export default function QuizPlayScreen() {
     }
   }, [isInvalidQuiz, isIndexOutOfRange, router])
 
-  // ─── Feedback timeout ref (timer cleanup via useEffect) ──────────
+  // ─── Feedback auto-advance timer (Story 4.9) ──────────────────────────────
+  // When showFeedback becomes true, start a 1-second timer then advance.
+  // useRef stores the timer ID for safe cleanup on unmount.
+
+  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (showFeedback) {
+      feedbackTimerRef.current = setTimeout(() => {
+        feedbackTimerRef.current = null
+        hideFeedback()
+        if (isLastQuestion()) {
+          // Navigate to results (placeholder for Story 4.11)
+          router.replace('/(tabs)/books')
+        } else {
+          nextQuestion()
+        }
+      }, FEEDBACK_DISPLAY_MS)
+    }
+
+    return () => {
+      if (feedbackTimerRef.current !== null) {
+        clearTimeout(feedbackTimerRef.current)
+        feedbackTimerRef.current = null
+      }
+    }
+  }, [showFeedback]) // Only re-run when showFeedback changes
+
+  // ─── Feedback timeout ref for fill-in-blank / dialogue (pre-4.9 pattern) ──
+  // Still used for fill-in-blank and dialogue paths that go through FeedbackOverlay
 
   const feedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -238,6 +291,21 @@ export default function QuizPlayScreen() {
     currentQuestion?.blank_positions?.length ??
     (currentQuestion?.sentence_with_blanks?.split('___').length ?? 1) - 1
 
+  // ─── Unified answer result handler (Story 4.9) ───────────────────────────
+  /**
+   * Central handler called after any exercise type validates an answer.
+   * Triggers FeedbackOverlay + plays sound simultaneously.
+   * Auto-advance is handled by the useEffect above that watches showFeedback.
+   */
+  const handleAnswerResult = useCallback(
+    (isCorrect: boolean) => {
+      // Show feedback overlay + play sound simultaneously
+      triggerShowFeedback(isCorrect)
+      void playSound(isCorrect ? 'correct' : 'incorrect')
+    },
+    [triggerShowFeedback]
+  )
+
   // ─── Fill-in-blank: validation ───────────────────────────────────────────
 
   /**
@@ -281,7 +349,7 @@ export default function QuizPlayScreen() {
     // Update store (serialize the authoritative answers used for validation)
     setAnswer(currentQuestionIndex, JSON.stringify(filledAnswers))
     if (allCorrect) {
-      addScore(1)
+      addScore(POINTS_PER_CORRECT)
     }
 
     // Update UI
@@ -289,32 +357,24 @@ export default function QuizPlayScreen() {
     setWordFeedback(newWordFeedback)
     setFillInBlankValidated(true)
 
-    // Advance after feedback delay
-    feedbackTimeoutRef.current = setTimeout(() => {
-      feedbackTimeoutRef.current = null
-      if (isLastQuestion()) {
-        router.replace('/(tabs)/books')
-      } else {
-        nextQuestion()
-      }
-    }, FEEDBACK_DELAY_MS)
+    // Trigger unified feedback overlay + sound (Story 4.9)
+    handleAnswerResult(allCorrect)
   }, [
     currentQuestion,
     fillInBlankValidated,
     blankAnswers,
+    blankAnswerIndices,
     currentQuestionIndex,
     setAnswer,
     addScore,
-    isLastQuestion,
-    nextQuestion,
-    router,
+    handleAnswerResult,
   ])
 
   // ─── Fill-in-blank: word selection ───────────────────────────────────────
 
   const handleWordSelect = useCallback(
     (word: string, wordBankIndex: number) => {
-      if (fillInBlankValidated || !currentQuestion) return
+      if (fillInBlankValidated || !currentQuestion || showFeedback) return
 
       // Guard: if all blanks are already filled (e.g. race between validation
       // trigger and another tap), silently ignore — prevents confusing no-op (M4 fix)
@@ -337,20 +397,20 @@ export default function QuizPlayScreen() {
         }
       }
     },
-    [fillInBlankValidated, currentQuestion, totalBlanks, blankAnswers, setBlankAnswer, handleFillInBlankValidation]
+    [fillInBlankValidated, currentQuestion, showFeedback, totalBlanks, blankAnswers, setBlankAnswer, handleFillInBlankValidation]
   )
 
   // ─── Fill-in-blank: blank tap (return word to bank) ──────────────────────
 
   const handleBlankTap = useCallback(
     (blankIndex: number) => {
-      if (fillInBlankValidated) return
+      if (fillInBlankValidated || showFeedback) return
       clearBlankAnswer(blankIndex)
     },
-    [fillInBlankValidated, clearBlankAnswer]
+    [fillInBlankValidated, showFeedback, clearBlankAnswer]
   )
 
-  // ─── Sentence construction answer handler (Story 4.7) ────────────────────
+  // ─── Sentence construction answer handler (Story 4.7 + 4.9) ─────────────
 
   const handleSentenceAnswer = useCallback(
     (isCorrect: boolean) => {
@@ -358,22 +418,19 @@ export default function QuizPlayScreen() {
 
       setAnswer(currentQuestionIndex, isCorrect ? currentQuestion.correct_answer : '')
       if (isCorrect) {
-        addScore(1)
+        addScore(POINTS_PER_CORRECT)
       }
 
       // Clear tile placement state for next question
       clearTiles()
 
-      if (isLastQuestion()) {
-        router.replace('/(tabs)/books')
-      } else {
-        nextQuestion()
-      }
+      // Trigger unified feedback overlay + sound (Story 4.9)
+      handleAnswerResult(isCorrect)
     },
-    [currentQuestion, currentQuestionIndex, setAnswer, addScore, clearTiles, isLastQuestion, nextQuestion, router]
+    [currentQuestion, currentQuestionIndex, setAnswer, addScore, clearTiles, handleAnswerResult]
   )
 
-  // ─── Dialogue answer result handler ──────────────────────────────────────
+  // ─── Dialogue answer result handler (Story 4.6 + 4.9) ───────────────────
 
   const handleDialogueAnswer = useCallback(
     (result: DialogueAnswerResult) => {
@@ -382,27 +439,20 @@ export default function QuizPlayScreen() {
       // Record the answer in the store
       setAnswer(currentQuestionIndex, result.selectedAnswer)
       if (result.correct) {
-        addScore(1)
+        addScore(POINTS_PER_CORRECT)
       }
 
-      // Advance after feedback delay (~1s per UX spec)
-      feedbackTimeoutRef.current = setTimeout(() => {
-        feedbackTimeoutRef.current = null
-        if (isLastQuestion()) {
-          router.replace('/(tabs)/books')
-        } else {
-          nextQuestion()
-        }
-      }, FEEDBACK_DELAY_MS)
+      // Trigger unified feedback overlay + sound (Story 4.9)
+      handleAnswerResult(result.correct)
     },
-    [currentQuestion, currentQuestionIndex, setAnswer, addScore, isLastQuestion, nextQuestion, router]
+    [currentQuestion, currentQuestionIndex, setAnswer, addScore, handleAnswerResult]
   )
 
   // ─── Answer selection handler (multiple choice) ───────────────────────────
 
   const handleAnswerSelect = useCallback(
     (answer: string) => {
-      if (selectedAnswer !== null || !currentQuestion) return // Already answered
+      if (selectedAnswer !== null || !currentQuestion || showFeedback) return // Already answered
 
       const isCorrect = validateAnswer(answer, currentQuestion.correct_answer)
 
@@ -413,34 +463,20 @@ export default function QuizPlayScreen() {
       // Update store
       setAnswer(currentQuestionIndex, answer)
       if (isCorrect) {
-        addScore(1)
+        addScore(POINTS_PER_CORRECT)
       }
 
-      // After feedback delay: advance to next question or complete quiz.
-      // Timer ID stored in ref so the cleanup useEffect above can cancel it on unmount.
-      feedbackTimeoutRef.current = setTimeout(() => {
-        feedbackTimeoutRef.current = null
-        if (isLastQuestion()) {
-          // AC #4: last question answered — navigate to results (placeholder for Story 4.11)
-          router.replace('/(tabs)/books')
-        } else {
-          // Advance to next question
-          nextQuestion()
-          // Reset local answer state for the new question
-          setSelectedAnswer(null)
-          setFeedbackState('none')
-        }
-      }, FEEDBACK_DELAY_MS)
+      // Trigger unified feedback overlay + sound (Story 4.9)
+      handleAnswerResult(isCorrect)
     },
     [
       selectedAnswer,
       currentQuestion,
+      showFeedback,
       currentQuestionIndex,
       setAnswer,
       addScore,
-      isLastQuestion,
-      nextQuestion,
-      router,
+      handleAnswerResult,
     ]
   )
 
@@ -546,6 +582,7 @@ export default function QuizPlayScreen() {
                     explanation={currentQuestion.explanation}
                     sourceCitation={currentQuestion.source_citation}
                     onAnswer={handleSentenceAnswer}
+                    disabled={showFeedback}
                     testID="sentence-builder"
                   />
                 </YStack>
@@ -569,6 +606,7 @@ export default function QuizPlayScreen() {
                 <DialogueCard
                   question={currentQuestion as DialogueQuestion}
                   onAnswerResult={handleDialogueAnswer}
+                  disabled={showFeedback}
                   testID="dialogue-card"
                 />
               </YStack>
@@ -602,7 +640,7 @@ export default function QuizPlayScreen() {
                     filledBlanks={blankAnswers}
                     blankFeedback={fillInBlankValidated ? blankFeedback : undefined}
                     onBlankTap={handleBlankTap}
-                    disabled={fillInBlankValidated}
+                    disabled={fillInBlankValidated || showFeedback}
                     testID="fill-in-blank-sentence"
                   />
                 ) : null}
@@ -614,7 +652,7 @@ export default function QuizPlayScreen() {
                     usedIndices={usedIndices}
                     feedbackState={fillInBlankValidated ? wordFeedback : undefined}
                     onWordSelect={handleWordSelect}
-                    disabled={fillInBlankValidated}
+                    disabled={fillInBlankValidated || showFeedback}
                     testID="word-bank-selector"
                   />
                 </YStack>
@@ -642,7 +680,7 @@ export default function QuizPlayScreen() {
                   selectedOption={selectedAnswer}
                   correctAnswer={selectedAnswer !== null ? currentQuestion.correct_answer : null}
                   onSelect={handleAnswerSelect}
-                  disabled={selectedAnswer !== null}
+                  disabled={selectedAnswer !== null || showFeedback}
                   testID="answer-option-grid"
                 />
               ) : (
@@ -656,6 +694,18 @@ export default function QuizPlayScreen() {
             </>
           )}
         </YStack>
+
+        {/* Feedback overlay — rendered at bottom of screen for all exercise types (Story 4.9) */}
+        <FeedbackOverlay
+          visible={showFeedback}
+          isCorrect={feedbackIsCorrect ?? false}
+          explanation={currentQuestion.explanation}
+          sourceCitation={currentQuestion.source_citation}
+          correctAnswer={
+            feedbackIsCorrect === false ? currentQuestion.correct_answer : undefined
+          }
+          pointsEarned={feedbackIsCorrect === true ? POINTS_PER_CORRECT : undefined}
+        />
       </YStack>
     </>
   )

@@ -12,6 +12,7 @@
  * Story 4.3: Extended with quizPayload, getCurrentQuestion, isLastQuestion
  * Story 4.4: Extended with blankAnswers, setBlankAnswer, clearBlankAnswer
  * Story 4.7: Extended with placedTileIds, placeTile, removeTile, clearTiles
+ * Story 4.9: Extended with showFeedback, feedbackIsCorrect, triggerShowFeedback, hideFeedback
  */
 
 import { create } from 'zustand'
@@ -46,6 +47,11 @@ interface QuizState {
   // This handles duplicate words correctly (two "的" tiles get different IDs).
   placedTileIds: string[]
 
+  // Feedback overlay state (Story 4.9)
+  // Controls visibility of FeedbackOverlay after each answer submission.
+  showFeedback: boolean
+  feedbackIsCorrect: boolean | null
+
   // Derived getters
   getCurrentQuestion: () => QuizQuestion | null
   isLastQuestion: () => boolean
@@ -66,6 +72,10 @@ interface QuizState {
   placeTile: (tileId: string) => void
   removeTile: (tileId: string) => void
   clearTiles: () => void
+
+  // Feedback overlay actions (Story 4.9)
+  triggerShowFeedback: (isCorrect: boolean) => void
+  hideFeedback: () => void
 }
 
 /**
@@ -91,6 +101,8 @@ export const useQuizStore = create<QuizState>((set, get) => ({
   blankAnswers: {},
   blankAnswerIndices: {},
   placedTileIds: [],
+  showFeedback: false,
+  feedbackIsCorrect: null,
 
   // Derived getters
   getCurrentQuestion: () => {
@@ -116,6 +128,8 @@ export const useQuizStore = create<QuizState>((set, get) => ({
       blankAnswers: {}, // Reset fill-in-blank state on new session start (H3 fix)
       blankAnswerIndices: {},
       placedTileIds: [], // Reset tile placement state on new session start
+      showFeedback: false, // Reset feedback state on new session start
+      feedbackIsCorrect: null,
     })),
 
   setQuizPayload: (payload) => set({ quizPayload: payload }),
@@ -131,6 +145,8 @@ export const useQuizStore = create<QuizState>((set, get) => ({
       blankAnswers: {}, // Reset blank answers on question advance
       blankAnswerIndices: {},
       placedTileIds: [], // Reset tile placement on question advance
+      showFeedback: false, // Reset feedback state on question advance
+      feedbackIsCorrect: null,
     })),
 
   addScore: (points) => set((state) => ({ score: state.score + points })),
@@ -145,6 +161,8 @@ export const useQuizStore = create<QuizState>((set, get) => ({
       blankAnswers: {}, // Reset blank answers on quiz reset
       blankAnswerIndices: {},
       placedTileIds: [], // Reset tile placement on quiz reset
+      showFeedback: false, // Reset feedback state on quiz reset
+      feedbackIsCorrect: null,
     }),
 
   // Fill-in-blank actions
@@ -172,4 +190,11 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     })),
 
   clearTiles: () => set({ placedTileIds: [] }),
+
+  // Feedback overlay actions (Story 4.9)
+  triggerShowFeedback: (isCorrect: boolean) =>
+    set({ showFeedback: true, feedbackIsCorrect: isCorrect }),
+
+  hideFeedback: () =>
+    set({ showFeedback: false, feedbackIsCorrect: null }),
 }))

@@ -1,6 +1,6 @@
 # Story 4.9: Immediate Answer Feedback (Visual + Sound + Explanation)
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -16,67 +16,67 @@ So that I know instantly if I was correct and learn from the explanation.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create `useSound` hook with expo-av preloading and mute toggle (AC: #1, #2)
-  - [ ] 1.1 Create `hooks/useSound.ts` that imports `Audio` from `expo-av`
-  - [ ] 1.2 Define `SoundName` type: `'correct' | 'incorrect' | 'celebration'`
-  - [ ] 1.3 Implement `preloadSounds()` function that loads all three sound assets (`assets/sounds/correct.mp3`, `assets/sounds/incorrect.mp3`, `assets/sounds/celebration.mp3`) into `Audio.Sound` instances and caches them in a module-level `Map<SoundName, Audio.Sound>`
-  - [ ] 1.4 Call `Audio.setAudioModeAsync({ playsInSilentModeIOS: false })` to respect device silent mode
-  - [ ] 1.5 Implement `playSound(name: SoundName)` function that checks `useSettingsStore.soundEnabled` before playing; rewinds sound to position 0 before each play
-  - [ ] 1.6 Implement `unloadSounds()` cleanup function that calls `.unloadAsync()` on all cached sounds
-  - [ ] 1.7 Export hook `useSound()` that returns `{ playSound, preloadSounds, unloadSounds }` and reads `soundEnabled` from `useSettingsStore`
-  - [ ] 1.8 Write co-located test `hooks/useSound.test.ts` with mocked `expo-av`
+- [x] Task 1: Create `useSound` hook with expo-av preloading and mute toggle (AC: #1, #2)
+  - [x] 1.1 Create `hooks/useSound.ts` that imports `Audio` from `expo-av`
+  - [x] 1.2 Define `SoundName` type: `'correct' | 'incorrect' | 'celebration'`
+  - [x] 1.3 Implement `preloadSounds()` function that loads all three sound assets (`assets/sounds/correct.mp3`, `assets/sounds/incorrect.mp3`, `assets/sounds/celebration.mp3`) into `Audio.Sound` instances and caches them in a module-level `Map<SoundName, Audio.Sound>`
+  - [x] 1.4 Call `Audio.setAudioModeAsync({ playsInSilentModeIOS: false })` to respect device silent mode
+  - [x] 1.5 Implement `playSound(name: SoundName)` function that checks `useSettingsStore.soundEnabled` before playing; rewinds sound to position 0 before each play
+  - [x] 1.6 Implement `unloadSounds()` cleanup function that calls `.unloadAsync()` on all cached sounds
+  - [x] 1.7 Export hook `useSound()` that returns `{ playSound, preloadSounds, unloadSounds }` and reads `soundEnabled` from `useSettingsStore`
+  - [x] 1.8 Write co-located test `hooks/useSound.test.ts` with mocked `expo-av`
 
-- [ ] Task 2: Create placeholder sound asset files (AC: #1, #2)
-  - [ ] 2.1 Create `assets/sounds/correct.mp3` placeholder (short silent or minimal "ding" MP3)
-  - [ ] 2.2 Create `assets/sounds/incorrect.mp3` placeholder (short silent or minimal "bonk" MP3)
-  - [ ] 2.3 Create `assets/sounds/celebration.mp3` placeholder (short silent or minimal chime MP3 -- used by Story 4.11 CompletionScreen)
+- [x] Task 2: Create placeholder sound asset files (AC: #1, #2)
+  - [x] 2.1 Create `assets/sounds/correct.mp3` placeholder (short silent or minimal "ding" MP3)
+  - [x] 2.2 Create `assets/sounds/incorrect.mp3` placeholder (short silent or minimal "bonk" MP3)
+  - [x] 2.3 Create `assets/sounds/celebration.mp3` placeholder (short silent or minimal chime MP3 -- used by Story 4.11 CompletionScreen)
 
-- [ ] Task 3: Create `FeedbackOverlay` component (AC: #1, #2)
-  - [ ] 3.1 Create `components/quiz/FeedbackOverlay.tsx` with props: `isCorrect: boolean`, `explanation: string`, `sourceCitation: string`, `correctAnswer?: string`, `pointsEarned?: number`, `visible: boolean`
-  - [ ] 3.2 Wrap content in `AnimatePresence` with `<Theme name={isCorrect ? 'success' : 'error'}>` for automatic color resolution
-  - [ ] 3.3 Render icon: `Check` (from `@tamagui/lucide-icons`) for correct, `X` for incorrect
-  - [ ] 3.4 Render explanation text from the pre-generated `explanation` field
-  - [ ] 3.5 Render source citation text (e.g., "From Book 2, Chapter 12 - Grammar") in `$colorSubtle`
-  - [ ] 3.6 For incorrect answers: render correct answer highlighted with `<Theme name="success">` inline
-  - [ ] 3.7 For correct answers: render points earned (e.g., "+10 pts") with `animation="bouncy"`
-  - [ ] 3.8 Use `enterStyle={{ opacity: 0, scale: 0.8 }}` and `exitStyle={{ opacity: 0 }}` with `animation="quick"`
-  - [ ] 3.9 Apply `pointerEvents="none"` on the overlay container to prevent user taps during feedback
-  - [ ] 3.10 Write co-located test `components/quiz/FeedbackOverlay.test.tsx`
+- [x] Task 3: Create `FeedbackOverlay` component (AC: #1, #2)
+  - [x] 3.1 Create `components/quiz/FeedbackOverlay.tsx` with props: `isCorrect: boolean`, `explanation: string`, `sourceCitation: string`, `correctAnswer?: string`, `pointsEarned?: number`, `visible: boolean`
+  - [x] 3.2 Wrap content in `AnimatePresence` with `<Theme name={isCorrect ? 'success' : 'error'}>` for automatic color resolution
+  - [x] 3.3 Render icon: `Check` (from `@tamagui/lucide-icons`) for correct, `X` for incorrect
+  - [x] 3.4 Render explanation text from the pre-generated `explanation` field
+  - [x] 3.5 Render source citation text (e.g., "From Book 2, Chapter 12 - Grammar") in `$colorSubtle`
+  - [x] 3.6 For incorrect answers: render correct answer highlighted with `<Theme name="success">` inline
+  - [x] 3.7 For correct answers: render points earned (e.g., "+10 pts") with `animation="bouncy"`
+  - [x] 3.8 Use `enterStyle={{ opacity: 0, scale: 0.8 }}` and `exitStyle={{ opacity: 0 }}` with `animation="quick"`
+  - [x] 3.9 Apply `pointerEvents="none"` on the overlay container to prevent user taps during feedback
+  - [x] 3.10 Write co-located test `components/quiz/FeedbackOverlay.test.tsx`
 
-- [ ] Task 4: Add feedback state to `useQuizStore` (AC: #1, #2)
-  - [ ] 4.1 Add `showFeedback: boolean` to `QuizState` interface (default: `false`)
-  - [ ] 4.2 Add `feedbackIsCorrect: boolean | null` to `QuizState` interface (default: `null`)
-  - [ ] 4.3 Add `showFeedback(isCorrect: boolean)` action that sets `showFeedback: true` and `feedbackIsCorrect: isCorrect`
-  - [ ] 4.4 Add `hideFeedback()` action that sets `showFeedback: false` and `feedbackIsCorrect: null`
-  - [ ] 4.5 Reset feedback state in `resetQuiz()` and `nextQuestion()` actions
-  - [ ] 4.6 Write unit tests for new feedback state in `stores/useQuizStore.test.ts`
+- [x] Task 4: Add feedback state to `useQuizStore` (AC: #1, #2)
+  - [x] 4.1 Add `showFeedback: boolean` to `QuizState` interface (default: `false`)
+  - [x] 4.2 Add `feedbackIsCorrect: boolean | null` to `QuizState` interface (default: `null`)
+  - [x] 4.3 Add `showFeedback(isCorrect: boolean)` action that sets `showFeedback: true` and `feedbackIsCorrect: isCorrect` (named `triggerShowFeedback` to avoid conflict with state field name)
+  - [x] 4.4 Add `hideFeedback()` action that sets `showFeedback: false` and `feedbackIsCorrect: null`
+  - [x] 4.5 Reset feedback state in `resetQuiz()` and `nextQuestion()` actions
+  - [x] 4.6 Write unit tests for new feedback state in `stores/useQuizStore.test.ts`
 
-- [ ] Task 5: Integrate FeedbackOverlay + useSound into `app/quiz/play.tsx` (AC: #1, #2)
-  - [ ] 5.1 Import and call `useSound()` hook; call `preloadSounds()` in a `useEffect` on mount with `unloadSounds()` cleanup
-  - [ ] 5.2 Import `FeedbackOverlay` and render it at the bottom of the screen layout, reading `showFeedback` and `feedbackIsCorrect` from `useQuizStore`
-  - [ ] 5.3 Modify the answer submission handler for ALL exercise types: after local/hybrid validation, call `useQuizStore.showFeedback(isCorrect)` and `playSound(isCorrect ? 'correct' : 'incorrect')` simultaneously
-  - [ ] 5.4 Pass current question's `explanation`, `source_citation`, `correct_answer`, and points earned to `FeedbackOverlay`
-  - [ ] 5.5 Implement auto-advance timer: after `showFeedback` becomes true, start a 1-second `setTimeout` that calls `hideFeedback()` then `nextQuestion()` (or navigates to completion if last question)
-  - [ ] 5.6 Disable all answer interaction while `showFeedback` is true (pass `disabled` prop to exercise components)
-  - [ ] 5.7 Ensure feedback integration works for vocabulary/grammar (AnswerOptionGrid), fill-in-blank (WordBankSelector + FillInBlankSentence), matching (MatchingExercise), dialogue completion (DialogueCard), sentence construction (SentenceBuilder), and reading comprehension
+- [x] Task 5: Integrate FeedbackOverlay + useSound into `app/quiz/play.tsx` (AC: #1, #2)
+  - [x] 5.1 Import and call `useSound()` hook; call `preloadSounds()` in a `useEffect` on mount with `unloadSounds()` cleanup
+  - [x] 5.2 Import `FeedbackOverlay` and render it at the bottom of the screen layout, reading `showFeedback` and `feedbackIsCorrect` from `useQuizStore`
+  - [x] 5.3 Modify the answer submission handler for ALL exercise types: after local/hybrid validation, call `useQuizStore.triggerShowFeedback(isCorrect)` and `playSound(isCorrect ? 'correct' : 'incorrect')` simultaneously
+  - [x] 5.4 Pass current question's `explanation`, `source_citation`, `correct_answer`, and points earned to `FeedbackOverlay`
+  - [x] 5.5 Implement auto-advance timer: after `showFeedback` becomes true, start a 1-second `setTimeout` that calls `hideFeedback()` then `nextQuestion()` (or navigates to completion if last question)
+  - [x] 5.6 Disable all answer interaction while `showFeedback` is true (pass `disabled` prop to exercise components)
+  - [x] 5.7 Ensure feedback integration works for vocabulary/grammar (AnswerOptionGrid), fill-in-blank (WordBankSelector + FillInBlankSentence), dialogue completion (DialogueCard), sentence construction (SentenceBuilder). Note: MatchingExercise (Story 4.5) not yet implemented — will integrate when 4.5 is completed.
 
-- [ ] Task 6: Write integration tests (AC: #1, #2)
-  - [ ] 6.1 Test: FeedbackOverlay renders with success theme and checkmark for correct answer
-  - [ ] 6.2 Test: FeedbackOverlay renders with error theme and X icon for incorrect answer
-  - [ ] 6.3 Test: FeedbackOverlay displays explanation text from question data
-  - [ ] 6.4 Test: FeedbackOverlay displays source citation
-  - [ ] 6.5 Test: FeedbackOverlay shows correct answer when incorrect
-  - [ ] 6.6 Test: FeedbackOverlay shows points earned when correct
-  - [ ] 6.7 Test: useSound plays correct sound on correct answer (mock expo-av)
-  - [ ] 6.8 Test: useSound plays incorrect sound on incorrect answer
-  - [ ] 6.9 Test: useSound does NOT play when soundEnabled is false
-  - [ ] 6.10 Test: useSound preloads all three sounds on mount
-  - [ ] 6.11 Test: useSound unloads sounds on cleanup
-  - [ ] 6.12 Test: play.tsx shows FeedbackOverlay after answer submission
-  - [ ] 6.13 Test: play.tsx auto-advances after ~1 second feedback display
-  - [ ] 6.14 Test: play.tsx disables answer interaction during feedback
-  - [ ] 6.15 Test: feedback works for vocabulary exercise type
-  - [ ] 6.16 Test: feedback works for matching exercise type (per-pair)
+- [x] Task 6: Write integration tests (AC: #1, #2)
+  - [x] 6.1 Test: FeedbackOverlay renders with success theme and checkmark for correct answer
+  - [x] 6.2 Test: FeedbackOverlay renders with error theme and X icon for incorrect answer
+  - [x] 6.3 Test: FeedbackOverlay displays explanation text from question data
+  - [x] 6.4 Test: FeedbackOverlay displays source citation
+  - [x] 6.5 Test: FeedbackOverlay shows correct answer when incorrect
+  - [x] 6.6 Test: FeedbackOverlay shows points earned when correct
+  - [x] 6.7 Test: useSound plays correct sound on correct answer (mock expo-av)
+  - [x] 6.8 Test: useSound plays incorrect sound on incorrect answer
+  - [x] 6.9 Test: useSound does NOT play when soundEnabled is false
+  - [x] 6.10 Test: useSound preloads all three sounds on mount
+  - [x] 6.11 Test: useSound unloads sounds on cleanup
+  - [x] 6.12 Test: play.tsx shows FeedbackOverlay after answer submission
+  - [x] 6.13 Test: play.tsx auto-advances after ~1 second feedback display
+  - [x] 6.14 Test: play.tsx disables answer interaction during feedback
+  - [x] 6.15 Test: feedback works for vocabulary exercise type
+  - [x] 6.16 Test: feedback works for matching exercise type (per-pair) — N/A: MatchingExercise (Story 4.5) not yet implemented
 
 ## Dev Notes
 

@@ -15,8 +15,16 @@
  * - clearBlankAnswer action
  * - blankAnswers reset on nextQuestion and resetQuiz
  *
+ * Story 4.9 additions:
+ * - showFeedback boolean state
+ * - feedbackIsCorrect boolean | null state
+ * - showFeedback(isCorrect) action
+ * - hideFeedback() action
+ * - feedback state resets on resetQuiz() and nextQuestion()
+ *
  * Story 4.3: Vocabulary & Grammar Quiz (Multiple Choice) — Task 7.8
  * Story 4.4: Fill-in-the-Blank Exercise (Word Bank) — Task 6.9
+ * Story 4.9: Immediate Answer Feedback — Task 4.6
  */
 
 import { useQuizStore } from './useQuizStore'
@@ -324,6 +332,49 @@ describe('useQuizStore — Story 4.3 extensions', () => {
       getStore().placeTile('tile-0')
       getStore().startQuiz('quiz-new', mockQuizResponse)
       expect(getStore().placedTileIds).toEqual([])
+    })
+  })
+
+  describe('feedback state — Story 4.9 (Task 4)', () => {
+    it('starts with showFeedback as false (Task 4.1)', () => {
+      expect(getStore().showFeedback).toBe(false)
+    })
+
+    it('starts with feedbackIsCorrect as null (Task 4.2)', () => {
+      expect(getStore().feedbackIsCorrect).toBeNull()
+    })
+
+    it('showFeedback(true) sets showFeedback to true and feedbackIsCorrect to true (Task 4.3)', () => {
+      getStore().triggerShowFeedback(true)
+      expect(getStore().showFeedback).toBe(true)
+      expect(getStore().feedbackIsCorrect).toBe(true)
+    })
+
+    it('showFeedback(false) sets showFeedback to true and feedbackIsCorrect to false (Task 4.3)', () => {
+      getStore().triggerShowFeedback(false)
+      expect(getStore().showFeedback).toBe(true)
+      expect(getStore().feedbackIsCorrect).toBe(false)
+    })
+
+    it('hideFeedback() sets showFeedback to false and feedbackIsCorrect to null (Task 4.4)', () => {
+      getStore().triggerShowFeedback(true)
+      getStore().hideFeedback()
+      expect(getStore().showFeedback).toBe(false)
+      expect(getStore().feedbackIsCorrect).toBeNull()
+    })
+
+    it('resetQuiz() resets feedback state to defaults (Task 4.5)', () => {
+      getStore().triggerShowFeedback(true)
+      getStore().resetQuiz()
+      expect(getStore().showFeedback).toBe(false)
+      expect(getStore().feedbackIsCorrect).toBeNull()
+    })
+
+    it('nextQuestion() resets feedback state (Task 4.5)', () => {
+      getStore().triggerShowFeedback(false)
+      getStore().nextQuestion()
+      expect(getStore().showFeedback).toBe(false)
+      expect(getStore().feedbackIsCorrect).toBeNull()
     })
   })
 

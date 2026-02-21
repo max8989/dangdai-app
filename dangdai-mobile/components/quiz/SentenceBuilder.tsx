@@ -57,6 +57,8 @@ export interface SentenceBuilderProps {
   sourceCitation: string
   /** Callback when answer is evaluated */
   onAnswer: (isCorrect: boolean) => void
+  /** Whether interaction is disabled (e.g., during FeedbackOverlay display) */
+  disabled?: boolean
   /** testID for the root container */
   testID?: string
 }
@@ -146,6 +148,7 @@ export function SentenceBuilder({
   explanation,
   sourceCitation,
   onAnswer,
+  disabled = false,
   testID,
 }: SentenceBuilderProps) {
   // ─── Store state ─────────────────────────────────────────────────────────
@@ -198,12 +201,12 @@ export function SentenceBuilder({
   // ─── Handlers ─────────────────────────────────────────────────────────────
 
   const handleTileTap = (tileId: string) => {
-    if (isSubmitted) return
+    if (isSubmitted || disabled) return
     placeTile(tileId)
   }
 
   const handlePlacedTileTap = (tileId: string) => {
-    if (isSubmitted) return
+    if (isSubmitted || disabled) return
     removeTile(tileId)
   }
 

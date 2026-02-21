@@ -9,6 +9,7 @@
  * Story 4.4: Fill-in-the-Blank Exercise (Word Bank) — Tasks 6.10, 6.11
  * Story 4.6: Dialogue Completion Exercise — Task 5 integration
  * Story 4.7: Sentence Construction Exercise — Task 6.10 (play.tsx integration)
+ * Story 4.9: Immediate Answer Feedback — Tasks 5.2, 5.3, 5.5, 5.6
  */
 
 import React from 'react'
@@ -173,12 +174,33 @@ jest.mock('expo-router', () => ({
     back: mockRouterBack,
   }),
   Stack: {
-    Screen: ({ options }: any) => null,
+    Screen: (_: any) => null,
   },
 }))
 
+// Mock expo-av — required by useSound.ts (Story 4.9)
+jest.mock('expo-av', () => ({
+  Audio: {
+    Sound: {
+      createAsync: jest.fn().mockResolvedValue({
+        sound: {
+          playAsync: jest.fn().mockResolvedValue(undefined),
+          setPositionAsync: jest.fn().mockResolvedValue(undefined),
+          unloadAsync: jest.fn().mockResolvedValue(undefined),
+        },
+      }),
+    },
+    setAudioModeAsync: jest.fn().mockResolvedValue(undefined),
+  },
+}))
+
+// Mock sound assets
+jest.mock('../../assets/sounds/correct.mp3', () => 1, { virtual: true })
+jest.mock('../../assets/sounds/incorrect.mp3', () => 2, { virtual: true })
+jest.mock('../../assets/sounds/celebration.mp3', () => 3, { virtual: true })
+
 jest.mock('tamagui', () => {
-  const { View, Text, TouchableOpacity, Modal } = require('react-native')
+  const { View, Text, TouchableOpacity } = require('react-native')
 
   return {
     YStack: ({ children, testID }: any) => <View testID={testID}>{children}</View>,
@@ -259,6 +281,8 @@ jest.mock('../../components/quiz/QuizProgress', () => ({
 // Mock lucide icons
 jest.mock('@tamagui/lucide-icons', () => ({
   ArrowLeft: () => null,
+  Check: () => null,
+  X: () => null,
 }))
 
 // Mock fill-in-blank components
@@ -358,6 +382,20 @@ jest.mock('../../components/quiz/DialogueCard', () => ({
   },
 }))
 
+// Mock FeedbackOverlay component (added in Story 4.9)
+jest.mock('../../components/quiz/FeedbackOverlay', () => ({
+  FeedbackOverlay: ({ visible, isCorrect, explanation, testID }: any) => {
+    const { View, Text } = require('react-native')
+    if (!visible) return null
+    return (
+      <View testID={testID || 'feedback-overlay'}>
+        <Text testID="feedback-overlay-correct">{isCorrect ? 'correct' : 'incorrect'}</Text>
+        <Text testID="feedback-overlay-explanation">{explanation}</Text>
+      </View>
+    )
+  },
+}))
+
 // ─── Store mock (isolated per test) ──────────────────────────────────────────
 
 let mockQuizState = {
@@ -369,6 +407,9 @@ let mockQuizState = {
   blankAnswers: {} as Record<number, string | null>,
   blankAnswerIndices: {} as Record<number, number | null>,
   placedTileIds: [] as string[],
+  // Story 4.9 feedback state
+  showFeedback: false,
+  feedbackIsCorrect: null as boolean | null,
 }
 
 const mockStartQuiz = jest.fn()
@@ -385,6 +426,15 @@ const mockClearBlankAnswer = jest.fn((blankIndex: number) => {
   mockQuizState.blankAnswerIndices = { ...mockQuizState.blankAnswerIndices, [blankIndex]: null }
 })
 const mockClearTiles = jest.fn()
+// Story 4.9 feedback actions
+const mockTriggerShowFeedback = jest.fn((isCorrect: boolean) => {
+  mockQuizState.showFeedback = true
+  mockQuizState.feedbackIsCorrect = isCorrect
+})
+const mockHideFeedback = jest.fn(() => {
+  mockQuizState.showFeedback = false
+  mockQuizState.feedbackIsCorrect = null
+})
 
 const mockGetCurrentQuestion = jest.fn(() => {
   if (!mockQuizState.quizPayload) return null
@@ -412,6 +462,9 @@ jest.mock('../../stores/useQuizStore', () => ({
       isLastQuestion: mockIsLastQuestion,
       blankAnswerIndices: mockQuizState.blankAnswerIndices,
       placedTileIds: mockQuizState.placedTileIds,
+      // Story 4.9 feedback
+      triggerShowFeedback: mockTriggerShowFeedback,
+      hideFeedback: mockHideFeedback,
     }
     return selector ? selector(state) : state
   },
@@ -435,6 +488,8 @@ describe('QuizPlayScreen', () => {
       blankAnswers: {},
       blankAnswerIndices: {},
       placedTileIds: [],
+      showFeedback: false,
+      feedbackIsCorrect: null,
     }
     mockGetCurrentQuestion.mockImplementation(() => {
       if (!mockQuizState.quizPayload) return null
@@ -452,6 +507,15 @@ describe('QuizPlayScreen', () => {
     mockClearBlankAnswer.mockImplementation((blankIndex: number) => {
       mockQuizState.blankAnswers = { ...mockQuizState.blankAnswers, [blankIndex]: null }
       mockQuizState.blankAnswerIndices = { ...mockQuizState.blankAnswerIndices, [blankIndex]: null }
+    })
+    // Reset Story 4.9 feedback mocks
+    mockTriggerShowFeedback.mockImplementation((isCorrect: boolean) => {
+      mockQuizState.showFeedback = true
+      mockQuizState.feedbackIsCorrect = isCorrect
+    })
+    mockHideFeedback.mockImplementation(() => {
+      mockQuizState.showFeedback = false
+      mockQuizState.feedbackIsCorrect = null
     })
   })
 
@@ -489,6 +553,11 @@ describe('QuizPlayScreen', () => {
       const { getByTestId } = render(<QuizPlayScreen />)
       expect(getByTestId('progress-text')).toHaveTextContent('1/3')
     })
+
+    it('does not show FeedbackOverlay initially (Story 4.9)', () => {
+      const { queryByTestId } = render(<QuizPlayScreen />)
+      expect(queryByTestId('feedback-overlay')).toBeNull()
+    })
   })
 
   describe('edge case: no quiz data (AC #4)', () => {
@@ -512,7 +581,7 @@ describe('QuizPlayScreen', () => {
       fireEvent.press(getByTestId('answer-option-0')) // 'to study' is correct
 
       expect(mockSetAnswer).toHaveBeenCalledWith(0, 'to study')
-      expect(mockAddScore).toHaveBeenCalledWith(1)
+      expect(mockAddScore).toHaveBeenCalledWith(10) // POINTS_PER_CORRECT = 10
     })
 
     it('does not add score for wrong answer', async () => {
@@ -522,6 +591,25 @@ describe('QuizPlayScreen', () => {
 
       expect(mockSetAnswer).toHaveBeenCalledWith(0, 'to teach')
       expect(mockAddScore).not.toHaveBeenCalled()
+    })
+
+    it('triggers FeedbackOverlay after answer submission (Story 4.9)', () => {
+      const { getByTestId } = render(<QuizPlayScreen />)
+
+      fireEvent.press(getByTestId('answer-option-0'))
+
+      expect(mockTriggerShowFeedback).toHaveBeenCalledWith(true)
+    })
+
+    it('disables answer options during feedback display (Story 4.9)', () => {
+      // Simulate feedback already shown — answer should be disabled
+      mockQuizState.showFeedback = true
+
+      const { getByTestId } = render(<QuizPlayScreen />)
+
+      // When showFeedback is true, pressing an option should NOT call setAnswer
+      fireEvent.press(getByTestId('answer-option-0'))
+      expect(mockSetAnswer).not.toHaveBeenCalled()
     })
   })
 
@@ -674,13 +762,13 @@ describe('QuizPlayScreen', () => {
       })
     })
 
-    it('calls addScore(1) when correct answer result fires', async () => {
+    it('calls addScore(10) when correct answer result fires (Story 4.9 POINTS_PER_CORRECT)', async () => {
       const { getByTestId } = render(<QuizPlayScreen />)
 
       fireEvent.press(getByTestId('dialogue-option-0')) // '咖啡' — correct
 
       await waitFor(() => {
-        expect(mockAddScore).toHaveBeenCalledWith(1)
+        expect(mockAddScore).toHaveBeenCalledWith(10)
       })
     })
 
@@ -692,6 +780,16 @@ describe('QuizPlayScreen', () => {
       await waitFor(() => {
         expect(mockSetAnswer).toHaveBeenCalled()
         expect(mockAddScore).not.toHaveBeenCalled()
+      })
+    })
+
+    it('triggers FeedbackOverlay after dialogue answer (Story 4.9)', async () => {
+      const { getByTestId } = render(<QuizPlayScreen />)
+
+      fireEvent.press(getByTestId('dialogue-option-0')) // correct
+
+      await waitFor(() => {
+        expect(mockTriggerShowFeedback).toHaveBeenCalledWith(true)
       })
     })
   })
@@ -738,14 +836,14 @@ describe('QuizPlayScreen', () => {
       expect(getByTestId('sentence-builder-word-count').props.children).toBe(5)
     })
 
-    it('calls setAnswer and addScore(1) when onAnswer(true) fires', async () => {
+    it('calls setAnswer and addScore(10) when onAnswer(true) fires (Story 4.9 POINTS_PER_CORRECT)', async () => {
       const { getByTestId } = render(<QuizPlayScreen />)
 
       fireEvent.press(getByTestId('sentence-builder-correct-trigger'))
 
       await waitFor(() => {
         expect(mockSetAnswer).toHaveBeenCalledWith(0, '我很喜歡咖啡。')
-        expect(mockAddScore).toHaveBeenCalledWith(1)
+        expect(mockAddScore).toHaveBeenCalledWith(10)
       })
     })
 
@@ -760,22 +858,43 @@ describe('QuizPlayScreen', () => {
       })
     })
 
-    it('calls nextQuestion after correct answer on non-last question', async () => {
+    it('triggers FeedbackOverlay after sentence answer (Story 4.9)', async () => {
       const { getByTestId } = render(<QuizPlayScreen />)
 
       fireEvent.press(getByTestId('sentence-builder-correct-trigger'))
 
       await waitFor(() => {
-        expect(mockNextQuestion).toHaveBeenCalled()
+        expect(mockTriggerShowFeedback).toHaveBeenCalledWith(true)
       })
+    })
+
+    it('calls nextQuestion after 1s feedback delay on correct answer (Story 4.9)', async () => {
+      // Pre-set showFeedback=true so the useEffect timer fires on initial render
+      mockQuizState.showFeedback = true
+      mockQuizState.feedbackIsCorrect = true
+
+      render(<QuizPlayScreen />)
+
+      expect(mockNextQuestion).not.toHaveBeenCalled()
+
+      act(() => {
+        jest.advanceTimersByTime(1100)
+      })
+
+      expect(mockNextQuestion).toHaveBeenCalled()
     })
 
     it('navigates to books on last sentence_construction question answered', async () => {
       mockIsLastQuestion.mockReturnValue(true)
+      // Pre-set showFeedback=true so the useEffect timer fires on initial render
+      mockQuizState.showFeedback = true
+      mockQuizState.feedbackIsCorrect = true
 
-      const { getByTestId } = render(<QuizPlayScreen />)
+      render(<QuizPlayScreen />)
 
-      fireEvent.press(getByTestId('sentence-builder-correct-trigger'))
+      act(() => {
+        jest.advanceTimersByTime(1100)
+      })
 
       await waitFor(() => {
         expect(mockRouterReplace).toHaveBeenCalledWith('/(tabs)/books')
@@ -791,10 +910,12 @@ describe('QuizPlayScreen', () => {
       mockIsLastQuestion.mockReturnValue(false)
     })
 
-    it('calls nextQuestion after 1s feedback delay on dialogue answer', async () => {
-      const { getByTestId } = render(<QuizPlayScreen />)
+    it('calls nextQuestion after 1s feedback delay on dialogue answer (Story 4.9)', async () => {
+      // Pre-set showFeedback=true to simulate feedback being shown
+      mockQuizState.showFeedback = true
+      mockQuizState.feedbackIsCorrect = true
 
-      fireEvent.press(getByTestId('dialogue-option-0')) // any answer triggers advance
+      render(<QuizPlayScreen />)
 
       expect(mockNextQuestion).not.toHaveBeenCalled()
 
@@ -807,10 +928,11 @@ describe('QuizPlayScreen', () => {
 
     it('navigates to books on last dialogue question answered', async () => {
       mockIsLastQuestion.mockReturnValue(true)
+      // Pre-set showFeedback=true to simulate feedback being shown
+      mockQuizState.showFeedback = true
+      mockQuizState.feedbackIsCorrect = true
 
-      const { getByTestId } = render(<QuizPlayScreen />)
-
-      fireEvent.press(getByTestId('dialogue-option-0'))
+      render(<QuizPlayScreen />)
 
       act(() => {
         jest.advanceTimersByTime(1100)
@@ -819,6 +941,48 @@ describe('QuizPlayScreen', () => {
       await waitFor(() => {
         expect(mockRouterReplace).toHaveBeenCalledWith('/(tabs)/books')
       })
+    })
+  })
+
+  // ─── Story 4.9: Feedback Overlay Integration Tests ───────────────────────────
+
+  describe('Story 4.9: FeedbackOverlay integration (Task 5.2, 5.5, 5.6)', () => {
+    it('shows FeedbackOverlay with correct=true after correct answer (Task 5.2)', () => {
+      const { getByTestId } = render(<QuizPlayScreen />)
+
+      // Simulate showFeedback being set (since we mock the store)
+      mockQuizState.showFeedback = true
+      mockQuizState.feedbackIsCorrect = true
+
+      // Re-render to pick up updated state
+      const { getByTestId: getByTestId2 } = render(<QuizPlayScreen />)
+      expect(getByTestId2('feedback-overlay')).toBeTruthy()
+      expect(getByTestId2('feedback-overlay-correct').props.children).toBe('correct')
+    })
+
+    it('shows FeedbackOverlay with correct=false after incorrect answer (Task 5.2)', () => {
+      mockQuizState.showFeedback = true
+      mockQuizState.feedbackIsCorrect = false
+
+      const { getByTestId } = render(<QuizPlayScreen />)
+      expect(getByTestId('feedback-overlay')).toBeTruthy()
+      expect(getByTestId('feedback-overlay-correct').props.children).toBe('incorrect')
+    })
+
+    it('calls triggerShowFeedback(true) on correct MCQ answer (Task 5.3)', () => {
+      const { getByTestId } = render(<QuizPlayScreen />)
+
+      fireEvent.press(getByTestId('answer-option-0')) // correct answer
+
+      expect(mockTriggerShowFeedback).toHaveBeenCalledWith(true)
+    })
+
+    it('calls triggerShowFeedback(false) on incorrect MCQ answer (Task 5.3)', () => {
+      const { getByTestId } = render(<QuizPlayScreen />)
+
+      fireEvent.press(getByTestId('answer-option-1')) // incorrect answer
+
+      expect(mockTriggerShowFeedback).toHaveBeenCalledWith(false)
     })
   })
 })

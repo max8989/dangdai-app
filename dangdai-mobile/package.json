@@ -30,6 +30,7 @@
     "burnt": "^0.12.2",
     "expo": "^54.0.23",
     "expo-apple-authentication": "~8.0.8",
+    "expo-av": "~16.0.8",
     "expo-build-properties": "~1.0.9",
     "expo-constants": "^18.0.13",
     "expo-crypto": "~15.0.8",
