@@ -319,7 +319,7 @@ describe('SentenceBuilder', () => {
       expect(queryByTestId('incorrect-feedback')).toBeNull()
     })
 
-    it('calls onAnswer(true) after feedback delay for correct answer', async () => {
+    it('calls onAnswer(true) immediately after validation for correct answer', async () => {
       const onAnswer = jest.fn()
       const { getByTestId } = renderSentenceBuilder({ onAnswer })
 
@@ -329,12 +329,8 @@ describe('SentenceBuilder', () => {
         fireEvent.press(getByTestId('submit-button'))
       })
 
-      expect(onAnswer).not.toHaveBeenCalled()
-
-      act(() => {
-        jest.advanceTimersByTime(1500)
-      })
-
+      // onAnswer is called immediately after validate() resolves —
+      // auto-advance is handled by play.tsx's unified FeedbackOverlay timer.
       expect(onAnswer).toHaveBeenCalledWith(true)
     })
   })
@@ -396,7 +392,7 @@ describe('SentenceBuilder', () => {
       expect(queryByTestId('incorrect-feedback')).toBeNull()
     })
 
-    it('calls onAnswer(true) for valid alternative', async () => {
+    it('calls onAnswer(true) immediately for valid alternative', async () => {
       mockValidateAnswer.mockResolvedValue(mockLlmValidAlternative)
       const onAnswer = jest.fn()
 
@@ -412,15 +408,10 @@ describe('SentenceBuilder', () => {
         fireEvent.press(getByTestId('submit-button'))
       })
 
+      // onAnswer is called immediately after validate() resolves
       await waitFor(() => {
-        expect(mockValidateAnswer).toHaveBeenCalled()
+        expect(onAnswer).toHaveBeenCalledWith(true)
       })
-
-      act(() => {
-        jest.advanceTimersByTime(1500)
-      })
-
-      expect(onAnswer).toHaveBeenCalledWith(true)
     })
   })
 
@@ -452,7 +443,7 @@ describe('SentenceBuilder', () => {
       expect(queryByTestId('alternative-valid-message')).toBeNull()
     })
 
-    it('calls onAnswer(false) for incorrect LLM result', async () => {
+    it('calls onAnswer(false) immediately for incorrect LLM result', async () => {
       mockValidateAnswer.mockResolvedValue(mockLlmIncorrect)
       const onAnswer = jest.fn()
 
@@ -469,22 +460,17 @@ describe('SentenceBuilder', () => {
         fireEvent.press(getByTestId('submit-button'))
       })
 
+      // onAnswer is called immediately after validate() resolves
       await waitFor(() => {
-        expect(mockValidateAnswer).toHaveBeenCalled()
+        expect(onAnswer).toHaveBeenCalledWith(false)
       })
-
-      act(() => {
-        jest.advanceTimersByTime(1500)
-      })
-
-      expect(onAnswer).toHaveBeenCalledWith(false)
     })
   })
 
   // ─── 6.9: LLM timeout falls back to local (incorrect) ────────────────────
 
   describe('6.9 — LLM timeout falls back to local validation (marks incorrect)', () => {
-    it('shows incorrect feedback and calls onAnswer(false) on timeout', async () => {
+    it('shows incorrect feedback and calls onAnswer(false) immediately on timeout', async () => {
       const timeoutError = new QuizGenerationError('timeout', 'Validation timed out.')
       mockValidateAnswer.mockRejectedValue(timeoutError)
       const onAnswer = jest.fn()
@@ -502,15 +488,11 @@ describe('SentenceBuilder', () => {
         fireEvent.press(getByTestId('submit-button'))
       })
 
+      // onAnswer is called immediately after validate() rejects (fallback to local)
       await waitFor(() => {
         expect(queryByTestId('incorrect-feedback')).toBeTruthy()
+        expect(onAnswer).toHaveBeenCalledWith(false)
       })
-
-      act(() => {
-        jest.advanceTimersByTime(1500)
-      })
-
-      expect(onAnswer).toHaveBeenCalledWith(false)
     })
 
     it('shows incorrect feedback on network error (fallback)', async () => {

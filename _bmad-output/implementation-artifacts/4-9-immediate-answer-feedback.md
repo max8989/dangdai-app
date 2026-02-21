@@ -1,6 +1,6 @@
 # Story 4.9: Immediate Answer Feedback (Visual + Sound + Explanation)
 
-Status: review
+Status: done
 
 ## Story
 
@@ -753,10 +753,54 @@ dangdai-mobile/
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+claude-sonnet-4-6
 
 ### Debug Log References
 
 ### Completion Notes List
 
+- Task 5.7: MatchingExercise (Story 4.5) not yet implemented — TODO playSound() calls deferred to when 4.5 is completed
+- Task 6.16: MatchingExercise per-pair test marked N/A for same reason
+
 ### File List
+
+- `dangdai-mobile/app/quiz/play.tsx` — MODIFIED: integrated FeedbackOverlay + useSound for all exercise types; unified auto-advance via feedbackTimerRef
+- `dangdai-mobile/components/quiz/FeedbackOverlay.tsx` — CREATED: unified feedback overlay component
+- `dangdai-mobile/components/quiz/FeedbackOverlay.test.tsx` — CREATED: unit tests for FeedbackOverlay
+- `dangdai-mobile/components/quiz/SentenceBuilder.tsx` — MODIFIED: removed own auto-advance timer; delegates to play.tsx unified feedback flow
+- `dangdai-mobile/hooks/useSound.ts` — CREATED: sound effect hook with expo-av preloading and mute toggle
+- `dangdai-mobile/hooks/useSound.test.ts` — CREATED: unit tests for useSound hook
+- `dangdai-mobile/stores/useQuizStore.ts` — MODIFIED: added showFeedback, feedbackIsCorrect state + triggerShowFeedback/hideFeedback actions
+- `dangdai-mobile/stores/useQuizStore.test.ts` — MODIFIED: added feedback state tests (Task 4.6)
+- `dangdai-mobile/app/quiz/play.test.tsx` — MODIFIED: added Story 4.9 integration tests (Tasks 5.2, 5.3, 5.5, 5.6)
+- `dangdai-mobile/assets/sounds/correct.mp3` — CREATED: placeholder "ding" sound
+- `dangdai-mobile/assets/sounds/incorrect.mp3` — CREATED: placeholder "bonk" sound
+- `dangdai-mobile/assets/sounds/celebration.mp3` — CREATED: placeholder celebration chime (for Story 4.11)
+- `dangdai-mobile/package.json` — MODIFIED: added expo-av dependency
+- `dangdai-mobile/yarn.lock` — MODIFIED: lockfile update for expo-av
+
+### Senior Developer Review (AI)
+
+**Reviewer:** Maxime | **Date:** 2026-02-20 | **Outcome:** Approved (after fixes)
+
+**Issues Found:** 1 High, 3 Medium, 3 Low
+
+**Fixed (High):**
+- H1 `SentenceBuilder.tsx`: Competing `setTimeout(onAnswer, 1500)` inside `SentenceBuilder` caused total auto-advance delay of 2.5s (1.5s SentenceBuilder + 1s FeedbackOverlay), violating the 1-second UX spec. Fixed by removing `FEEDBACK_DELAY_MS`, `feedbackTimeoutRef`, and calling `onAnswer()` immediately after `validate()` resolves. Updated `SentenceBuilder.test.tsx` to match.
+
+**Fixed (Medium):**
+- M1 `play.tsx:228-237`: Dead `feedbackTimeoutRef` ref that was never assigned — removed.
+- M2 `FeedbackOverlay.tsx:121`: Citation used `$colorPress` instead of `$colorSubtle` per Dev Notes Task 3.5 spec — fixed.
+- M3 `play.tsx:211`: Navigation on quiz completion used `/(tabs)/books` instead of `/quiz/results` — fixed. Updated two tests in `play.test.tsx` to assert correct route.
+
+**Deferred (Low — action items not blocking):**
+- L1: Dev Agent Record File List was empty — populated above.
+- L2: `SentenceBuilder` renders its own explanation section in addition to `FeedbackOverlay` — duplicate display, acceptable for now as SentenceBuilder shows per-tile feedback while overlay shows the explanation; tracked for Story 4.11 cleanup.
+- L3: `soundEnabled` in `useSound()` return is unused by callers — minor dead API, not worth touching.
+
+### Change Log
+
+| Date | Version | Description | Author |
+|------|---------|-------------|--------|
+| 2026-02-20 | 1.0 | Initial implementation — FeedbackOverlay, useSound, store extensions, play.tsx integration | Dev Agent |
+| 2026-02-20 | 1.1 | Code review fixes: SentenceBuilder timer, dead ref, citation token, navigation route | Senior Dev Review (AI) |

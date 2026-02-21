@@ -118,7 +118,7 @@ export function FeedbackOverlay({
             </Text>
 
             {/* Source Citation */}
-            <Text fontSize="$2" color="$colorPress" opacity={0.7} testID="feedback-citation">
+            <Text fontSize="$2" color="$colorSubtle" testID="feedback-citation">
               {sourceCitation}
             </Text>
           </YStack>

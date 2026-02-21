@@ -884,7 +884,7 @@ describe('QuizPlayScreen', () => {
       expect(mockNextQuestion).toHaveBeenCalled()
     })
 
-    it('navigates to books on last sentence_construction question answered', async () => {
+    it('navigates to results screen on last sentence_construction question answered', async () => {
       mockIsLastQuestion.mockReturnValue(true)
       // Pre-set showFeedback=true so the useEffect timer fires on initial render
       mockQuizState.showFeedback = true
@@ -897,7 +897,7 @@ describe('QuizPlayScreen', () => {
       })
 
       await waitFor(() => {
-        expect(mockRouterReplace).toHaveBeenCalledWith('/(tabs)/books')
+        expect(mockRouterReplace).toHaveBeenCalledWith('/quiz/results')
       })
     })
   })
@@ -926,7 +926,7 @@ describe('QuizPlayScreen', () => {
       expect(mockNextQuestion).toHaveBeenCalled()
     })
 
-    it('navigates to books on last dialogue question answered', async () => {
+    it('navigates to results screen on last dialogue question answered', async () => {
       mockIsLastQuestion.mockReturnValue(true)
       // Pre-set showFeedback=true to simulate feedback being shown
       mockQuizState.showFeedback = true
@@ -939,7 +939,7 @@ describe('QuizPlayScreen', () => {
       })
 
       await waitFor(() => {
-        expect(mockRouterReplace).toHaveBeenCalledWith('/(tabs)/books')
+        expect(mockRouterReplace).toHaveBeenCalledWith('/quiz/results')
       })
     })
   })

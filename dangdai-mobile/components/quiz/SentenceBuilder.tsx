@@ -22,7 +22,7 @@
  * Story 4.7: Sentence Construction Exercise
  */
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef } from 'react'
 import {
   YStack,
   XStack,
@@ -137,9 +137,6 @@ const SlotArea = styled(XStack, {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-/** Feedback display delay before auto-advancing (1.5s per spec — longer than MCQ 1s) */
-const FEEDBACK_DELAY_MS = 1500
-
 export function SentenceBuilder({
   questionText,
   scrambledWords,
@@ -172,18 +169,6 @@ export function SentenceBuilder({
   // time a second tap fires. A ref is set synchronously before any async work.
 
   const isSubmittingRef = useRef(false)
-
-  // ─── Feedback timeout ref ─────────────────────────────────────────────────
-
-  const feedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  useEffect(() => {
-    return () => {
-      if (feedbackTimeoutRef.current !== null) {
-        clearTimeout(feedbackTimeoutRef.current)
-      }
-    }
-  }, [])
 
   // ─── Derived state ────────────────────────────────────────────────────────
 
@@ -237,11 +222,9 @@ export function SentenceBuilder({
       setTileFeedback(computeTileFeedback(placedWords, correctOrder))
     }
 
-    // Auto-advance after feedback delay
-    feedbackTimeoutRef.current = setTimeout(() => {
-      feedbackTimeoutRef.current = null
-      onAnswer(result.isCorrect)
-    }, FEEDBACK_DELAY_MS)
+    // Notify play.tsx immediately — auto-advance is handled by play.tsx's
+    // unified FeedbackOverlay timer (1s), not by SentenceBuilder itself.
+    onAnswer(result.isCorrect)
   }
 
   // ─── Render ───────────────────────────────────────────────────────────────

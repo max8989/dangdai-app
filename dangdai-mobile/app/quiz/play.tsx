@@ -206,8 +206,8 @@ export default function QuizPlayScreen() {
         feedbackTimerRef.current = null
         hideFeedback()
         if (isLastQuestion()) {
-          // Navigate to results (placeholder for Story 4.11)
-          router.replace('/(tabs)/books')
+          // Navigate to results screen (Story 4.11)
+          router.replace('/quiz/results')
         } else {
           nextQuestion()
         }
@@ -221,20 +221,6 @@ export default function QuizPlayScreen() {
       }
     }
   }, [showFeedback]) // Only re-run when showFeedback changes
-
-  // ─── Feedback timeout ref for fill-in-blank / dialogue (pre-4.9 pattern) ──
-  // Still used for fill-in-blank and dialogue paths that go through FeedbackOverlay
-
-  const feedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // Clear any pending timeout when the component unmounts
-  useEffect(() => {
-    return () => {
-      if (feedbackTimeoutRef.current !== null) {
-        clearTimeout(feedbackTimeoutRef.current)
-      }
-    }
-  }, [])
 
   // ─── Reset local state when question changes ──────────────────────────────
   // Fill-in-blank state resets here. Multiple-choice state (selectedAnswer,
