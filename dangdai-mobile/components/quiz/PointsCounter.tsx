@@ -15,7 +15,7 @@
  * Story 4.11: Quiz Results Screen — Task 2
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSharedValue, withTiming, runOnJS, useDerivedValue } from 'react-native-reanimated'
 import { styled, XStack, Text } from 'tamagui'
 
@@ -65,7 +65,11 @@ export interface PointsCounterProps {
  * End-bounce uses Tamagui animation="bouncy" declarative spring.
  */
 export function PointsCounter({ points, size = 'celebration', testID }: PointsCounterProps) {
+  // useSharedValue returns a stable mutable ref object (value is mutated, not replaced).
+  // Storing it in a useRef makes that stability explicit and avoids any risk of
+  // stale closure if the component ever re-renders before the animation completes.
   const animatedValue = useSharedValue(0)
+  const animatedValueRef = useRef(animatedValue)
   const [displayValue, setDisplayValue] = useState(0)
   const [isDone, setIsDone] = useState(false)
   // TODO: Story 4.9 — uncomment when useSound is available
@@ -81,8 +85,10 @@ export function PointsCounter({ points, size = 'celebration', testID }: PointsCo
 
   // Start the count-up animation on mount (or when points changes).
   // withTiming runs on the UI thread — no setInterval needed.
+  // animatedValueRef.current is used to avoid capturing a potentially stale
+  // animatedValue reference in the closure (the ref is stable across re-renders).
   useEffect(() => {
-    animatedValue.value = withTiming(points, { duration: 1500 }, (finished) => {
+    animatedValueRef.current.value = withTiming(points, { duration: 1500 }, (finished) => {
       if (finished) {
         // Flip bounceState → 'done' to trigger Tamagui bouncy spring scale: 1.1
         runOnJS(setIsDone)(true)

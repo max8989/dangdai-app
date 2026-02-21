@@ -28,7 +28,7 @@
  * Story 4.11: Quiz Results Screen — Task 5
  */
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { ScrollView } from 'react-native'
 import {
   AnimatePresence,
@@ -114,8 +114,22 @@ function computeWeaknessChanges(
 ): WeaknessChange[] {
   return postQuiz.map((post) => {
     const pre = preQuiz.find((p) => p.item === post.item)
-    const prev = pre?.previousAccuracy ?? 0
     const curr = post.currentAccuracy
+
+    // If no pre-quiz data exists for this item, we have no baseline to compare against.
+    // Treat as 'stable' (no trend) rather than computing a delta from an assumed 0%,
+    // which would misleadingly show "Getting stronger!" for any non-zero score.
+    if (!pre) {
+      return {
+        item: post.item,
+        previousAccuracy: curr,
+        currentAccuracy: curr,
+        trend: 'stable',
+        message: 'First attempt — keep going!',
+      }
+    }
+
+    const prev = pre.previousAccuracy
     const delta = curr - prev
 
     let trend: WeaknessChange['trend']
@@ -255,7 +269,7 @@ function StruggledWithSection({ items }: { items: IncorrectItem[] }) {
 
       {items.map((item, index) => (
         <Card
-          key={index}
+          key={`${item.questionText}-${index}`}
           backgroundColor="$background"
           borderColor="$borderColor"
           borderWidth={1}
@@ -316,15 +330,16 @@ export function CompletionScreen({
   const exerciseTypeLabel = EXERCISE_TYPE_LABELS[exerciseType] ?? exerciseType
   const chapterNumber = chapterId % 100
 
+  // Capture mount-time values in refs so the upsert useEffect always uses
+  // the values that were current when the CompletionScreen first rendered,
+  // even if props somehow change before the effect fires (e.g. StrictMode double-invoke).
+  const mountParamsRef = useRef({ chapterId, bookId, exerciseType, score: scorePercent })
+
   // Upsert exercise_type_progress on mount (Task 5.12)
+  // Intentionally fires once — progress is recorded for the quiz just completed.
   useEffect(() => {
-    updateProgress({
-      chapterId,
-      bookId,
-      exerciseType,
-      score: scorePercent,
-    })
-  }, []) // mount-only intentional — eslint-disable-line react-hooks/exhaustive-deps
+    updateProgress(mountParamsRef.current)
+  }, [updateProgress])
 
   return (
     <ScrollView

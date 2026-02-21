@@ -81,7 +81,9 @@ export function useExerciseTypeProgress(chapterId: number) {
 
       return data ?? []
     },
-    enabled: !!user,
+    // Disable query when user is not authenticated or chapterId is 0/falsy
+    // (chapterId=0 is the fallback used in play.tsx when store context is missing)
+    enabled: !!user && chapterId > 0,
     staleTime: 1000 * 60 * 2, // 2 minutes
   })
 }

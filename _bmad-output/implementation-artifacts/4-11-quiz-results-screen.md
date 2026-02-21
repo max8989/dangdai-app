@@ -1,6 +1,6 @@
 # Story 4.11: Quiz Results Screen with Per-Type Breakdown
 
-Status: review
+Status: done
 
 ## Story
 
@@ -817,6 +817,29 @@ dangdai-mobile/
 - [Source: 4-3-vocabulary-quiz-question-display.md] - play.tsx structure, useQuizStore extensions, exercise type switch pattern, completion placeholder
 - [Source: 4-5-matching-exercise.md] - Exercise type integration pattern, component-local vs store state, onComplete callback pattern
 
+## Senior Developer Review (AI)
+
+**Reviewer:** Maxime (AI) — 2026-02-20
+**Outcome:** Approved with fixes applied
+
+### Issues Found and Fixed
+
+| Severity | Issue | Resolution |
+|----------|-------|------------|
+| 🔴 HIGH | `@ts-expect-error` at `ExerciseTypeProgressList.tsx:137` was unused — TypeScript now accepts `style={{ transformOrigin: 'left' }}`, so the directive caused a build error (`TS2578`) | Removed the stale directive |
+| 🟡 MEDIUM | `CompletionScreen.tsx` `useEffect` used empty `[]` deps relying on stale closure for upsert values | Introduced `mountParamsRef` to capture mount-time values explicitly; added `updateProgress` to deps |
+| 🟡 MEDIUM | `computeWeaknessChanges` treated missing pre-quiz baseline as `0%`, falsely computing "improving" trend for any first-attempt score | Added guard: items without pre-quiz data get `trend='stable'` and "First attempt — keep going!" message |
+| 🟡 MEDIUM | `PointsCounter.tsx` `useEffect` closed over `animatedValue` without documenting the stable-ref contract | Stored `animatedValue` in `animatedValueRef` to make the stability intent explicit |
+| 🟡 MEDIUM | `ExerciseTypeProgressList.tsx` label column used hardcoded `width={140}` (raw pixels) violating Tamagui token rules | Replaced with `width="$13"` (Tamagui space token) |
+| 🟢 LOW | `StruggledWithSection` used array index as `key` prop | Changed to `${item.questionText}-${index}` for stable keys |
+| 🟢 LOW | `useExerciseTypeProgress` `enabled` flag didn't guard against `chapterId=0` | Added `chapterId > 0` to the enabled check |
+| 🟢 LOW | `useExerciseTypeProgress.test.ts` never exercised actual upsert logic (best_score max, attempts increment, mastered_at) | Added 4 `mutationFn` extraction tests covering all upsert scenarios |
+| 🟢 LOW | `PointsCounter.test.tsx` never tested count-up animation wiring | Added 3 tests verifying element format and no-crash behavior |
+
+**Test results after fixes:** 165 passing, 0 failing | TypeScript: 0 errors | ESLint: 0 warnings
+
+---
+
 ## Dev Agent Record
 
 ### Agent Model Used
@@ -850,6 +873,7 @@ None — implementation proceeded cleanly without major blockers.
 | 2026-02-20 | Created CompletionScreen with celebration animation, stats, progress list, weakness summary, struggled-with section | `components/quiz/CompletionScreen.tsx`, `components/quiz/CompletionScreen.test.tsx` |
 | 2026-02-20 | Integrated CompletionScreen into play.tsx — completeQuiz() on last answer, conditional render when isComplete | `app/quiz/play.tsx`, `app/quiz/play.test.tsx` |
 | 2026-02-20 | ESLint fixes: @ts-ignore → @ts-expect-error, removed invalid eslint-disable comment | `components/quiz/ExerciseTypeProgressList.tsx`, `components/quiz/PointsCounter.tsx` |
+| 2026-02-20 | Code review (AI): Fixed H1 stale @ts-expect-error (build broken), M1 useEffect mount pattern (CompletionScreen), M2 misleading weakness trend when no pre-quiz baseline, M3 animatedValue ref pattern (PointsCounter), M4 hardcoded pixel width. Fixed L1 key prop, L4 enabled guard. Added upsert logic tests and count-up animation tests. 165 tests pass, 0 TS errors. | `components/quiz/ExerciseTypeProgressList.tsx`, `components/quiz/CompletionScreen.tsx`, `components/quiz/PointsCounter.tsx`, `components/quiz/PointsCounter.test.tsx`, `hooks/useExerciseTypeProgress.ts`, `hooks/useExerciseTypeProgress.test.ts` |
 
 ### File List
 

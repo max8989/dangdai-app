@@ -116,12 +116,12 @@ function ExerciseTypeRow({ exerciseType, row, isHighlighted }: ExerciseTypeRowPr
       borderLeftColor={isHighlighted ? '$primary' : undefined}
       testID={`exercise-type-row-${exerciseType}`}
     >
-      {/* Label */}
+      {/* Label — $13 (104px) gives enough room for "Sentence Construction" on small screens */}
       <Text
         fontSize="$3"
         fontWeight={isHighlighted ? '600' : '400'}
         color="$color"
-        width={140}
+        width="$13"
         numberOfLines={1}
         testID={`exercise-type-label-${exerciseType}`}
       >
@@ -134,7 +134,6 @@ function ExerciseTypeRow({ exerciseType, row, isHighlighted }: ExerciseTypeRowPr
           status={status}
           width={status === 'new' ? 0 : widthPercent}
           enterStyle={{ scaleX: 0 }}
-          // @ts-expect-error — transformOrigin is supported at runtime via Tamagui/RN
           style={{ transformOrigin: 'left' }}
           testID={`exercise-type-bar-${exerciseType}`}
         />
