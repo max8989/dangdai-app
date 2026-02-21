@@ -124,7 +124,6 @@ export default function QuizPlayScreen() {
 
   const quizPayload = useQuizStore((state) => state.quizPayload)
   const currentQuestionIndex = useQuizStore((state) => state.currentQuestion)
-  const startQuiz = useQuizStore((state) => state.startQuiz)
   const setAnswer = useQuizStore((state) => state.setAnswer)
   const nextQuestion = useQuizStore((state) => state.nextQuestion)
   const addScore = useQuizStore((state) => state.addScore)
@@ -175,14 +174,13 @@ export default function QuizPlayScreen() {
   /** Whether fill-in-blank has been validated (disables all interaction) */
   const [fillInBlankValidated, setFillInBlankValidated] = useState(false)
 
-  // ─── On mount: initialize quiz session + preload sounds ──────────────────
+  // ─── On mount: preload sounds ────────────────────────────────────────────
 
-  // Run once on mount only. quizPayload is guaranteed set by loading.tsx before navigation.
-  // startQuiz intentionally omitted from deps — this is a mount-only initialization.
+  // loading.tsx calls startQuiz(quizId, payload, chapterId, bookId, exerciseType) before
+  // navigating here, so the store is already fully populated. We must NOT call startQuiz
+  // again on mount — doing so would overwrite chapterId/bookId/exerciseType with null
+  // (the defaults), breaking Supabase writes and crash-recovery resume context (Story 4.10).
   useEffect(() => {
-    if (quizPayload) {
-      startQuiz(quizPayload.quiz_id)
-    }
     // Preload sounds on quiz screen mount; unload on unmount (Story 4.9)
     void preloadSounds()
     return () => {

@@ -13,14 +13,14 @@
  *   - saveQuestionResult is async and NON-BLOCKING — caller should NOT await it
  *   - All Supabase writes are wrapped in try/catch — NEVER throws to callers
  *   - Missing tables (42P01) are logged + skipped (not retried)
- *   - Network errors are queued locally for retry on next successful write
- *   - Retry queue holds max 10 items (FIFO eviction)
+ *   - Network errors are queued in a module-level array for retry on next successful write
+ *   - Retry queue is module-level (survives hook remounts), holds max 10 items (FIFO eviction)
  *   - Auth errors (no user) skip the write gracefully
  *
  * Story 4.10: Quiz Progress Saving — Task 4
  */
 
-import { useCallback, useRef } from 'react'
+import { useCallback } from 'react'
 
 import { supabase, insertQuestionResult, insertQuizAttempt } from '../lib/supabase'
 import { useQuizStore } from '../stores/useQuizStore'
@@ -63,6 +63,16 @@ export interface ResumableQuizInfo {
 /** Maximum number of failed writes to queue for retry */
 const MAX_RETRY_QUEUE_SIZE = 10
 
+// ─── Module-level retry queue ─────────────────────────────────────────────────
+//
+// The retry queue is module-level (not per-hook-instance) so that failed writes
+// survive component remounts and navigation. A queue per hook instance would lose
+// all queued retries when the component unmounts (e.g. navigating away mid-quiz).
+//
+// FIFO eviction when queue exceeds MAX_RETRY_QUEUE_SIZE.
+
+let _retryQueue: QuestionResultInsert[] = []
+
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -72,24 +82,30 @@ const MAX_RETRY_QUEUE_SIZE = 10
  * import since the helpers do not require React context).
  */
 export function useQuizPersistence() {
-  // Retry queue: stores QuestionResultInsert rows that failed with network errors
-  // FIFO eviction when queue exceeds MAX_RETRY_QUEUE_SIZE
-  const retryQueueRef = useRef<QuestionResultInsert[]>([])
-
   /**
    * Flush the retry queue: attempt to re-insert queued items.
    * Called automatically after a successful write.
-   * Individual retry failures are silently ignored (they remain in the queue
-   * until the next successful write).
+   * Items that fail during flush are re-queued (up to MAX_RETRY_QUEUE_SIZE)
+   * so they are not permanently discarded on a transient retry failure.
    */
   const flushRetryQueue = useCallback(async (): Promise<void> => {
-    if (retryQueueRef.current.length === 0) return
+    if (_retryQueue.length === 0) return
 
-    const queue = [...retryQueueRef.current]
-    retryQueueRef.current = []
+    // Drain current queue — we will re-queue any that fail during this flush
+    const toFlush = [..._retryQueue]
+    _retryQueue = []
 
-    for (const item of queue) {
-      await insertQuestionResult(item)
+    for (const item of toFlush) {
+      try {
+        await insertQuestionResult(item)
+      } catch {
+        // Re-queue failed item (with FIFO eviction) so the next successful
+        // write can retry it rather than silently discarding it.
+        if (_retryQueue.length >= MAX_RETRY_QUEUE_SIZE) {
+          _retryQueue.shift()
+        }
+        _retryQueue.push(item)
+      }
     }
   }, [])
 
@@ -150,10 +166,10 @@ export function useQuizPersistence() {
           }
 
           // FIFO eviction: if queue is full, drop the oldest item
-          if (retryQueueRef.current.length >= MAX_RETRY_QUEUE_SIZE) {
-            retryQueueRef.current.shift()
+          if (_retryQueue.length >= MAX_RETRY_QUEUE_SIZE) {
+            _retryQueue.shift()
           }
-          retryQueueRef.current.push(insertData)
+          _retryQueue.push(insertData)
         }
       } catch {
         // Ignore errors during retry queuing

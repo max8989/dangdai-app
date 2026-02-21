@@ -567,9 +567,13 @@ describe('QuizPlayScreen', () => {
       expect(getByTestId('quiz-play-screen')).toBeTruthy()
     })
 
-    it('calls startQuiz on mount (AC #3)', () => {
+    it('does NOT call startQuiz on mount — loading.tsx sets up quiz state before navigating (H1 fix)', () => {
+      // play.tsx must NOT re-call startQuiz — doing so overwrites chapterId/bookId/exerciseType
+      // with null (the default args), breaking Supabase writes and crash-recovery context.
+      // loading.tsx calls startQuiz(quizId, payload, chapterId, bookId, exerciseType) before
+      // navigating here, so the store is already fully populated.
       render(<QuizPlayScreen />)
-      expect(mockStartQuiz).toHaveBeenCalledWith('test-quiz-1')
+      expect(mockStartQuiz).not.toHaveBeenCalled()
     })
 
     it('displays the first question', () => {

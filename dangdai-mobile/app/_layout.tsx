@@ -10,8 +10,6 @@ import {
   AlertDialogContent,
   AlertDialogTitle,
   AlertDialogDescription,
-  AlertDialogCancel,
-  AlertDialogAction,
   YStack,
   XStack,
   Theme,
@@ -207,30 +205,29 @@ function QuizResumeDialog() {
             {resumeInfo.totalQuestions}). Resume where you left off?
           </AlertDialogDescription>
 
+          {/* Use plain Buttons (not AlertDialogCancel/Action) since we control `open` prop
+              directly. AlertDialogCancel/Action have built-in close behavior that conflicts
+              with the controlled open state, causing a double-close race condition. */}
           <XStack gap="$3" justifyContent="flex-end" marginTop="$2">
-            <AlertDialogCancel asChild>
+            <Button
+              onPress={handleDiscard}
+              bordered
+              pressStyle={{ scale: 0.98 }}
+              animation="quick"
+            >
+              Discard
+            </Button>
+
+            <Theme name="primary">
               <Button
-                onPress={handleDiscard}
-                bordered
+                onPress={handleResume}
+                theme="primary"
                 pressStyle={{ scale: 0.98 }}
                 animation="quick"
               >
-                Discard
+                Resume
               </Button>
-            </AlertDialogCancel>
-
-            <AlertDialogAction asChild>
-              <Theme name="primary">
-                <Button
-                  onPress={handleResume}
-                  theme="primary"
-                  pressStyle={{ scale: 0.98 }}
-                  animation="quick"
-                >
-                  Resume
-                </Button>
-              </Theme>
-            </AlertDialogAction>
+            </Theme>
           </XStack>
         </YStack>
       </AlertDialogContent>

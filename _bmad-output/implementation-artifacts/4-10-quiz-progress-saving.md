@@ -1,6 +1,6 @@
 # Story 4.10: Quiz Progress Saving (Crash-Safe) & Per-Question Results
 
-Status: review
+Status: done
 
 ## Story
 
@@ -604,6 +604,49 @@ None — implementation was straightforward. Key decisions documented in Complet
 - `dangdai-mobile/components/quiz/SentenceBuilder.test.tsx` (modified — added AsyncStorage mock)
 - `dangdai-mobile/app/_layout.tsx` (modified — Task 6)
 
+## Senior Developer Review (AI)
+
+**Reviewer:** claude-sonnet-4-6 | **Date:** 2026-02-20 | **Outcome:** Changes Requested → Fixed
+
+### Issues Found and Fixed
+
+**🔴 HIGH — H1 (FIXED): `play.tsx` mount effect re-called `startQuiz` without metadata, overwriting persist context**
+- `app/quiz/play.tsx:184` — The mount `useEffect` called `startQuiz(quizPayload.quiz_id)` without `chapterId`/`bookId`/`exerciseType`, overwriting the values that `loading.tsx` had correctly stored via `startQuiz(quizId, payload, chapterId, bookId, exerciseType)`. This silently set those fields to `null` in the store (and AsyncStorage), meaning Supabase writes fell back to the `quizPayload` field rather than the persisted context metadata — breaking crash recovery intent.
+- **Fix:** Removed the redundant `startQuiz` call from `play.tsx` mount effect entirely. `loading.tsx` already fully initializes the store before navigating. Also removed the unused `startQuiz` selector and updated the corresponding test to assert `startQuiz` is NOT called on mount.
+
+**🔴 HIGH — H2 (FIXED): ESLint error in `loading.tsx:108` — `as '/quiz/play'` literal type assertion**
+- `router.replace('/quiz/play' as '/quiz/play')` triggered ESLint error `@typescript-eslint/prefer-as-const`. This is an **error** (not warning), meaning CI lint would fail.
+- **Fix:** Changed to `router.replace('/quiz/play' as const)`.
+
+**🟡 MEDIUM — M1 (FIXED): Retry queue was hook-instance scoped — lost on component remount**
+- `hooks/useQuizPersistence.ts` used `useRef<QuestionResultInsert[]>([])` inside the hook. Any queued retries were silently discarded when the component unmounted (e.g., navigating away).
+- **Fix:** Moved retry queue to module-level `let _retryQueue: QuestionResultInsert[]` so it persists across remounts and navigation.
+
+**🟡 MEDIUM — M2 (FIXED): `flushRetryQueue` cleared queue before retries completed — failed retries silently discarded**
+- The flush logic copied the queue, cleared it, then iterated. Any item that threw during flush was permanently lost (not re-queued).
+- **Fix:** Each item that throws during flush is re-queued (with FIFO eviction), ensuring a transient network failure during a flush attempt doesn't permanently discard those records.
+
+**🟡 MEDIUM — M3 (FIXED): `QuizResumeDialog` used `AlertDialogCancel`/`AlertDialogAction` wrappers with controlled `open` prop — double-close risk**
+- `app/_layout.tsx` used `<AlertDialogCancel asChild>` / `<AlertDialogAction asChild>` which have built-in close behavior, conflicting with the `open={showDialog}` controlled state and causing double-close calls.
+- **Fix:** Replaced with plain `<Button>` components. The dialog is fully controlled via `setShowDialog(false)` in `handleDiscard`/`handleResume`.
+
+**🟡 MEDIUM — M4 (FIXED): `play.test.tsx` asserted the H1 bug as correct behavior**
+- The test `'calls startQuiz on mount'` asserted `expect(mockStartQuiz).toHaveBeenCalledWith('test-quiz-1')` — validating the broken call signature, making the H1 regression undetectable.
+- **Fix:** Updated test to assert `expect(mockStartQuiz).not.toHaveBeenCalled()` with a clear comment explaining why.
+
+### Verification
+- All 125 tests pass (80 original + 45 play.test.tsx)
+- `npx tsc --noEmit` — no errors
+- `npx eslint` on all modified files — no errors
+
+### Files Modified by Review
+- `dangdai-mobile/app/quiz/play.tsx` — removed redundant `startQuiz` call from mount effect
+- `dangdai-mobile/app/quiz/play.test.tsx` — updated startQuiz mount assertion
+- `dangdai-mobile/app/quiz/loading.tsx` — fixed ESLint `as const` error
+- `dangdai-mobile/hooks/useQuizPersistence.ts` — module-level retry queue, robust flush logic
+- `dangdai-mobile/app/_layout.tsx` — fixed AlertDialog button wrappers
+
 ## Change Log
 
 - **2026-02-20:** Story 4.10 implemented — added Zustand persist middleware to useQuizStore (crash recovery), created useQuestionTimer hook, added insertQuestionResult/insertQuizAttempt helpers to lib/supabase.ts, created useQuizPersistence hook with retry queue, integrated per-question timing + Supabase writes into quiz play screen (all exercise types), updated loading screen to pass context metadata to startQuiz(), added QuizResumeDialog in root layout for crash recovery UX. 80 new unit tests added across 4 test files. All Story 4.10 acceptance criteria satisfied (Dev: claude-sonnet-4-6)
+- **2026-02-20:** Code review — 2 HIGH + 4 MEDIUM issues found and fixed: removed redundant startQuiz call in play.tsx that overwrote persist metadata (H1), fixed ESLint error in loading.tsx (H2), moved retry queue to module-level to survive remounts (M1), fixed flush logic to re-queue failed retries (M2), fixed AlertDialog double-close in QuizResumeDialog (M3), updated play.test.tsx to assert correct behavior (M4). All 125 tests pass. Status → done (Reviewer: claude-sonnet-4-6)

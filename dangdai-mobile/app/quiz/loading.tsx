@@ -105,7 +105,7 @@ export default function QuizLoadingScreen() {
       // Small delay for the progress bar to reach 100% visually
       const timeout = setTimeout(() => {
         // Navigate to quiz play screen (Story 4.3)
-        router.replace('/quiz/play' as '/quiz/play')
+        router.replace('/quiz/play' as const)
       }, 300)
 
       return () => clearTimeout(timeout)
