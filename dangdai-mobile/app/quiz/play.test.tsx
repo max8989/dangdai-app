@@ -165,6 +165,31 @@ const mockDialogueQuizResponse: QuizResponse = {
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
+// Mock AsyncStorage — required by useQuizStore persist middleware (Story 4.10)
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock')
+)
+
+// Mock useQuizPersistence — Story 4.10 hooks added to play.tsx
+jest.mock('../../hooks/useQuizPersistence', () => ({
+  useQuizPersistence: () => ({
+    saveQuestionResult: jest.fn().mockResolvedValue(undefined),
+    saveQuizAttempt: jest.fn().mockResolvedValue(undefined),
+    checkForResumableQuiz: jest.fn().mockReturnValue(null),
+    clearResumableQuiz: jest.fn(),
+  }),
+}))
+
+// Mock useQuestionTimer — Story 4.10 hooks added to play.tsx
+jest.mock('../../hooks/useQuestionTimer', () => ({
+  useQuestionTimer: () => ({
+    startTimer: jest.fn(),
+    stopTimer: jest.fn().mockReturnValue(500),
+    getElapsedMs: jest.fn().mockReturnValue(0),
+    resetTimer: jest.fn(),
+  }),
+}))
+
 const mockRouterReplace = jest.fn()
 const mockRouterBack = jest.fn()
 
@@ -446,29 +471,42 @@ const mockIsLastQuestion = jest.fn(() => {
   return mockQuizState.currentQuestion >= mockQuizState.quizPayload.questions.length - 1
 })
 
-jest.mock('../../stores/useQuizStore', () => ({
-  useQuizStore: (selector: any) => {
-    const state = {
-      ...mockQuizState,
-      startQuiz: mockStartQuiz,
-      setAnswer: mockSetAnswer,
-      nextQuestion: mockNextQuestion,
-      addScore: mockAddScore,
-      resetQuiz: mockResetQuiz,
-      setBlankAnswer: mockSetBlankAnswer,
-      clearBlankAnswer: mockClearBlankAnswer,
-      clearTiles: mockClearTiles,
-      getCurrentQuestion: mockGetCurrentQuestion,
-      isLastQuestion: mockIsLastQuestion,
-      blankAnswerIndices: mockQuizState.blankAnswerIndices,
-      placedTileIds: mockQuizState.placedTileIds,
-      // Story 4.9 feedback
-      triggerShowFeedback: mockTriggerShowFeedback,
-      hideFeedback: mockHideFeedback,
-    }
+jest.mock('../../stores/useQuizStore', () => {
+  const getFullState = () => ({
+    ...mockQuizState,
+    startQuiz: mockStartQuiz,
+    setAnswer: mockSetAnswer,
+    nextQuestion: mockNextQuestion,
+    addScore: mockAddScore,
+    resetQuiz: mockResetQuiz,
+    setBlankAnswer: mockSetBlankAnswer,
+    clearBlankAnswer: mockClearBlankAnswer,
+    clearTiles: mockClearTiles,
+    getCurrentQuestion: mockGetCurrentQuestion,
+    isLastQuestion: mockIsLastQuestion,
+    blankAnswerIndices: mockQuizState.blankAnswerIndices,
+    placedTileIds: mockQuizState.placedTileIds,
+    // Story 4.9 feedback
+    triggerShowFeedback: mockTriggerShowFeedback,
+    hideFeedback: mockHideFeedback,
+    // Story 4.10 persist fields
+    chapterId: 212,
+    bookId: 2,
+    exerciseType: 'vocabulary',
+    _hasHydrated: true,
+    hasActiveQuiz: jest.fn().mockReturnValue(true),
+    setHasHydrated: jest.fn(),
+  })
+
+  const useQuizStore = (selector: any) => {
+    const state = getFullState()
     return selector ? selector(state) : state
-  },
-}))
+  }
+  // Expose getState for direct store access in play.tsx (Story 4.10)
+  useQuizStore.getState = () => getFullState()
+
+  return { useQuizStore }
+})
 
 // Import AFTER all mocks
 import QuizPlayScreen from './play'

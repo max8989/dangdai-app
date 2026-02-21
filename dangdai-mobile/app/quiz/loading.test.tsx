@@ -14,6 +14,11 @@
 import React from 'react'
 import { render, fireEvent, act } from '@testing-library/react-native'
 
+// Mock AsyncStorage — required by useQuizStore persist middleware (Story 4.10)
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock')
+)
+
 // Mock expo-router
 const mockUseLocalSearchParams = jest.fn()
 const mockRouterBack = jest.fn()
@@ -403,8 +408,9 @@ describe('QuizLoadingScreen', () => {
       }
 
       render(<QuizLoadingScreen />)
-      // startQuiz is now called with (quizId, payload) in Story 4.3
-      expect(mockStartQuiz).toHaveBeenCalledWith('test-quiz-123', mockQuizData)
+      // startQuiz is now called with (quizId, payload, chapterId, bookId, exerciseType) in Story 4.10
+      // chapterId=212, bookId=2, exerciseType='vocabulary' from useLocalSearchParams mock
+      expect(mockStartQuiz).toHaveBeenCalledWith('test-quiz-123', mockQuizData, 212, 2, 'vocabulary')
     })
 
     it('navigates to quiz session screen after delay', () => {

@@ -43,6 +43,7 @@
  * Story 4.6: Dialogue Completion Exercise
  * Story 4.7: Sentence Construction Exercise
  * Story 4.9: Immediate Answer Feedback (FeedbackOverlay + useSound)
+ * Story 4.10: Quiz Progress Saving (timer + Supabase writes + crash recovery)
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -52,6 +53,8 @@ import { useRouter, Stack } from 'expo-router'
 import { ArrowLeft } from '@tamagui/lucide-icons'
 
 import { useQuizStore } from '../../stores/useQuizStore'
+import { useQuestionTimer } from '../../hooks/useQuestionTimer'
+import { useQuizPersistence } from '../../hooks/useQuizPersistence'
 import { QuizQuestionCard } from '../../components/quiz/QuizQuestionCard'
 import { AnswerOptionGrid } from '../../components/quiz/AnswerOptionGrid'
 import { QuizProgress } from '../../components/quiz/QuizProgress'
@@ -143,6 +146,15 @@ export default function QuizPlayScreen() {
   const triggerShowFeedback = useQuizStore((state) => state.triggerShowFeedback)
   const hideFeedback = useQuizStore((state) => state.hideFeedback)
 
+  // Quiz metadata for Supabase writes (Story 4.10)
+  const chapterId = useQuizStore((state) => state.chapterId)
+  const bookId = useQuizStore((state) => state.bookId)
+
+  // ─── Story 4.10 hooks: per-question timer + Supabase persistence ──────────
+
+  const timer = useQuestionTimer(currentQuestionIndex)
+  const { saveQuestionResult, saveQuizAttempt, clearResumableQuiz } = useQuizPersistence()
+
   // ─── Local state ──────────────────────────────────────────────────────────
 
   /** The answer selected by the user for the current question (null = not answered yet) */
@@ -202,10 +214,31 @@ export default function QuizPlayScreen() {
 
   useEffect(() => {
     if (showFeedback) {
-      feedbackTimerRef.current = setTimeout(() => {
+      feedbackTimerRef.current = setTimeout(async () => {
         feedbackTimerRef.current = null
         hideFeedback()
         if (isLastQuestion()) {
+          // On quiz completion: save full quiz attempt + clear persisted state (Story 4.10, Tasks 5.6, 5.7)
+          const finalScore = useQuizStore.getState().score
+          const finalAnswers = useQuizStore.getState().answers
+          const totalQs = quizPayload?.questions.length ?? 0
+          const exType = useQuizStore.getState().exerciseType ?? quizPayload?.exercise_type ?? ''
+          const capChapterId = useQuizStore.getState().chapterId ?? quizPayload?.chapter_id ?? 0
+          const capBookId = useQuizStore.getState().bookId ?? quizPayload?.book_id ?? 0
+
+          // Save quiz attempt (async — fire without blocking navigation)
+          saveQuizAttempt({
+            chapterId: capChapterId,
+            bookId: capBookId,
+            exerciseType: exType,
+            score: finalScore,
+            totalQuestions: totalQs,
+            answersJson: finalAnswers as Record<string, unknown>,
+          })
+
+          // Clear persisted quiz state (crash recovery no longer needed)
+          clearResumableQuiz()
+
           // Navigate to results screen (Story 4.11)
           router.replace('/quiz/results')
         } else {
@@ -304,6 +337,9 @@ export default function QuizPlayScreen() {
   const handleFillInBlankValidation = useCallback((answersOverride?: Record<number, string | null>) => {
     if (!currentQuestion || fillInBlankValidated) return
 
+    // Stop timer and get elapsed ms (Story 4.10, Task 5.3)
+    const timeSpentMs = timer.stopTimer()
+
     const correctAnswers = parseCorrectAnswers(currentQuestion.correct_answer)
 
     // Use the override if provided (avoids stale-closure race on last word placement)
@@ -338,6 +374,17 @@ export default function QuizPlayScreen() {
       addScore(POINTS_PER_CORRECT)
     }
 
+    // Save per-question result to Supabase — fire-and-forget (Story 4.10, Task 5.4)
+    saveQuestionResult({
+      chapterId: chapterId ?? quizPayload?.chapter_id ?? 0,
+      bookId: bookId ?? quizPayload?.book_id ?? 0,
+      exerciseType: currentQuestion.exercise_type,
+      vocabularyItem: currentQuestion.character ?? null,
+      grammarPattern: null,
+      correct: allCorrect,
+      timeSpentMs,
+    })
+
     // Update UI
     setBlankFeedback(newBlankFeedback)
     setWordFeedback(newWordFeedback)
@@ -354,6 +401,11 @@ export default function QuizPlayScreen() {
     setAnswer,
     addScore,
     handleAnswerResult,
+    timer,
+    saveQuestionResult,
+    chapterId,
+    bookId,
+    quizPayload,
   ])
 
   // ─── Fill-in-blank: word selection ───────────────────────────────────────
@@ -396,16 +448,30 @@ export default function QuizPlayScreen() {
     [fillInBlankValidated, showFeedback, clearBlankAnswer]
   )
 
-  // ─── Sentence construction answer handler (Story 4.7 + 4.9) ─────────────
+  // ─── Sentence construction answer handler (Story 4.7 + 4.9 + 4.10) ─────────
 
   const handleSentenceAnswer = useCallback(
     (isCorrect: boolean) => {
       if (!currentQuestion) return
 
+      // Stop timer and get elapsed ms (Story 4.10, Task 5.3)
+      const timeSpentMs = timer.stopTimer()
+
       setAnswer(currentQuestionIndex, isCorrect ? currentQuestion.correct_answer : '')
       if (isCorrect) {
         addScore(POINTS_PER_CORRECT)
       }
+
+      // Save per-question result to Supabase — fire-and-forget (Story 4.10, Task 5.4)
+      saveQuestionResult({
+        chapterId: chapterId ?? quizPayload?.chapter_id ?? 0,
+        bookId: bookId ?? quizPayload?.book_id ?? 0,
+        exerciseType: currentQuestion.exercise_type,
+        vocabularyItem: null, // sentence_construction: null per mapping table
+        grammarPattern: null,
+        correct: isCorrect,
+        timeSpentMs,
+      })
 
       // Clear tile placement state for next question
       clearTiles()
@@ -413,14 +479,18 @@ export default function QuizPlayScreen() {
       // Trigger unified feedback overlay + sound (Story 4.9)
       handleAnswerResult(isCorrect)
     },
-    [currentQuestion, currentQuestionIndex, setAnswer, addScore, clearTiles, handleAnswerResult]
+    [currentQuestion, currentQuestionIndex, setAnswer, addScore, clearTiles, handleAnswerResult,
+     timer, saveQuestionResult, chapterId, bookId, quizPayload]
   )
 
-  // ─── Dialogue answer result handler (Story 4.6 + 4.9) ───────────────────
+  // ─── Dialogue answer result handler (Story 4.6 + 4.9 + 4.10) ───────────────
 
   const handleDialogueAnswer = useCallback(
     (result: DialogueAnswerResult) => {
       if (!currentQuestion) return
+
+      // Stop timer and get elapsed ms (Story 4.10, Task 5.3)
+      const timeSpentMs = timer.stopTimer()
 
       // Record the answer in the store
       setAnswer(currentQuestionIndex, result.selectedAnswer)
@@ -428,10 +498,22 @@ export default function QuizPlayScreen() {
         addScore(POINTS_PER_CORRECT)
       }
 
+      // Save per-question result to Supabase — fire-and-forget (Story 4.10, Task 5.4)
+      saveQuestionResult({
+        chapterId: chapterId ?? quizPayload?.chapter_id ?? 0,
+        bookId: bookId ?? quizPayload?.book_id ?? 0,
+        exerciseType: currentQuestion.exercise_type,
+        vocabularyItem: null, // dialogue_completion: null per mapping table
+        grammarPattern: null,
+        correct: result.correct,
+        timeSpentMs,
+      })
+
       // Trigger unified feedback overlay + sound (Story 4.9)
       handleAnswerResult(result.correct)
     },
-    [currentQuestion, currentQuestionIndex, setAnswer, addScore, handleAnswerResult]
+    [currentQuestion, currentQuestionIndex, setAnswer, addScore, handleAnswerResult,
+     timer, saveQuestionResult, chapterId, bookId, quizPayload]
   )
 
   // ─── Answer selection handler (multiple choice) ───────────────────────────
@@ -439,6 +521,9 @@ export default function QuizPlayScreen() {
   const handleAnswerSelect = useCallback(
     (answer: string) => {
       if (selectedAnswer !== null || !currentQuestion || showFeedback) return // Already answered
+
+      // Stop timer and get elapsed ms (Story 4.10, Task 5.3)
+      const timeSpentMs = timer.stopTimer()
 
       const isCorrect = validateAnswer(answer, currentQuestion.correct_answer)
 
@@ -452,6 +537,17 @@ export default function QuizPlayScreen() {
         addScore(POINTS_PER_CORRECT)
       }
 
+      // Save per-question result to Supabase — fire-and-forget, do NOT await (Story 4.10, Task 5.4)
+      saveQuestionResult({
+        chapterId: chapterId ?? quizPayload?.chapter_id ?? 0,
+        bookId: bookId ?? quizPayload?.book_id ?? 0,
+        exerciseType: currentQuestion.exercise_type,
+        vocabularyItem: currentQuestion.character ?? null,
+        grammarPattern: currentQuestion.exercise_type === 'grammar' ? currentQuestion.question_text : null,
+        correct: isCorrect,
+        timeSpentMs,
+      })
+
       // Trigger unified feedback overlay + sound (Story 4.9)
       handleAnswerResult(isCorrect)
     },
@@ -463,6 +559,11 @@ export default function QuizPlayScreen() {
       setAnswer,
       addScore,
       handleAnswerResult,
+      timer,
+      saveQuestionResult,
+      chapterId,
+      bookId,
+      quizPayload,
     ]
   )
 

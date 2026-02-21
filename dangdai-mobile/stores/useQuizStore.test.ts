@@ -22,10 +22,24 @@
  * - hideFeedback() action
  * - feedback state resets on resetQuiz() and nextQuestion()
  *
+ * Story 4.10 additions:
+ * - persist middleware (state survives store recreation)
+ * - chapterId / bookId / exerciseType fields
+ * - hasActiveQuiz() derived getter
+ * - _hasHydrated boolean + setHasHydrated action
+ * - resetQuiz() clears all persisted fields
+ * - startQuiz() stores chapterId, bookId, exerciseType
+ *
  * Story 4.3: Vocabulary & Grammar Quiz (Multiple Choice) — Task 7.8
  * Story 4.4: Fill-in-the-Blank Exercise (Word Bank) — Task 6.9
  * Story 4.9: Immediate Answer Feedback — Task 4.6
+ * Story 4.10: Quiz Progress Saving — Task 1.11
  */
+
+// Mock AsyncStorage before importing the store
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock')
+)
 
 import { useQuizStore } from './useQuizStore'
 import type { QuizResponse } from '../types/quiz'
@@ -394,6 +408,100 @@ describe('useQuizStore — Story 4.3 extensions', () => {
       getStore().nextQuestion()
       getStore().nextQuestion()
       expect(getStore().currentQuestion).toBe(2)
+    })
+  })
+})
+
+describe('useQuizStore — Story 4.10 persist middleware', () => {
+  beforeEach(() => {
+    useQuizStore.getState().resetQuiz()
+  })
+
+  describe('chapterId / bookId / exerciseType fields (Task 1.6)', () => {
+    it('starts with chapterId as null', () => {
+      expect(useQuizStore.getState().chapterId).toBeNull()
+    })
+
+    it('starts with bookId as null', () => {
+      expect(useQuizStore.getState().bookId).toBeNull()
+    })
+
+    it('starts with exerciseType as null', () => {
+      expect(useQuizStore.getState().exerciseType).toBeNull()
+    })
+  })
+
+  describe('startQuiz() with chapterId/bookId/exerciseType (Task 1.7)', () => {
+    it('stores chapterId, bookId, exerciseType when passed to startQuiz', () => {
+      useQuizStore.getState().startQuiz('quiz-1', mockQuizResponse, 101, 1, 'vocabulary')
+      const state = useQuizStore.getState()
+      expect(state.chapterId).toBe(101)
+      expect(state.bookId).toBe(1)
+      expect(state.exerciseType).toBe('vocabulary')
+      expect(state.currentQuizId).toBe('quiz-1')
+    })
+
+    it('starts chapterId/bookId/exerciseType as null when not provided', () => {
+      useQuizStore.getState().startQuiz('quiz-1')
+      const state = useQuizStore.getState()
+      expect(state.chapterId).toBeNull()
+      expect(state.bookId).toBeNull()
+      expect(state.exerciseType).toBeNull()
+    })
+  })
+
+  describe('hasActiveQuiz() derived getter (Task 1.8)', () => {
+    it('returns false when store is empty', () => {
+      expect(useQuizStore.getState().hasActiveQuiz()).toBe(false)
+    })
+
+    it('returns false when currentQuizId is set but quizPayload is null', () => {
+      useQuizStore.getState().startQuiz('quiz-1')
+      expect(useQuizStore.getState().hasActiveQuiz()).toBe(false)
+    })
+
+    it('returns true when both currentQuizId and quizPayload are set', () => {
+      useQuizStore.getState().startQuiz('quiz-1', mockQuizResponse)
+      expect(useQuizStore.getState().hasActiveQuiz()).toBe(true)
+    })
+
+    it('returns false after resetQuiz()', () => {
+      useQuizStore.getState().startQuiz('quiz-1', mockQuizResponse)
+      useQuizStore.getState().resetQuiz()
+      expect(useQuizStore.getState().hasActiveQuiz()).toBe(false)
+    })
+  })
+
+  describe('resetQuiz() clears all persist fields (Task 1.9)', () => {
+    it('clears chapterId, bookId, exerciseType on reset', () => {
+      useQuizStore.getState().startQuiz('quiz-1', mockQuizResponse, 101, 1, 'grammar')
+      useQuizStore.getState().resetQuiz()
+      const state = useQuizStore.getState()
+      expect(state.chapterId).toBeNull()
+      expect(state.bookId).toBeNull()
+      expect(state.exerciseType).toBeNull()
+      expect(state.currentQuizId).toBeNull()
+      expect(state.quizPayload).toBeNull()
+    })
+  })
+
+  describe('_hasHydrated and setHasHydrated (Task 1.10)', () => {
+    it('_hasHydrated field exists on the store', () => {
+      // In the test environment, the AsyncStorage mock rehydrates synchronously,
+      // so _hasHydrated may already be true. We only verify the field exists and
+      // is a boolean (not undefined).
+      expect(typeof useQuizStore.getState()._hasHydrated).toBe('boolean')
+    })
+
+    it('setHasHydrated(true) sets _hasHydrated to true', () => {
+      useQuizStore.getState().setHasHydrated(true)
+      expect(useQuizStore.getState()._hasHydrated).toBe(true)
+    })
+
+    it('setHasHydrated(false) sets _hasHydrated back to false', () => {
+      useQuizStore.getState().setHasHydrated(true)
+      useQuizStore.getState().setHasHydrated(false)
+      expect(useQuizStore.getState()._hasHydrated).toBe(false)
     })
   })
 })

@@ -97,9 +97,10 @@ export default function QuizLoadingScreen() {
       setProgress(100)
 
       // Store quiz payload in Zustand store before navigation
+      // Pass chapterId, bookId, exerciseType for persist metadata + Supabase writes (Story 4.10)
       const quizData = data as QuizResponse
       setQuizPayload(quizData)
-      startQuiz(quizData.quiz_id, quizData)
+      startQuiz(quizData.quiz_id, quizData, chapterIdNum, bookIdNum, exerciseType)
 
       // Small delay for the progress bar to reach 100% visually
       const timeout = setTimeout(() => {

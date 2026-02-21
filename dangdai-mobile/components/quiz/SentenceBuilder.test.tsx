@@ -25,6 +25,11 @@
  * Story 4.7: Sentence Construction Exercise
  */
 
+// Mock AsyncStorage — required by useQuizStore persist middleware (Story 4.10)
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock')
+)
+
 import React from 'react'
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'

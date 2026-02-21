@@ -133,6 +133,45 @@ export interface QuizResponse {
 }
 
 /**
+ * Insert type for question_results table (Story 4.10, Task 3.1).
+ *
+ * Used when writing per-question performance data to Supabase.
+ * The table may not exist yet (Story 1.3 in-progress) — all inserts must be
+ * wrapped in try/catch with graceful 42P01 error handling.
+ *
+ * Column names match architecture.md exactly — do NOT rename.
+ */
+export interface QuestionResultInsert {
+  user_id: string
+  chapter_id: number
+  book_id: number
+  exercise_type: string
+  vocabulary_item: string | null
+  grammar_pattern: string | null
+  correct: boolean
+  time_spent_ms: number
+}
+
+/**
+ * Insert type for quiz_attempts table (Story 4.10, Task 3.2).
+ *
+ * Used when recording full quiz completion data to Supabase.
+ * The table may not exist yet (Story 1.3 in-progress) — all inserts must be
+ * wrapped in try/catch with graceful 42P01 error handling.
+ *
+ * Column names match architecture.md exactly — do NOT rename.
+ */
+export interface QuizAttemptInsert {
+  user_id: string
+  chapter_id: number
+  book_id: number
+  exercise_type: string
+  score: number
+  total_questions: number
+  answers_json: Record<string, unknown>
+}
+
+/**
  * Categorized quiz generation error.
  */
 export type QuizErrorType = 'auth' | 'validation' | 'not_found' | 'server' | 'timeout' | 'network'
