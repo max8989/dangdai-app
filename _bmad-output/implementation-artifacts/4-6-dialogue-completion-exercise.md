@@ -1,6 +1,6 @@
 # Story 4.6: Dialogue Completion Exercise
 
-Status: review
+Status: done
 
 ## Story
 
@@ -773,14 +773,15 @@ claude-sonnet-4-6 (anthropic/claude-sonnet-4-6)
 ### File List
 
 - `dangdai-mobile/types/quiz.ts` — MODIFIED: added `DialogueLine`, `DialogueQuestion`, `AnswerValidationRequest`, `AnswerValidationResponse`; extended `QuizQuestion` with optional `dialogue_lines`
-- `dangdai-mobile/lib/api.ts` — MODIFIED: added `ANSWER_VALIDATION_TIMEOUT_MS` constant and `validateAnswer()` method
-- `dangdai-mobile/hooks/useAnswerValidation.ts` — CREATED: hybrid validation hook
+- `dangdai-mobile/lib/api.ts` — MODIFIED: added `ANSWER_VALIDATION_TIMEOUT_MS` constant and `validateAnswer()` method; imported and uses `AnswerValidationRequest` type for request body
+- `dangdai-mobile/hooks/useAnswerValidation.ts` — CREATED: hybrid validation hook; fixed `isValidating` to use local state for synchronous spinner visibility
 - `dangdai-mobile/hooks/useAnswerValidation.test.ts` — CREATED: 10 hook tests
-- `dangdai-mobile/components/quiz/DialogueCard.tsx` — CREATED: dialogue completion component
+- `dangdai-mobile/components/quiz/DialogueCard.tsx` — CREATED: dialogue completion component; removed dead comment block; removed redundant `$color` ternary
 - `dangdai-mobile/components/quiz/DialogueCard.test.tsx` — CREATED: 22 component tests
-- `dangdai-mobile/app/quiz/play.tsx` — MODIFIED: added `isDialogue` flag, `handleDialogueAnswer` callback, dialogue branch in exercise type rendering
-- `dangdai-mobile/app/quiz/play.test.tsx` — MODIFIED: added `DialogueCard` mock to fix transitive AsyncStorage import
+- `dangdai-mobile/app/quiz/play.tsx` — MODIFIED: added `isDialogue` flag, `handleDialogueAnswer` callback, dialogue branch in exercise type rendering; added runtime `dialogue_lines` guard; fixed `selectedAnswer`/`feedbackState` reset on question change
+- `dangdai-mobile/app/quiz/play.test.tsx` — MODIFIED: added `DialogueCard` mock to fix transitive AsyncStorage import; added 8 dialogue integration tests for Task 5
 
 ## Change Log
 
 - 2026-02-20: Implemented Story 4.6 — Dialogue Completion Exercise. Created `DialogueCard` component, `useAnswerValidation` hook, extended `types/quiz.ts` and `lib/api.ts` with dialogue/validation types and methods, integrated into `play.tsx`. 32 new tests added. (claude-sonnet-4-6)
+- 2026-02-20: Code review fixes — Added 8 missing dialogue integration tests to `play.test.tsx` (Task 5 coverage gap); fixed `isValidating` render-cycle gap in `useAnswerValidation`; fixed `selectedAnswer`/`feedbackState` not resetting after dialogue→MCQ transition; wired `AnswerValidationRequest` type into `api.ts` (was dead export); added `dialogue_lines` runtime guard in `play.tsx`; removed dead comment and redundant ternary in `DialogueCard`. Total tests: 58 (all pass). (claude-sonnet-4-6)

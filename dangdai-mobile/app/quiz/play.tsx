@@ -178,16 +178,20 @@ export default function QuizPlayScreen() {
     }
   }, [])
 
-  // ─── Reset fill-in-blank local state when question changes ───────
-  // Only reset fill-in-blank-specific state here. Multiple-choice state
-  // (selectedAnswer, feedbackState) is reset inside the setTimeout callback
-  // after advancing — resetting it here too would wipe feedback prematurely
-  // before the 1-second display window expires (H2 fix).
+  // ─── Reset local state when question changes ──────────────────────────────
+  // Fill-in-blank state resets here. Multiple-choice state (selectedAnswer,
+  // feedbackState) is also reset here — this is safe because the timeout callback
+  // that advances to the next question already resets them inline for the MCQ→MCQ
+  // path, and the dialogue path never sets them at all. Resetting here ensures
+  // stale MCQ state is cleared when the exercise type changes (e.g. MCQ→Dialogue→MCQ),
+  // which was previously a bug (M2 fix).
 
   useEffect(() => {
     setBlankFeedback({})
     setWordFeedback({})
     setFillInBlankValidated(false)
+    setSelectedAnswer(null)
+    setFeedbackState('none')
   }, [currentQuestionIndex])
 
   // ─── Derived display values (only when quiz data is valid) ────────────────
@@ -496,6 +500,11 @@ export default function QuizPlayScreen() {
         <YStack flex={1} paddingHorizontal="$4" paddingTop="$4" gap="$4">
           {isDialogue ? (
             // ─── Dialogue Completion Layout ───────────────────────────────
+            // Runtime guard: dialogue_lines is required for DialogueCard but
+            // typed as optional on QuizQuestion. If the backend omits it
+            // (e.g. API regression), fall through to the MCQ layout rather
+            // than crashing with "Cannot read properties of undefined" (M4 fix).
+            currentQuestion.dialogue_lines ? (
             <AnimatePresence>
               <YStack
                 key={currentQuestionIndex}
@@ -511,6 +520,7 @@ export default function QuizPlayScreen() {
                 />
               </YStack>
             </AnimatePresence>
+            ) : null
           ) : isFillInBlank ? (
             // ─── Fill-in-the-Blank Layout ─────────────────────────────────
             <AnimatePresence>

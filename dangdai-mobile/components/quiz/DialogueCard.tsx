@@ -142,12 +142,8 @@ function getOptionState(
     return validationResult.isCorrect ? 'correct' : 'incorrect'
   }
 
-  // Non-selected options after selection
-  if (validationResult !== null && validationResult.isCorrect === false) {
-    // Show which option was the correct key after incorrect answer
-    // We don't have direct access to check "is this the correct answer?" from here
-    // The parent shows the correct answer in the explanation — options stay disabled
-  }
+  // Non-selected options after selection — all disabled regardless of correctness.
+  // The correct answer is surfaced in the explanation text block, not in the options.
   return 'disabled'
 }
 
@@ -285,7 +281,7 @@ export function DialogueCard({
               >
                 <Text
                   fontSize="$13"
-                  color={line.speaker === 'b' ? '$color' : '$color'}
+                  color="$color"
                   testID={`dialogue-line-text-${index}`}
                 >
                   {line.text}

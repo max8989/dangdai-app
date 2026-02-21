@@ -9,7 +9,7 @@
 
 import { supabase } from './supabase'
 import { QuizGenerationError, EXERCISE_TYPE_LABELS } from '../types/quiz'
-import type { QuizGenerationParams, QuizResponse, ExerciseType, AnswerValidationResponse } from '../types/quiz'
+import type { QuizGenerationParams, QuizResponse, ExerciseType, AnswerValidationRequest, AnswerValidationResponse } from '../types/quiz'
 
 const apiUrl = process.env.EXPO_PUBLIC_API_URL
 
@@ -139,6 +139,7 @@ export const api = {
     correctAnswer: string
     exerciseType: string
   }): Promise<AnswerValidationResponse> {
+    // Note: params are mapped to AnswerValidationRequest snake_case keys for the API body below.
     const {
       data: { session },
     } = await supabase.auth.getSession()
@@ -149,6 +150,13 @@ export const api = {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), ANSWER_VALIDATION_TIMEOUT_MS)
 
+    const requestBody: AnswerValidationRequest = {
+      question: params.question,
+      user_answer: params.userAnswer,
+      correct_answer: params.correctAnswer,
+      exercise_type: params.exerciseType,
+    }
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/quizzes/validate-answer`, {
         method: 'POST',
@@ -156,12 +164,7 @@ export const api = {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({
-          question: params.question,
-          user_answer: params.userAnswer,
-          correct_answer: params.correctAnswer,
-          exercise_type: params.exerciseType,
-        }),
+        body: JSON.stringify(requestBody),
         signal: controller.signal,
       })
 

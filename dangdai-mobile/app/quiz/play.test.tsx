@@ -3,10 +3,11 @@
  *
  * Integration tests for the quiz play screen.
  * Tests: initial render with quiz data, answer selection, question advancement,
- * last question handling, fill-in-blank rendering, and edge cases.
+ * last question handling, fill-in-blank rendering, dialogue completion, and edge cases.
  *
  * Story 4.3: Vocabulary & Grammar Quiz (Multiple Choice)
  * Story 4.4: Fill-in-the-Blank Exercise (Word Bank) — Tasks 6.10, 6.11
+ * Story 4.6: Dialogue Completion Exercise — Task 5 integration
  */
 
 import React from 'react'
@@ -89,6 +90,43 @@ const mockQuizResponse: QuizResponse = {
         '把我書放在桌子上了',
         '我書把放在桌子上了',
       ],
+    },
+  ],
+}
+
+const mockDialogueQuizResponse: QuizResponse = {
+  quiz_id: 'test-dialogue-quiz-1',
+  chapter_id: 112,
+  book_id: 1,
+  exercise_type: 'dialogue_completion',
+  question_count: 2,
+  questions: [
+    {
+      question_id: 'dq1',
+      exercise_type: 'dialogue_completion',
+      question_text: 'Complete the conversation by selecting the best response.',
+      correct_answer: '咖啡',
+      explanation: 'The question asks what you want to drink. 咖啡 (coffee) is the appropriate response.',
+      source_citation: 'Book 1, Chapter 12 - Dialogue',
+      dialogue_lines: [
+        { speaker: 'a', text: '你要喝什麼？', isBlank: false },
+        { speaker: 'b', text: '', isBlank: true },
+        { speaker: 'a', text: '好的，我也是。', isBlank: false },
+      ],
+      options: ['咖啡', '你好', '謝謝', '再見'],
+    },
+    {
+      question_id: 'dq2',
+      exercise_type: 'dialogue_completion',
+      question_text: 'Complete the conversation.',
+      correct_answer: '謝謝',
+      explanation: '謝謝 means "thank you".',
+      source_citation: 'Book 1, Chapter 12 - Dialogue',
+      dialogue_lines: [
+        { speaker: 'a', text: '這是你的書。', isBlank: false },
+        { speaker: 'b', text: '', isBlank: true },
+      ],
+      options: ['謝謝', '你好', '再見'],
     },
   ],
 }
@@ -520,6 +558,119 @@ describe('QuizPlayScreen', () => {
       const { getByTestId } = render(<QuizPlayScreen />)
       fireEvent.press(getByTestId('word-bank-item-2')) // '超市' at index 2
       expect(mockSetBlankAnswer).toHaveBeenCalledWith(1, '超市', 2)
+    })
+  })
+
+  // ─── Story 4.6: Dialogue Completion Integration Tests (Task 5) ────────────────
+
+  describe('dialogue completion: renders DialogueCard (Task 5.1, 5.2, 5.3, AC #1)', () => {
+    beforeEach(() => {
+      mockQuizState.quizPayload = mockDialogueQuizResponse
+      mockQuizState.currentQuestion = 0
+      mockGetCurrentQuestion.mockReturnValue(mockDialogueQuizResponse.questions[0])
+      mockIsLastQuestion.mockReturnValue(false)
+    })
+
+    it('renders the DialogueCard for dialogue_completion exercise type', () => {
+      const { getByTestId } = render(<QuizPlayScreen />)
+      expect(getByTestId('dialogue-card')).toBeTruthy()
+    })
+
+    it('does not render multiple choice answer grid for dialogue', () => {
+      const { queryByTestId } = render(<QuizPlayScreen />)
+      expect(queryByTestId('answer-option-grid')).toBeNull()
+    })
+
+    it('does not render fill-in-blank sentence for dialogue', () => {
+      const { queryByTestId } = render(<QuizPlayScreen />)
+      expect(queryByTestId('fill-in-blank-sentence')).toBeNull()
+    })
+
+    it('passes question data to DialogueCard (question_text visible)', () => {
+      const { getByTestId } = render(<QuizPlayScreen />)
+      expect(getByTestId('dialogue-question-text').props.children).toBe(
+        mockDialogueQuizResponse.questions[0].question_text
+      )
+    })
+  })
+
+  describe('dialogue completion: answer result wiring (Task 5.4, AC #2)', () => {
+    beforeEach(() => {
+      mockQuizState.quizPayload = mockDialogueQuizResponse
+      mockQuizState.currentQuestion = 0
+      mockGetCurrentQuestion.mockReturnValue(mockDialogueQuizResponse.questions[0])
+      mockIsLastQuestion.mockReturnValue(false)
+    })
+
+    it('calls setAnswer with selectedAnswer when onAnswerResult fires', async () => {
+      const { getByTestId } = render(<QuizPlayScreen />)
+
+      // The mock DialogueCard triggers onAnswerResult when an option is pressed
+      fireEvent.press(getByTestId('dialogue-option-0')) // '咖啡' — correct answer
+
+      await waitFor(() => {
+        expect(mockSetAnswer).toHaveBeenCalledWith(0, '咖啡')
+      })
+    })
+
+    it('calls addScore(1) when correct answer result fires', async () => {
+      const { getByTestId } = render(<QuizPlayScreen />)
+
+      fireEvent.press(getByTestId('dialogue-option-0')) // '咖啡' — correct
+
+      await waitFor(() => {
+        expect(mockAddScore).toHaveBeenCalledWith(1)
+      })
+    })
+
+    it('does NOT call addScore for incorrect answer result', async () => {
+      const { getByTestId } = render(<QuizPlayScreen />)
+
+      fireEvent.press(getByTestId('dialogue-option-1')) // '你好' — incorrect
+
+      await waitFor(() => {
+        expect(mockSetAnswer).toHaveBeenCalled()
+        expect(mockAddScore).not.toHaveBeenCalled()
+      })
+    })
+  })
+
+  describe('dialogue completion: question advancement (Task 5.5, AC #2)', () => {
+    beforeEach(() => {
+      mockQuizState.quizPayload = mockDialogueQuizResponse
+      mockQuizState.currentQuestion = 0
+      mockGetCurrentQuestion.mockReturnValue(mockDialogueQuizResponse.questions[0])
+      mockIsLastQuestion.mockReturnValue(false)
+    })
+
+    it('calls nextQuestion after 1s feedback delay on dialogue answer', async () => {
+      const { getByTestId } = render(<QuizPlayScreen />)
+
+      fireEvent.press(getByTestId('dialogue-option-0')) // any answer triggers advance
+
+      expect(mockNextQuestion).not.toHaveBeenCalled()
+
+      act(() => {
+        jest.advanceTimersByTime(1100)
+      })
+
+      expect(mockNextQuestion).toHaveBeenCalled()
+    })
+
+    it('navigates to books on last dialogue question answered', async () => {
+      mockIsLastQuestion.mockReturnValue(true)
+
+      const { getByTestId } = render(<QuizPlayScreen />)
+
+      fireEvent.press(getByTestId('dialogue-option-0'))
+
+      act(() => {
+        jest.advanceTimersByTime(1100)
+      })
+
+      await waitFor(() => {
+        expect(mockRouterReplace).toHaveBeenCalledWith('/(tabs)/books')
+      })
     })
   })
 })

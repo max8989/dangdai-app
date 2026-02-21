@@ -12,6 +12,7 @@
  * Story 4.6: Dialogue Completion Exercise
  */
 
+import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import type { ExerciseType, AnswerValidationResponse } from '../types/quiz'
@@ -56,6 +57,13 @@ export interface ValidateParams {
  * ```
  */
 export function useAnswerValidation() {
+  // Local state tracks the LLM validation in-flight status synchronously.
+  // This avoids the one render-cycle gap between calling mutateAsync() and
+  // llmMutation.isPending transitioning to true (which happens asynchronously
+  // after React re-renders). The local flag is set before the async call so
+  // the spinner appears on the same render as the blank bubble fill.
+  const [isValidating, setIsValidating] = useState(false)
+
   const llmMutation = useMutation<
     AnswerValidationResponse,
     Error,
@@ -79,6 +87,9 @@ export function useAnswerValidation() {
     }
 
     // Step 2: LLM validation (3s timeout handled inside api.validateAnswer)
+    // Set isValidating=true synchronously before the async call so the spinner
+    // appears on the same render cycle as the blank bubble fill (M1 fix).
+    setIsValidating(true)
     try {
       const llmResult = await llmMutation.mutateAsync({
         question: params.questionText,
@@ -102,11 +113,13 @@ export function useAnswerValidation() {
         explanation: params.preGeneratedExplanation,
         usedLlm: false,
       }
+    } finally {
+      setIsValidating(false)
     }
   }
 
   return {
     validate,
-    isValidating: llmMutation.isPending,
+    isValidating,
   }
 }
