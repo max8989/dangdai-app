@@ -264,13 +264,16 @@ describe('QuizPlayScreen', () => {
   })
 
   describe('edge case: no quiz data (AC #4)', () => {
-    it('navigates back when quizPayload is null', () => {
+    it('navigates back when quizPayload is null', async () => {
       mockQuizState.quizPayload = null
       mockGetCurrentQuestion.mockReturnValue(null)
 
+      // Component renders null and schedules redirect via useEffect — use waitFor
       render(<QuizPlayScreen />)
 
-      expect(mockRouterReplace).toHaveBeenCalledWith('/(tabs)/books')
+      await waitFor(() => {
+        expect(mockRouterReplace).toHaveBeenCalledWith('/(tabs)/books')
+      })
     })
   })
 

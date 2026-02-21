@@ -24,6 +24,7 @@ import { Card, YStack, Text, styled } from 'tamagui'
 const StyledCard = styled(Card, {
   animation: 'medium',
   enterStyle: { opacity: 0, scale: 0.95, y: 10 },
+  exitStyle: { opacity: 0, x: -20 },
   padding: '$4',
   borderRadius: '$4',
   backgroundColor: '$surface',

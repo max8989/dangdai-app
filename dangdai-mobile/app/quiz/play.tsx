@@ -33,7 +33,7 @@
  * Story 4.3: Vocabulary & Grammar Quiz (Multiple Choice)
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Alert } from 'react-native'
 import { YStack, XStack, Text, Button, AnimatePresence } from 'tamagui'
 import { useRouter, Stack } from 'expo-router'
@@ -119,46 +119,66 @@ export default function QuizPlayScreen() {
     if (quizPayload) {
       // AC #3: call startQuiz on mount to initialize session state
       // Intentionally only run on mount — quizPayload is set before navigation
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       startQuiz(quizPayload.quiz_id)
     }
-  }, []) // run once on mount
+  }, []) // run once on mount — quizPayload is guaranteed set by loading.tsx before navigation
 
   // ─── Edge case: no quiz data ──────────────────────────────────────────────
 
-  if (!quizPayload || !quizPayload.questions || quizPayload.questions.length === 0) {
-    // Navigate back gracefully — no crash (AC #4)
-    router.replace('/(tabs)/books')
-    return null
-  }
+  // Compute invalid-quiz flag outside render-phase to drive a useEffect redirect
+  const isInvalidQuiz =
+    !quizPayload || !quizPayload.questions || quizPayload.questions.length === 0
 
-  // ─── Current question ─────────────────────────────────────────────────────
+  const currentQuestion: QuizQuestion | null = isInvalidQuiz ? null : getCurrentQuestion()
+  const isIndexOutOfRange = !isInvalidQuiz && currentQuestion === null
 
-  const currentQuestion = getCurrentQuestion()
-  if (!currentQuestion) {
-    // Edge case: index out of range — quiz ended
-    router.replace('/(tabs)/books')
-    return null
-  }
+  // Redirect outside the render phase to avoid React rule violations (no side effects in render)
+  useEffect(() => {
+    if (isInvalidQuiz || isIndexOutOfRange) {
+      router.replace('/(tabs)/books')
+    }
+  }, [isInvalidQuiz, isIndexOutOfRange, router])
 
-  const displayVariant = getDisplayVariant(currentQuestion)
-  const primaryContent = getPrimaryContent(currentQuestion, displayVariant)
-  const secondaryContent =
-    displayVariant === 'character' && currentQuestion.pinyin
+  // ─── Feedback timeout ref (H2 fix: timer cleanup via useEffect) ──────────
+
+  const feedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Clear any pending timeout when the component unmounts
+  useEffect(() => {
+    return () => {
+      if (feedbackTimeoutRef.current !== null) {
+        clearTimeout(feedbackTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  // ─── Derived display values (only when quiz data is valid) ────────────────
+
+  const displayVariant: QuizDisplayVariant = currentQuestion
+    ? getDisplayVariant(currentQuestion)
+    : 'meaning'
+  const primaryContent: string = currentQuestion
+    ? getPrimaryContent(currentQuestion, displayVariant)
+    : ''
+  const secondaryContent: string | undefined =
+    currentQuestion && displayVariant === 'character' && currentQuestion.pinyin
       ? currentQuestion.pinyin
       : undefined
 
-  const totalQuestions = quizPayload.questions.length
+  const totalQuestions = quizPayload?.questions.length ?? 0
   const displayQuestionNumber = currentQuestionIndex + 1
 
   const exerciseTypeLabel =
-    EXERCISE_TYPE_LABELS[quizPayload.exercise_type as ExerciseType] ??
-    quizPayload.exercise_type
+    EXERCISE_TYPE_LABELS[(quizPayload?.exercise_type ?? '') as ExerciseType] ??
+    quizPayload?.exercise_type ??
+    ''
 
   // ─── Answer selection handler ─────────────────────────────────────────────
 
   const handleAnswerSelect = useCallback(
     (answer: string) => {
-      if (selectedAnswer !== null) return // Already answered
+      if (selectedAnswer !== null || !currentQuestion) return // Already answered
 
       const isCorrect = validateAnswer(answer, currentQuestion.correct_answer)
 
@@ -172,8 +192,10 @@ export default function QuizPlayScreen() {
         addScore(1)
       }
 
-      // After feedback delay: advance to next question or complete quiz
-      const timeout = setTimeout(() => {
+      // After feedback delay: advance to next question or complete quiz.
+      // Timer ID stored in ref so the cleanup useEffect above can cancel it on unmount.
+      feedbackTimeoutRef.current = setTimeout(() => {
+        feedbackTimeoutRef.current = null
         if (isLastQuestion()) {
           // AC #4: last question answered — navigate to results (placeholder for Story 4.11)
           router.replace('/(tabs)/books')
@@ -185,8 +207,6 @@ export default function QuizPlayScreen() {
           setFeedbackState('none')
         }
       }, FEEDBACK_DELAY_MS)
-
-      return () => clearTimeout(timeout)
     },
     [
       selectedAnswer,
@@ -221,6 +241,11 @@ export default function QuizPlayScreen() {
   }, [router])
 
   // ─── Render ───────────────────────────────────────────────────────────────
+
+  // While redirect is pending (invalid/empty quiz), render nothing to avoid a flash
+  if (isInvalidQuiz || isIndexOutOfRange || !currentQuestion) {
+    return null
+  }
 
   return (
     <>
@@ -263,7 +288,7 @@ export default function QuizPlayScreen() {
             {exerciseTypeLabel}
           </Text>
 
-          {/* Spacer for symmetry */}
+          {/* Spacer for symmetry — fixed width balances the Leave button on the left */}
           <YStack width={60} />
         </XStack>
 
@@ -276,7 +301,7 @@ export default function QuizPlayScreen() {
           />
         </YStack>
 
-        {/* Question card with slide-in animation */}
+        {/* Question card with slide-in/out animation (AnimatePresence drives exit on key change) */}
         <YStack flex={1} paddingHorizontal="$4" paddingTop="$4" gap="$4">
           <AnimatePresence>
             <QuizQuestionCard

@@ -16,7 +16,7 @@ import { Button, XStack, YStack, Text, styled } from 'tamagui'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type AnswerOptionState = 'default' | 'selected' | 'correct' | 'incorrect' | 'disabled'
+export type AnswerOptionState = 'default' | 'correct' | 'incorrect' | 'disabled'
 export type AnswerLayoutVariant = 'grid' | 'list'
 
 interface AnswerOptionGridProps {
@@ -39,6 +39,7 @@ interface AnswerOptionGridProps {
 const AnswerOption = styled(Button, {
   animation: 'quick',
   pressStyle: { scale: 0.98 },
+  focusStyle: { borderColor: '$borderColorFocus' },
   minHeight: 48,
   borderWidth: 1,
   borderRadius: '$3',
@@ -47,22 +48,22 @@ const AnswerOption = styled(Button, {
 
   variants: {
     state: {
+      // Pre-answer: no option selected yet
       default: {
         borderColor: '$borderColor',
         backgroundColor: '$surface',
       },
-      selected: {
-        borderColor: '$primary',
-        backgroundColor: '$backgroundPress',
-      },
+      // Post-answer: this option is the correct answer
       correct: {
         borderColor: '$success',
         backgroundColor: '$successBackground',
       },
+      // Post-answer: this option was selected but is wrong
       incorrect: {
         borderColor: '$error',
         backgroundColor: '$errorBackground',
       },
+      // Post-answer: this option is neither selected nor correct
       disabled: {
         opacity: 0.5,
         borderColor: '$borderColor',
@@ -71,7 +72,7 @@ const AnswerOption = styled(Button, {
     },
     layout: {
       grid: {
-        // Sizing handled by parent flex layout
+        // Width is set per-instance (48% for 2-column layout — see usage below)
       },
       list: {
         width: '100%',
@@ -156,7 +157,8 @@ export function AnswerOptionGrid({
               onPress={() => handlePress(option)}
               disabled={isDisabled}
               accessibilityState={{ disabled: isDisabled }}
-              // Each option takes ~48% width to form 2 columns
+              // 48% gives two columns with gap="$3" (~12px) between them.
+              // Tamagui does not support calc(), so this percentage is intentional.
               width="48%"
             >
               <Text fontSize="$3" textAlign="center" numberOfLines={2}>
