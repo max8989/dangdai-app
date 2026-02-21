@@ -46,6 +46,8 @@ export interface QuizGenerationParams {
 
 /**
  * A single quiz question from the API response.
+ *
+ * Story 4.4: Extended with fill-in-blank specific fields.
  */
 export interface QuizQuestion {
   question_id: string
@@ -57,6 +59,10 @@ export interface QuizQuestion {
   options?: string[]
   character?: string
   pinyin?: string
+  // Fill-in-blank fields (Story 4.4)
+  sentence_with_blanks?: string
+  word_bank?: string[]
+  blank_positions?: number[]
 }
 
 /**

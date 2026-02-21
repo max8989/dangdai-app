@@ -10,6 +10,7 @@
  * Server data like quiz history is managed by TanStack Query, not this store.
  *
  * Story 4.3: Extended with quizPayload, getCurrentQuestion, isLastQuestion
+ * Story 4.4: Extended with blankAnswers, setBlankAnswer, clearBlankAnswer
  */
 
 import { create } from 'zustand'
@@ -29,6 +30,9 @@ interface QuizState {
   // Quiz payload (full quiz data for active session)
   quizPayload: QuizResponse | null
 
+  // Fill-in-blank state (per question, resets on nextQuestion/resetQuiz)
+  blankAnswers: Record<number, string | null>
+
   // Derived getters
   getCurrentQuestion: () => QuizQuestion | null
   isLastQuestion: () => boolean
@@ -40,6 +44,10 @@ interface QuizState {
   nextQuestion: () => void
   addScore: (points: number) => void
   resetQuiz: () => void
+
+  // Fill-in-blank actions
+  setBlankAnswer: (blankIndex: number, word: string | null) => void
+  clearBlankAnswer: (blankIndex: number) => void
 }
 
 /**
@@ -62,6 +70,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
   answers: {},
   score: 0,
   quizPayload: null,
+  blankAnswers: {},
 
   // Derived getters
   getCurrentQuestion: () => {
@@ -93,7 +102,11 @@ export const useQuizStore = create<QuizState>((set, get) => ({
       answers: { ...state.answers, [questionIndex]: answer },
     })),
 
-  nextQuestion: () => set((state) => ({ currentQuestion: state.currentQuestion + 1 })),
+  nextQuestion: () =>
+    set((state) => ({
+      currentQuestion: state.currentQuestion + 1,
+      blankAnswers: {}, // Reset blank answers on question advance
+    })),
 
   addScore: (points) => set((state) => ({ score: state.score + points })),
 
@@ -104,5 +117,17 @@ export const useQuizStore = create<QuizState>((set, get) => ({
       answers: {},
       score: 0,
       quizPayload: null,
+      blankAnswers: {}, // Reset blank answers on quiz reset
     }),
+
+  // Fill-in-blank actions
+  setBlankAnswer: (blankIndex, word) =>
+    set((state) => ({
+      blankAnswers: { ...state.blankAnswers, [blankIndex]: word },
+    })),
+
+  clearBlankAnswer: (blankIndex) =>
+    set((state) => ({
+      blankAnswers: { ...state.blankAnswers, [blankIndex]: null },
+    })),
 }))

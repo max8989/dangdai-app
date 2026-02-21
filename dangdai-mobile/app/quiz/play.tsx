@@ -11,6 +11,7 @@
  * - Shows 1-second feedback delay before advancing to next question
  * - Exit confirmation dialog: "Leave exercise? Your progress will be saved."
  * - Graceful edge case handling: empty quiz, null payload
+ * - fill_in_blank: word bank + sentence with blank slots, auto-submit when all filled
  *
  * Layout:
  * ┌─────────────────────────────────┐
@@ -31,6 +32,7 @@
  * └─────────────────────────────────┘
  *
  * Story 4.3: Vocabulary & Grammar Quiz (Multiple Choice)
+ * Story 4.4: Fill-in-the-Blank Exercise (Word Bank)
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -43,6 +45,9 @@ import { useQuizStore } from '../../stores/useQuizStore'
 import { QuizQuestionCard } from '../../components/quiz/QuizQuestionCard'
 import { AnswerOptionGrid } from '../../components/quiz/AnswerOptionGrid'
 import { QuizProgress } from '../../components/quiz/QuizProgress'
+import { WordBankSelector } from '../../components/quiz/WordBankSelector'
+import { FillInBlankSentence } from '../../components/quiz/FillInBlankSentence'
+import { validateFillInBlank, parseCorrectAnswers, allBlanksFilled } from '../../lib/validateFillInBlank'
 import { EXERCISE_TYPE_LABELS } from '../../types/quiz'
 import type { ExerciseType, QuizQuestion } from '../../types/quiz'
 import type { QuizDisplayVariant, QuizFeedbackVariant } from '../../components/quiz/QuizQuestionCard'
@@ -105,6 +110,11 @@ export default function QuizPlayScreen() {
   const getCurrentQuestion = useQuizStore((state) => state.getCurrentQuestion)
   const isLastQuestion = useQuizStore((state) => state.isLastQuestion)
 
+  // Fill-in-blank store state
+  const blankAnswers = useQuizStore((state) => state.blankAnswers)
+  const setBlankAnswer = useQuizStore((state) => state.setBlankAnswer)
+  const clearBlankAnswer = useQuizStore((state) => state.clearBlankAnswer)
+
   // ─── Local state ──────────────────────────────────────────────────────────
 
   /** The answer selected by the user for the current question (null = not answered yet) */
@@ -112,6 +122,15 @@ export default function QuizPlayScreen() {
 
   /** Feedback state for the question card border */
   const [feedbackState, setFeedbackState] = useState<QuizFeedbackVariant>('none')
+
+  /** Per-blank feedback after fill-in-blank validation */
+  const [blankFeedback, setBlankFeedback] = useState<Record<number, 'correct' | 'incorrect'>>({})
+
+  /** Per-word feedback for the word bank after fill-in-blank validation */
+  const [wordFeedback, setWordFeedback] = useState<Record<string, 'correct' | 'incorrect'>>({})
+
+  /** Whether fill-in-blank has been validated (disables all interaction) */
+  const [fillInBlankValidated, setFillInBlankValidated] = useState(false)
 
   // ─── On mount: initialize quiz session ───────────────────────────────────
 
@@ -140,7 +159,7 @@ export default function QuizPlayScreen() {
     }
   }, [isInvalidQuiz, isIndexOutOfRange, router])
 
-  // ─── Feedback timeout ref (H2 fix: timer cleanup via useEffect) ──────────
+  // ─── Feedback timeout ref (timer cleanup via useEffect) ──────────
 
   const feedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -152,6 +171,16 @@ export default function QuizPlayScreen() {
       }
     }
   }, [])
+
+  // ─── Reset fill-in-blank local state when question changes ───────
+
+  useEffect(() => {
+    setBlankFeedback({})
+    setWordFeedback({})
+    setFillInBlankValidated(false)
+    setSelectedAnswer(null)
+    setFeedbackState('none')
+  }, [currentQuestionIndex])
 
   // ─── Derived display values (only when quiz data is valid) ────────────────
 
@@ -174,7 +203,121 @@ export default function QuizPlayScreen() {
     quizPayload?.exercise_type ??
     ''
 
-  // ─── Answer selection handler ─────────────────────────────────────────────
+  // ─── Fill-in-blank: derived values ───────────────────────────────────────
+
+  const isFillInBlank = currentQuestion?.exercise_type === 'fill_in_blank'
+
+  const wordBank: string[] = currentQuestion?.word_bank ?? []
+
+  // Words currently placed in blanks (for used-word tracking in word bank)
+  const usedWords = new Set<string>(
+    Object.values(blankAnswers).filter((w): w is string => w !== null)
+  )
+
+  // Total number of blanks derived from word_bank parsing or blank_positions
+  const totalBlanks =
+    currentQuestion?.blank_positions?.length ??
+    (currentQuestion?.sentence_with_blanks?.split('___').length ?? 1) - 1
+
+  // ─── Fill-in-blank: validation ───────────────────────────────────────────
+
+  const handleFillInBlankValidation = useCallback(() => {
+    if (!currentQuestion || fillInBlankValidated) return
+
+    const correctAnswers = parseCorrectAnswers(currentQuestion.correct_answer)
+
+    // Cast blankAnswers to Record<number, string> — all blanks are filled at this point
+    const filledAnswers = blankAnswers as Record<number, string>
+    const results = validateFillInBlank(filledAnswers, correctAnswers)
+
+    // Compute per-blank feedback
+    const newBlankFeedback: Record<number, 'correct' | 'incorrect'> = {}
+    results.forEach((isCorrect, index) => {
+      newBlankFeedback[index] = isCorrect ? 'correct' : 'incorrect'
+    })
+
+    // Compute per-word feedback for the word bank (align words used with their results)
+    const newWordFeedback: Record<string, 'correct' | 'incorrect'> = {}
+    Object.entries(blankAnswers).forEach(([blankIndexStr, word]) => {
+      if (word) {
+        const blankIndex = parseInt(blankIndexStr, 10)
+        const result = results[blankIndex]
+        if (result !== undefined) {
+          newWordFeedback[word] = result ? 'correct' : 'incorrect'
+        }
+      }
+    })
+
+    // All blanks correct → full points; any incorrect → no points
+    const allCorrect = results.every(Boolean)
+
+    // Update store
+    setAnswer(currentQuestionIndex, JSON.stringify(blankAnswers))
+    if (allCorrect) {
+      addScore(1)
+    }
+
+    // Update UI
+    setBlankFeedback(newBlankFeedback)
+    setWordFeedback(newWordFeedback)
+    setFillInBlankValidated(true)
+
+    // Advance after feedback delay
+    feedbackTimeoutRef.current = setTimeout(() => {
+      feedbackTimeoutRef.current = null
+      if (isLastQuestion()) {
+        router.replace('/(tabs)/books')
+      } else {
+        nextQuestion()
+      }
+    }, FEEDBACK_DELAY_MS)
+  }, [
+    currentQuestion,
+    fillInBlankValidated,
+    blankAnswers,
+    currentQuestionIndex,
+    setAnswer,
+    addScore,
+    isLastQuestion,
+    nextQuestion,
+    router,
+  ])
+
+  // ─── Fill-in-blank: word selection ───────────────────────────────────────
+
+  const handleWordSelect = useCallback(
+    (word: string) => {
+      if (fillInBlankValidated || !currentQuestion) return
+
+      // Find the first empty blank and fill it
+      for (let i = 0; i < totalBlanks; i++) {
+        if (!blankAnswers[i]) {
+          setBlankAnswer(i, word)
+
+          // Check if all blanks are now filled (after this word placement)
+          const updatedAnswers = { ...blankAnswers, [i]: word }
+          if (allBlanksFilled(updatedAnswers, totalBlanks)) {
+            // Trigger validation via a small timeout so state has time to settle
+            setTimeout(() => handleFillInBlankValidation(), 0)
+          }
+          return
+        }
+      }
+    },
+    [fillInBlankValidated, currentQuestion, totalBlanks, blankAnswers, setBlankAnswer, handleFillInBlankValidation]
+  )
+
+  // ─── Fill-in-blank: blank tap (return word to bank) ──────────────────────
+
+  const handleBlankTap = useCallback(
+    (blankIndex: number) => {
+      if (fillInBlankValidated) return
+      clearBlankAnswer(blankIndex)
+    },
+    [fillInBlankValidated, clearBlankAnswer]
+  )
+
+  // ─── Answer selection handler (multiple choice) ───────────────────────────
 
   const handleAnswerSelect = useCallback(
     (answer: string) => {
@@ -301,37 +444,88 @@ export default function QuizPlayScreen() {
           />
         </YStack>
 
-        {/* Question card with slide-in/out animation (AnimatePresence drives exit on key change) */}
+        {/* Question content area */}
         <YStack flex={1} paddingHorizontal="$4" paddingTop="$4" gap="$4">
-          <AnimatePresence>
-            <QuizQuestionCard
-              key={currentQuestionIndex}
-              questionTypeLabel={currentQuestion.question_text}
-              primaryContent={primaryContent}
-              secondaryContent={secondaryContent}
-              display={displayVariant}
-              feedback={feedbackState}
-              testID="quiz-question-card"
-            />
-          </AnimatePresence>
+          {isFillInBlank ? (
+            // ─── Fill-in-the-Blank Layout ─────────────────────────────────
+            <AnimatePresence>
+              <YStack
+                key={currentQuestionIndex}
+                animation="medium"
+                enterStyle={{ opacity: 0, x: 20 }}
+                exitStyle={{ opacity: 0, x: -20 }}
+                gap="$4"
+                flex={1}
+              >
+                {/* Instruction label */}
+                <Text
+                  fontSize="$4"
+                  color="$colorSubtle"
+                  fontWeight="500"
+                  testID="fill-in-blank-instruction"
+                >
+                  {currentQuestion.question_text}
+                </Text>
 
-          {/* Answer options */}
-          {currentQuestion.options && currentQuestion.options.length > 0 ? (
-            <AnswerOptionGrid
-              options={currentQuestion.options}
-              selectedOption={selectedAnswer}
-              correctAnswer={selectedAnswer !== null ? currentQuestion.correct_answer : null}
-              onSelect={handleAnswerSelect}
-              disabled={selectedAnswer !== null}
-              testID="answer-option-grid"
-            />
+                {/* Sentence with blank slots */}
+                {currentQuestion.sentence_with_blanks ? (
+                  <FillInBlankSentence
+                    sentenceWithBlanks={currentQuestion.sentence_with_blanks}
+                    filledBlanks={blankAnswers}
+                    blankFeedback={fillInBlankValidated ? blankFeedback : undefined}
+                    onBlankTap={handleBlankTap}
+                    disabled={fillInBlankValidated}
+                    testID="fill-in-blank-sentence"
+                  />
+                ) : null}
+
+                {/* Word bank */}
+                <YStack marginTop="$4">
+                  <WordBankSelector
+                    words={wordBank}
+                    usedWords={usedWords}
+                    feedbackState={fillInBlankValidated ? wordFeedback : undefined}
+                    onWordSelect={handleWordSelect}
+                    disabled={fillInBlankValidated}
+                    testID="word-bank-selector"
+                  />
+                </YStack>
+              </YStack>
+            </AnimatePresence>
           ) : (
-            // Edge case: question without options
-            <YStack alignItems="center" paddingVertical="$4">
-              <Text color="$colorSubtle" fontSize="$3">
-                No answer options available.
-              </Text>
-            </YStack>
+            // ─── Multiple Choice Layout ───────────────────────────────────
+            <>
+              <AnimatePresence>
+                <QuizQuestionCard
+                  key={currentQuestionIndex}
+                  questionTypeLabel={currentQuestion.question_text}
+                  primaryContent={primaryContent}
+                  secondaryContent={secondaryContent}
+                  display={displayVariant}
+                  feedback={feedbackState}
+                  testID="quiz-question-card"
+                />
+              </AnimatePresence>
+
+              {/* Answer options */}
+              {currentQuestion.options && currentQuestion.options.length > 0 ? (
+                <AnswerOptionGrid
+                  options={currentQuestion.options}
+                  selectedOption={selectedAnswer}
+                  correctAnswer={selectedAnswer !== null ? currentQuestion.correct_answer : null}
+                  onSelect={handleAnswerSelect}
+                  disabled={selectedAnswer !== null}
+                  testID="answer-option-grid"
+                />
+              ) : (
+                // Edge case: question without options
+                <YStack alignItems="center" paddingVertical="$4">
+                  <Text color="$colorSubtle" fontSize="$3">
+                    No answer options available.
+                  </Text>
+                </YStack>
+              )}
+            </>
           )}
         </YStack>
       </YStack>

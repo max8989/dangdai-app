@@ -3,9 +3,10 @@
  *
  * Integration tests for the quiz play screen.
  * Tests: initial render with quiz data, answer selection, question advancement,
- * last question handling, and edge cases.
+ * last question handling, fill-in-blank rendering, and edge cases.
  *
  * Story 4.3: Vocabulary & Grammar Quiz (Multiple Choice)
+ * Story 4.4: Fill-in-the-Blank Exercise (Word Bank) — Tasks 6.10, 6.11
  */
 
 import React from 'react'
@@ -14,6 +15,38 @@ import { render, fireEvent, act, waitFor } from '@testing-library/react-native'
 import type { QuizResponse } from '../../types/quiz'
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
+
+const mockFillInBlankQuizResponse: QuizResponse = {
+  quiz_id: 'test-fib-quiz-1',
+  chapter_id: 105,
+  book_id: 1,
+  exercise_type: 'fill_in_blank',
+  question_count: 2,
+  questions: [
+    {
+      question_id: 'fib-q1',
+      exercise_type: 'fill_in_blank',
+      question_text: 'Complete the sentence:',
+      correct_answer: '想,超市',
+      explanation: '想 means "want to" and 超市 means "supermarket".',
+      source_citation: 'Book 1, Chapter 5',
+      sentence_with_blanks: '我___去___買東西。',
+      word_bank: ['想', '要', '超市', '商店', '會'],
+      blank_positions: [0, 1],
+    },
+    {
+      question_id: 'fib-q2',
+      exercise_type: 'fill_in_blank',
+      question_text: 'Complete the sentence:',
+      correct_answer: '喜歡',
+      explanation: '喜歡 means "to like".',
+      source_citation: 'Book 1, Chapter 5',
+      sentence_with_blanks: '我很___吃中國菜。',
+      word_bank: ['喜歡', '想要', '可以', '應該'],
+      blank_positions: [0],
+    },
+  ],
+}
 
 const mockQuizResponse: QuizResponse = {
   quiz_id: 'test-quiz-1',
@@ -159,6 +192,48 @@ jest.mock('@tamagui/lucide-icons', () => ({
   ArrowLeft: () => null,
 }))
 
+// Mock fill-in-blank components
+jest.mock('../../components/quiz/FillInBlankSentence', () => ({
+  FillInBlankSentence: ({ sentenceWithBlanks, filledBlanks, onBlankTap, testID }: any) => {
+    const { View, Text, TouchableOpacity } = require('react-native')
+    const parts = sentenceWithBlanks.split('___')
+    return (
+      <View testID={testID || 'fill-in-blank-sentence'}>
+        <Text testID="sentence-text">{sentenceWithBlanks}</Text>
+        {parts.slice(0, -1).map((_: any, i: number) => (
+          <TouchableOpacity
+            key={i}
+            testID={`blank-slot-${i}`}
+            onPress={() => filledBlanks[i] && onBlankTap(i)}
+          >
+            <Text>{filledBlanks[i] ?? '___'}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    )
+  },
+}))
+
+jest.mock('../../components/quiz/WordBankSelector', () => ({
+  WordBankSelector: ({ words, onWordSelect, disabled, testID }: any) => {
+    const { View, TouchableOpacity, Text } = require('react-native')
+    return (
+      <View testID={testID || 'word-bank-selector'}>
+        {words.map((word: string, index: number) => (
+          <TouchableOpacity
+            key={index}
+            testID={`word-bank-item-${index}`}
+            onPress={() => !disabled && onWordSelect(word)}
+            disabled={disabled}
+          >
+            <Text>{word}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    )
+  },
+}))
+
 // ─── Store mock (isolated per test) ──────────────────────────────────────────
 
 let mockQuizState = {
@@ -167,6 +242,7 @@ let mockQuizState = {
   answers: {} as Record<number, string>,
   score: 0,
   currentQuizId: null as string | null,
+  blankAnswers: {} as Record<number, string | null>,
 }
 
 const mockStartQuiz = jest.fn()
@@ -174,6 +250,12 @@ const mockSetAnswer = jest.fn()
 const mockNextQuestion = jest.fn()
 const mockAddScore = jest.fn()
 const mockResetQuiz = jest.fn()
+const mockSetBlankAnswer = jest.fn((blankIndex: number, word: string | null) => {
+  mockQuizState.blankAnswers = { ...mockQuizState.blankAnswers, [blankIndex]: word }
+})
+const mockClearBlankAnswer = jest.fn((blankIndex: number) => {
+  mockQuizState.blankAnswers = { ...mockQuizState.blankAnswers, [blankIndex]: null }
+})
 
 const mockGetCurrentQuestion = jest.fn(() => {
   if (!mockQuizState.quizPayload) return null
@@ -194,6 +276,8 @@ jest.mock('../../stores/useQuizStore', () => ({
       nextQuestion: mockNextQuestion,
       addScore: mockAddScore,
       resetQuiz: mockResetQuiz,
+      setBlankAnswer: mockSetBlankAnswer,
+      clearBlankAnswer: mockClearBlankAnswer,
       getCurrentQuestion: mockGetCurrentQuestion,
       isLastQuestion: mockIsLastQuestion,
     }
@@ -216,6 +300,7 @@ describe('QuizPlayScreen', () => {
       answers: {},
       score: 0,
       currentQuizId: 'test-quiz-1',
+      blankAnswers: {},
     }
     mockGetCurrentQuestion.mockImplementation(() => {
       if (!mockQuizState.quizPayload) return null
@@ -224,6 +309,13 @@ describe('QuizPlayScreen', () => {
     mockIsLastQuestion.mockImplementation(() => {
       if (!mockQuizState.quizPayload) return false
       return mockQuizState.currentQuestion >= mockQuizState.quizPayload.questions.length - 1
+    })
+    // Reset fill-in-blank mocks
+    mockSetBlankAnswer.mockImplementation((blankIndex: number, word: string | null) => {
+      mockQuizState.blankAnswers = { ...mockQuizState.blankAnswers, [blankIndex]: word }
+    })
+    mockClearBlankAnswer.mockImplementation((blankIndex: number) => {
+      mockQuizState.blankAnswers = { ...mockQuizState.blankAnswers, [blankIndex]: null }
     })
   })
 
@@ -334,6 +426,62 @@ describe('QuizPlayScreen', () => {
       await waitFor(() => {
         expect(mockRouterReplace).toHaveBeenCalled()
       })
+    })
+  })
+
+  // ─── Story 4.4: Fill-in-the-Blank Integration Tests ──────────────────────────
+
+  describe('fill-in-blank: renders sentence + word bank (Task 6.10, AC #1)', () => {
+    beforeEach(() => {
+      mockQuizState.quizPayload = mockFillInBlankQuizResponse
+      mockQuizState.currentQuestion = 0
+      mockGetCurrentQuestion.mockReturnValue(mockFillInBlankQuizResponse.questions[0])
+      mockIsLastQuestion.mockReturnValue(false)
+    })
+
+    it('renders fill-in-blank sentence component', () => {
+      const { getByTestId } = render(<QuizPlayScreen />)
+      expect(getByTestId('fill-in-blank-sentence')).toBeTruthy()
+    })
+
+    it('renders word bank selector component', () => {
+      const { getByTestId } = render(<QuizPlayScreen />)
+      expect(getByTestId('word-bank-selector')).toBeTruthy()
+    })
+
+    it('does not render multiple choice answer grid for fill-in-blank', () => {
+      const { queryByTestId } = render(<QuizPlayScreen />)
+      expect(queryByTestId('answer-option-grid')).toBeNull()
+    })
+
+    it('renders all word bank items from the word_bank field', () => {
+      const { getByTestId } = render(<QuizPlayScreen />)
+      // word_bank has 5 words for question 1
+      expect(getByTestId('word-bank-item-0')).toBeTruthy()
+      expect(getByTestId('word-bank-item-4')).toBeTruthy()
+    })
+  })
+
+  describe('fill-in-blank: selecting words fills blanks (Task 6.11, AC #2)', () => {
+    beforeEach(() => {
+      mockQuizState.quizPayload = mockFillInBlankQuizResponse
+      mockQuizState.currentQuestion = 0
+      mockGetCurrentQuestion.mockReturnValue(mockFillInBlankQuizResponse.questions[0])
+      mockIsLastQuestion.mockReturnValue(false)
+    })
+
+    it('calls setBlankAnswer when a word is tapped from the bank', () => {
+      const { getByTestId } = render(<QuizPlayScreen />)
+      fireEvent.press(getByTestId('word-bank-item-0')) // '想'
+      expect(mockSetBlankAnswer).toHaveBeenCalledWith(0, '想')
+    })
+
+    it('fills the next empty blank when a second word is tapped', () => {
+      // Simulate first blank already filled
+      mockQuizState.blankAnswers = { 0: '想' }
+      const { getByTestId } = render(<QuizPlayScreen />)
+      fireEvent.press(getByTestId('word-bank-item-2')) // '超市'
+      expect(mockSetBlankAnswer).toHaveBeenCalledWith(1, '超市')
     })
   })
 })

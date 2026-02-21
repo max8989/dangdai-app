@@ -9,7 +9,14 @@
  * - resetQuiz clears quizPayload
  * - startQuiz accepts optional payload
  *
+ * Story 4.4 additions:
+ * - blankAnswers state for fill-in-blank
+ * - setBlankAnswer action
+ * - clearBlankAnswer action
+ * - blankAnswers reset on nextQuestion and resetQuiz
+ *
  * Story 4.3: Vocabulary & Grammar Quiz (Multiple Choice) — Task 7.8
+ * Story 4.4: Fill-in-the-Blank Exercise (Word Bank) — Task 6.9
  */
 
 import { useQuizStore } from './useQuizStore'
@@ -198,6 +205,51 @@ describe('useQuizStore — Story 4.3 extensions', () => {
       expect(state.answers).toEqual({})
       expect(state.score).toBe(0)
       expect(state.quizPayload).toBeNull()
+    })
+  })
+
+  describe('blankAnswers state — Story 4.4 (Task 6.9)', () => {
+    it('starts with empty blankAnswers', () => {
+      expect(getStore().blankAnswers).toEqual({})
+    })
+
+    it('setBlankAnswer stores a word at the given blank index', () => {
+      getStore().setBlankAnswer(0, '想')
+      expect(getStore().blankAnswers[0]).toBe('想')
+    })
+
+    it('setBlankAnswer can store multiple blanks independently', () => {
+      getStore().setBlankAnswer(0, '想')
+      getStore().setBlankAnswer(1, '超市')
+      expect(getStore().blankAnswers[0]).toBe('想')
+      expect(getStore().blankAnswers[1]).toBe('超市')
+    })
+
+    it('clearBlankAnswer sets a blank back to null', () => {
+      getStore().setBlankAnswer(0, '想')
+      getStore().clearBlankAnswer(0)
+      expect(getStore().blankAnswers[0]).toBeNull()
+    })
+
+    it('clearBlankAnswer only affects the specified blank', () => {
+      getStore().setBlankAnswer(0, '想')
+      getStore().setBlankAnswer(1, '超市')
+      getStore().clearBlankAnswer(0)
+      expect(getStore().blankAnswers[0]).toBeNull()
+      expect(getStore().blankAnswers[1]).toBe('超市')
+    })
+
+    it('nextQuestion resets blankAnswers to empty object', () => {
+      getStore().setBlankAnswer(0, '想')
+      getStore().setBlankAnswer(1, '超市')
+      getStore().nextQuestion()
+      expect(getStore().blankAnswers).toEqual({})
+    })
+
+    it('resetQuiz resets blankAnswers to empty object', () => {
+      getStore().setBlankAnswer(0, '想')
+      getStore().resetQuiz()
+      expect(getStore().blankAnswers).toEqual({})
     })
   })
 

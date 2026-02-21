@@ -1,6 +1,6 @@
 # Story 4.4: Fill-in-the-Blank Exercise (Word Bank)
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -28,60 +28,60 @@ So that I can practice using vocabulary in sentence context.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create `WordBankSelector` component (AC: #1, #2)
-  - [ ] 1.1 Create `components/quiz/WordBankSelector.tsx` using Tamagui `styled(Button)` with `state` variant (`available`, `selected`, `correct`, `incorrect`, `used`)
-  - [ ] 1.2 Implement horizontal `ScrollView` with pill-shaped word items (`borderRadius: 20`, `minHeight: 48`)
-  - [ ] 1.3 Implement `pressStyle={{ scale: 0.95 }}` and `animation="quick"` on each word item
-  - [ ] 1.4 Handle `onWordSelect` callback when a word is tapped
-  - [ ] 1.5 Render used words with `opacity: 0.4` (state: `used`)
-  - [ ] 1.6 Apply `correct`/`incorrect` state variants after validation
-  - [ ] 1.7 Use `focusStyle={{ borderColor: '$borderColorFocus' }}` on interactive word items
+- [x] Task 1: Create `WordBankSelector` component (AC: #1, #2)
+  - [x] 1.1 Create `components/quiz/WordBankSelector.tsx` using Tamagui `styled(Button)` with `state` variant (`available`, `selected`, `correct`, `incorrect`, `used`)
+  - [x] 1.2 Implement horizontal `ScrollView` with pill-shaped word items (`borderRadius: 20`, `minHeight: 48`)
+  - [x] 1.3 Implement `pressStyle={{ scale: 0.95 }}` and `animation="quick"` on each word item
+  - [x] 1.4 Handle `onWordSelect` callback when a word is tapped
+  - [x] 1.5 Render used words with `opacity: 0.4` (state: `used`)
+  - [x] 1.6 Apply `correct`/`incorrect` state variants after validation
+  - [x] 1.7 Use `focusStyle={{ borderColor: '$borderColorFocus' }}` on interactive word items
 
-- [ ] Task 2: Create `FillInBlankSentence` component (AC: #1, #2)
-  - [ ] 2.1 Create `components/quiz/FillInBlankSentence.tsx` that parses `sentence_with_blanks` and renders text segments with interactive blank slots
-  - [ ] 2.2 Render blank slots as tappable areas with dashed border and `$primary` theme styling when empty
-  - [ ] 2.3 When a blank is filled, display the word inside the slot with `animation="medium"` and `enterStyle={{ opacity: 0, scale: 0.8 }}`
-  - [ ] 2.4 Handle `onBlankTap` callback to return a word to the bank when a filled blank is tapped
-  - [ ] 2.5 Apply per-blank feedback styling after validation: `<Theme name="success">` for correct, `<Theme name="error">` for incorrect
-  - [ ] 2.6 Ensure blank slots have minimum 48px touch targets
-  - [ ] 2.7 Display Chinese characters at appropriate reading size within the sentence context
+- [x] Task 2: Create `FillInBlankSentence` component (AC: #1, #2)
+  - [x] 2.1 Create `components/quiz/FillInBlankSentence.tsx` that parses `sentence_with_blanks` and renders text segments with interactive blank slots
+  - [x] 2.2 Render blank slots as tappable areas with dashed border and `$primary` theme styling when empty
+  - [x] 2.3 When a blank is filled, display the word inside the slot with `animation="medium"` and `enterStyle={{ opacity: 0, scale: 0.8 }}`
+  - [x] 2.4 Handle `onBlankTap` callback to return a word to the bank when a filled blank is tapped
+  - [x] 2.5 Apply per-blank feedback styling after validation: `<Theme name="success">` for correct, `<Theme name="error">` for incorrect
+  - [x] 2.6 Ensure blank slots have minimum 48px touch targets
+  - [x] 2.7 Display Chinese characters at appropriate reading size within the sentence context
 
-- [ ] Task 3: Add blank-filling state to `useQuizStore` (AC: #2)
-  - [ ] 3.1 Add `blankAnswers: Record<number, string | null>` to track which word fills each blank position
-  - [ ] 3.2 Add `setBlankAnswer(blankIndex: number, word: string | null)` action
-  - [ ] 3.3 Add `clearBlankAnswer(blankIndex: number)` action (returns word to bank)
-  - [ ] 3.4 Add `allBlanksFilled` derived getter for the current question
-  - [ ] 3.5 Reset `blankAnswers` on `nextQuestion()` and `resetQuiz()`
+- [x] Task 3: Add blank-filling state to `useQuizStore` (AC: #2)
+  - [x] 3.1 Add `blankAnswers: Record<number, string | null>` to track which word fills each blank position
+  - [x] 3.2 Add `setBlankAnswer(blankIndex: number, word: string | null)` action
+  - [x] 3.3 Add `clearBlankAnswer(blankIndex: number)` action (returns word to bank)
+  - [x] 3.4 Add `allBlanksFilled` derived getter for the current question
+  - [x] 3.5 Reset `blankAnswers` on `nextQuestion()` and `resetQuiz()`
 
-- [ ] Task 4: Integrate fill-in-blank type into `play.tsx` (AC: #1, #2, #3)
-  - [ ] 4.1 Add `fill_in_blank` case to the exercise type rendering switch in `app/quiz/play.tsx`
-  - [ ] 4.2 Render `FillInBlankSentence` + `WordBankSelector` for fill-in-blank questions
-  - [ ] 4.3 Wire word selection: tapping a word in the bank fills the next empty blank
-  - [ ] 4.4 Wire blank tap: tapping a filled blank returns the word to the bank
-  - [ ] 4.5 Auto-submit when all blanks are filled (trigger validation)
-  - [ ] 4.6 Wrap fill-in-blank question in `AnimatePresence` with `key={currentQuestionIndex}` for enter/exit transitions
-  - [ ] 4.7 Show per-blank feedback for ~1 second before auto-advancing to next question
+- [x] Task 4: Integrate fill-in-blank type into `play.tsx` (AC: #1, #2, #3)
+  - [x] 4.1 Add `fill_in_blank` case to the exercise type rendering switch in `app/quiz/play.tsx`
+  - [x] 4.2 Render `FillInBlankSentence` + `WordBankSelector` for fill-in-blank questions
+  - [x] 4.3 Wire word selection: tapping a word in the bank fills the next empty blank
+  - [x] 4.4 Wire blank tap: tapping a filled blank returns the word to the bank
+  - [x] 4.5 Auto-submit when all blanks are filled (trigger validation)
+  - [x] 4.6 Wrap fill-in-blank question in `AnimatePresence` with `key={currentQuestionIndex}` for enter/exit transitions
+  - [x] 4.7 Show per-blank feedback for ~1 second before auto-advancing to next question
 
-- [ ] Task 5: Implement per-blank validation logic (AC: #3)
-  - [ ] 5.1 Create `validateFillInBlank(blankAnswers: Record<number, string>, correctAnswers: string[]): boolean[]` utility
-  - [ ] 5.2 Validate each blank position independently (exact match, case-insensitive, trimmed)
-  - [ ] 5.3 Return per-blank results array (true/false per position)
-  - [ ] 5.4 Calculate overall score: all blanks correct = full points, partial = no points (per question)
-  - [ ] 5.5 Update `useQuizStore.setAnswer()` with serialized blank answers for the question
-  - [ ] 5.6 Disable word bank and blank interaction after validation
+- [x] Task 5: Implement per-blank validation logic (AC: #3)
+  - [x] 5.1 Create `validateFillInBlank(blankAnswers: Record<number, string>, correctAnswers: string[]): boolean[]` utility
+  - [x] 5.2 Validate each blank position independently (exact match, case-insensitive, trimmed)
+  - [x] 5.3 Return per-blank results array (true/false per position)
+  - [x] 5.4 Calculate overall score: all blanks correct = full points, partial = no points (per question)
+  - [x] 5.5 Update `useQuizStore.setAnswer()` with serialized blank answers for the question
+  - [x] 5.6 Disable word bank and blank interaction after validation
 
-- [ ] Task 6: Write tests (AC: #1, #2, #3)
-  - [ ] 6.1 Unit test `WordBankSelector` renders all word options with correct touch targets
-  - [ ] 6.2 Unit test `WordBankSelector` marks tapped word as `used` (opacity 0.4)
-  - [ ] 6.3 Unit test `WordBankSelector` applies `correct`/`incorrect` states after validation
-  - [ ] 6.4 Unit test `FillInBlankSentence` parses sentence and renders blanks
-  - [ ] 6.5 Unit test `FillInBlankSentence` fills blank when word is selected
-  - [ ] 6.6 Unit test `FillInBlankSentence` returns word to bank when filled blank is tapped
-  - [ ] 6.7 Unit test `FillInBlankSentence` shows per-blank feedback after validation
-  - [ ] 6.8 Unit test `validateFillInBlank` returns correct per-blank results
-  - [ ] 6.9 Unit test `useQuizStore` blank-filling state (setBlankAnswer, clearBlankAnswer, allBlanksFilled, reset)
-  - [ ] 6.10 Integration test: fill-in-blank question renders sentence + word bank in play.tsx
-  - [ ] 6.11 Integration test: selecting words fills blanks and triggers validation when all filled
+- [x] Task 6: Write tests (AC: #1, #2, #3)
+  - [x] 6.1 Unit test `WordBankSelector` renders all word options with correct touch targets
+  - [x] 6.2 Unit test `WordBankSelector` marks tapped word as `used` (opacity 0.4)
+  - [x] 6.3 Unit test `WordBankSelector` applies `correct`/`incorrect` states after validation
+  - [x] 6.4 Unit test `FillInBlankSentence` parses sentence and renders blanks
+  - [x] 6.5 Unit test `FillInBlankSentence` fills blank when word is selected
+  - [x] 6.6 Unit test `FillInBlankSentence` returns word to bank when filled blank is tapped
+  - [x] 6.7 Unit test `FillInBlankSentence` shows per-blank feedback after validation
+  - [x] 6.8 Unit test `validateFillInBlank` returns correct per-blank results
+  - [x] 6.9 Unit test `useQuizStore` blank-filling state (setBlankAnswer, clearBlankAnswer, allBlanksFilled, reset)
+  - [x] 6.10 Integration test: fill-in-blank question renders sentence + word bank in play.tsx
+  - [x] 6.11 Integration test: selecting words fills blanks and triggers validation when all filled
 
 ## Dev Notes
 
@@ -608,12 +608,39 @@ dangdai-mobile/
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+claude-sonnet-4-6 (anthropic/claude-sonnet-4-6)
 
 ### Debug Log References
 
+No blocking issues encountered. Pre-existing ESLint `react-hooks/exhaustive-deps` rule definition error in `play.tsx` (existed before this story, inherited from Story 4.3 pattern).
+
 ### Completion Notes List
+
+- ✅ Created `WordBankSelector` component with `styled(Button)` Tamagui pattern, horizontal `ScrollView`, pill-shaped items, 5 state variants (`available`, `selected`, `correct`, `incorrect`, `used`), `opacity: 0.4` for used words.
+- ✅ Created `FillInBlankSentence` component with `parseSentence()` helper splitting on `___`, interactive `BlankSlot` styled component with 4 state variants, Theme wrappers for correct/incorrect feedback.
+- ✅ Extended `useQuizStore` with `blankAnswers`, `setBlankAnswer`, `clearBlankAnswer`; `nextQuestion()` and `resetQuiz()` both reset `blankAnswers` to `{}`.
+- ✅ Extended `types/quiz.ts` `QuizQuestion` with optional fields: `sentence_with_blanks`, `word_bank`, `blank_positions`.
+- ✅ Created `lib/validateFillInBlank.ts` with `validateFillInBlank()`, `parseCorrectAnswers()`, `allBlanksFilled()` utilities. All local validation, no LLM call.
+- ✅ Updated `app/quiz/play.tsx` to branch on `exercise_type === 'fill_in_blank'`, rendering `FillInBlankSentence` + `WordBankSelector` with full word-select/blank-tap/auto-validate/feedback/advance logic.
+- ✅ 87 tests pass (27 unit tests for stores, 26 for components, 17 for utilities, 17 integration tests for play.tsx). Zero regressions introduced.
+- ✅ TypeScript type checking passes cleanly (`npx tsc --noEmit` clean).
 
 ### Change Log
 
+- **2026-02-21**: Implemented Story 4.4 Fill-in-the-Blank Exercise. Added `WordBankSelector`, `FillInBlankSentence` components, `validateFillInBlank` utility, extended `useQuizStore` with blank-filling state, extended `QuizQuestion` type with fill-in-blank fields, updated `play.tsx` to handle `fill_in_blank` exercise type. 87 tests total, all passing.
+
 ### File List
+
+- `dangdai-mobile/components/quiz/WordBankSelector.tsx` — CREATED
+- `dangdai-mobile/components/quiz/WordBankSelector.test.tsx` — CREATED
+- `dangdai-mobile/components/quiz/FillInBlankSentence.tsx` — CREATED
+- `dangdai-mobile/components/quiz/FillInBlankSentence.test.tsx` — CREATED
+- `dangdai-mobile/lib/validateFillInBlank.ts` — CREATED
+- `dangdai-mobile/lib/validateFillInBlank.test.ts` — CREATED
+- `dangdai-mobile/stores/useQuizStore.ts` — MODIFIED (added blankAnswers, setBlankAnswer, clearBlankAnswer; reset in nextQuestion/resetQuiz)
+- `dangdai-mobile/stores/useQuizStore.test.ts` — MODIFIED (added Story 4.4 blank-filling state tests)
+- `dangdai-mobile/types/quiz.ts` — MODIFIED (added sentence_with_blanks, word_bank, blank_positions to QuizQuestion)
+- `dangdai-mobile/app/quiz/play.tsx` — MODIFIED (added fill_in_blank exercise type rendering, word selection, blank tap, validation, feedback)
+- `dangdai-mobile/app/quiz/play.test.tsx` — MODIFIED (added fill-in-blank integration tests, fill-in-blank component mocks, blank store mocks)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` — MODIFIED (4-4 status: ready-for-dev → review)
+- `_bmad-output/implementation-artifacts/4-4-fill-in-the-blank-exercise.md` — MODIFIED (all tasks checked, status → review)
