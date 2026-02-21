@@ -12,6 +12,7 @@
  *
  * Story 4.3: Extended with quizPayload, getCurrentQuestion, isLastQuestion
  * Story 4.4: Extended with blankAnswers, setBlankAnswer, clearBlankAnswer
+ * Story 4.5: Extended with matchingScore, addMatchedPairScore, addIncorrectAttempt, resetMatchingScore
  * Story 4.7: Extended with placedTileIds, placeTile, removeTile, clearTiles
  * Story 4.9: Extended with showFeedback, feedbackIsCorrect, triggerShowFeedback, hideFeedback
  * Story 4.10: Added persist middleware, chapterId/bookId/exerciseType, hasActiveQuiz, _hasHydrated
@@ -50,6 +51,12 @@ interface QuizState {
    * blankIndex → wordBankIndex | null
    */
   blankAnswerIndices: Record<number, number | null>
+
+  // Matching exercise session-level score tracking (Story 4.5)
+  // Aggregate score for the session — used by completion flow (Story 4.11) and
+  // progress saving (Story 4.10). Transient interaction state (selectedLeft, etc.)
+  // lives in the MatchingExercise component, NOT here.
+  matchingScore: { correct: number; incorrect: number }
 
   // Sentence construction tile placement state (Story 4.7)
   // Ordered list of tile IDs placed in the answer area.
@@ -95,6 +102,14 @@ interface QuizState {
   addScore: (points: number) => void
   resetQuiz: () => void
   setHasHydrated: (hydrated: boolean) => void
+
+  // Matching exercise score actions (Story 4.5)
+  /** Increment the correct pair count for the current matching exercise session */
+  addMatchedPairScore: () => void
+  /** Increment the incorrect attempt count for the current matching exercise session */
+  addIncorrectMatchingAttempt: () => void
+  /** Reset matching score state (called on nextQuestion and resetQuiz) */
+  resetMatchingScore: () => void
 
   // Fill-in-blank actions
   setBlankAnswer: (blankIndex: number, word: string | null, wordBankIndex?: number | null) => void
@@ -145,6 +160,7 @@ export const useQuizStore = create<QuizState>()(
       exerciseType: null,
       blankAnswers: {},
       blankAnswerIndices: {},
+      matchingScore: { correct: 0, incorrect: 0 },
       placedTileIds: [],
       showFeedback: false,
       feedbackIsCorrect: null,
@@ -214,6 +230,7 @@ export const useQuizStore = create<QuizState>()(
           exerciseType,
           blankAnswers: {}, // Reset fill-in-blank state on new session start (H3 fix)
           blankAnswerIndices: {},
+          matchingScore: { correct: 0, incorrect: 0 }, // Reset matching score on new session
           placedTileIds: [], // Reset tile placement state on new session start
           showFeedback: false, // Reset feedback state on new session start
           feedbackIsCorrect: null,
@@ -234,6 +251,7 @@ export const useQuizStore = create<QuizState>()(
           currentQuestion: state.currentQuestion + 1,
           blankAnswers: {}, // Reset blank answers on question advance
           blankAnswerIndices: {},
+          matchingScore: { correct: 0, incorrect: 0 }, // Reset matching score on question advance
           placedTileIds: [], // Reset tile placement on question advance
           showFeedback: false, // Reset feedback state on question advance
           feedbackIsCorrect: null,
@@ -253,6 +271,7 @@ export const useQuizStore = create<QuizState>()(
           exerciseType: null,
           blankAnswers: {}, // Reset blank answers on quiz reset
           blankAnswerIndices: {},
+          matchingScore: { correct: 0, incorrect: 0 }, // Reset matching score on quiz reset
           placedTileIds: [], // Reset tile placement on quiz reset
           showFeedback: false, // Reset feedback state on quiz reset
           feedbackIsCorrect: null,
@@ -262,6 +281,26 @@ export const useQuizStore = create<QuizState>()(
         }),
 
       setHasHydrated: (hydrated) => set({ _hasHydrated: hydrated }),
+
+      // Matching exercise score actions (Story 4.5)
+      addMatchedPairScore: () =>
+        set((state) => ({
+          matchingScore: {
+            ...state.matchingScore,
+            correct: state.matchingScore.correct + 1,
+          },
+        })),
+
+      addIncorrectMatchingAttempt: () =>
+        set((state) => ({
+          matchingScore: {
+            ...state.matchingScore,
+            incorrect: state.matchingScore.incorrect + 1,
+          },
+        })),
+
+      resetMatchingScore: () =>
+        set({ matchingScore: { correct: 0, incorrect: 0 } }),
 
       // Fill-in-blank actions
       setBlankAnswer: (blankIndex, word, wordBankIndex = null) =>

@@ -32,6 +32,7 @@
  *
  * Story 4.3: Vocabulary & Grammar Quiz (Multiple Choice) — Task 7.8
  * Story 4.4: Fill-in-the-Blank Exercise (Word Bank) — Task 6.9
+ * Story 4.5: Matching Exercise — Task 4.6
  * Story 4.9: Immediate Answer Feedback — Task 4.6
  * Story 4.10: Quiz Progress Saving — Task 1.11
  */
@@ -236,6 +237,60 @@ describe('useQuizStore — Story 4.3 extensions', () => {
       expect(state.answers).toEqual({})
       expect(state.score).toBe(0)
       expect(state.quizPayload).toBeNull()
+    })
+  })
+
+  describe('matchingScore state — Story 4.5 (Task 4.6)', () => {
+    it('starts with matchingScore { correct: 0, incorrect: 0 }', () => {
+      expect(getStore().matchingScore).toEqual({ correct: 0, incorrect: 0 })
+    })
+
+    it('addMatchedPairScore increments correct count', () => {
+      getStore().addMatchedPairScore()
+      getStore().addMatchedPairScore()
+      expect(getStore().matchingScore.correct).toBe(2)
+    })
+
+    it('addIncorrectMatchingAttempt increments incorrect count', () => {
+      getStore().addIncorrectMatchingAttempt()
+      expect(getStore().matchingScore.incorrect).toBe(1)
+    })
+
+    it('addMatchedPairScore does not affect incorrect count', () => {
+      getStore().addMatchedPairScore()
+      expect(getStore().matchingScore.incorrect).toBe(0)
+    })
+
+    it('addIncorrectMatchingAttempt does not affect correct count', () => {
+      getStore().addIncorrectMatchingAttempt()
+      expect(getStore().matchingScore.correct).toBe(0)
+    })
+
+    it('resetMatchingScore resets both counts to 0', () => {
+      getStore().addMatchedPairScore()
+      getStore().addIncorrectMatchingAttempt()
+      getStore().resetMatchingScore()
+      expect(getStore().matchingScore).toEqual({ correct: 0, incorrect: 0 })
+    })
+
+    it('nextQuestion resets matchingScore to { correct: 0, incorrect: 0 }', () => {
+      getStore().addMatchedPairScore()
+      getStore().addIncorrectMatchingAttempt()
+      getStore().nextQuestion()
+      expect(getStore().matchingScore).toEqual({ correct: 0, incorrect: 0 })
+    })
+
+    it('resetQuiz resets matchingScore to { correct: 0, incorrect: 0 }', () => {
+      getStore().addMatchedPairScore()
+      getStore().addIncorrectMatchingAttempt()
+      getStore().resetQuiz()
+      expect(getStore().matchingScore).toEqual({ correct: 0, incorrect: 0 })
+    })
+
+    it('startQuiz resets matchingScore to { correct: 0, incorrect: 0 }', () => {
+      getStore().addMatchedPairScore()
+      getStore().startQuiz('quiz-new', mockQuizResponse)
+      expect(getStore().matchingScore).toEqual({ correct: 0, incorrect: 0 })
     })
   })
 

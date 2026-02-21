@@ -45,6 +45,7 @@
  * Story 4.9: Immediate Answer Feedback (FeedbackOverlay + useSound)
  * Story 4.10: Quiz Progress Saving (timer + Supabase writes + crash recovery)
  * Story 4.11: Quiz Results Screen (CompletionScreen rendered when isComplete === true)
+ * Story 4.5: Matching Exercise (MatchingExercise rendered when exercise_type === 'matching')
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -70,6 +71,7 @@ import type { QuizDisplayVariant, QuizFeedbackVariant } from '../../components/q
 import { DialogueCard } from '../../components/quiz/DialogueCard'
 import type { DialogueAnswerResult } from '../../components/quiz/DialogueCard'
 import { SentenceBuilder } from '../../components/quiz/SentenceBuilder'
+import { MatchingExercise } from '../../components/quiz/MatchingExercise'
 import { preloadSounds, unloadSounds, playSound } from '../../hooks/useSound'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -170,6 +172,13 @@ export default function QuizPlayScreen() {
 
   /** Feedback state for the question card border */
   const [feedbackState, setFeedbackState] = useState<QuizFeedbackVariant>('none')
+
+  /**
+   * Points earned for the current question — may differ from POINTS_PER_CORRECT for
+   * matching exercises where score is proportional (e.g., 6/6 with 2 errors = 90% = 9 pts).
+   * Reset to POINTS_PER_CORRECT on question change.
+   */
+  const [currentPointsEarned, setCurrentPointsEarned] = useState<number>(POINTS_PER_CORRECT)
 
   /** Per-blank feedback after fill-in-blank validation */
   const [blankFeedback, setBlankFeedback] = useState<Record<number, 'correct' | 'incorrect'>>({})
@@ -276,6 +285,7 @@ export default function QuizPlayScreen() {
     setFillInBlankValidated(false)
     setSelectedAnswer(null)
     setFeedbackState('none')
+    setCurrentPointsEarned(POINTS_PER_CORRECT)
   }, [currentQuestionIndex])
 
   // ─── Derived display values (only when quiz data is valid) ────────────────
@@ -304,6 +314,7 @@ export default function QuizPlayScreen() {
   const isFillInBlank = currentQuestion?.exercise_type === 'fill_in_blank'
   const isDialogue = currentQuestion?.exercise_type === 'dialogue_completion'
   const isSentenceConstruction = currentQuestion?.exercise_type === 'sentence_construction'
+  const isMatching = currentQuestion?.exercise_type === 'matching'
 
   const wordBank: string[] = currentQuestion?.word_bank ?? []
 
@@ -487,6 +498,47 @@ export default function QuizPlayScreen() {
       handleAnswerResult(isCorrect)
     },
     [currentQuestion, currentQuestionIndex, setAnswer, addScore, clearTiles, handleAnswerResult,
+     timer, saveQuestionResult, chapterId, bookId, quizPayload]
+  )
+
+  // ─── Matching exercise completion handler (Story 4.5) ────────────────────────
+
+  const handleMatchingComplete = useCallback(
+    (result: { score: number; incorrectAttempts: number }) => {
+      if (!currentQuestion) return
+
+      // Stop timer and get elapsed ms (Story 4.10, Task 5.3)
+      const timeSpentMs = timer.stopTimer()
+
+      // Record as correct if score >= 50 (majority of pairs matched correctly)
+      const isCorrect = result.score >= 50
+
+      // Use score percentage as points (capped at POINTS_PER_CORRECT)
+      const pointsEarned = Math.round((result.score / 100) * POINTS_PER_CORRECT)
+
+      // Store actual points earned so FeedbackOverlay displays the correct value
+      setCurrentPointsEarned(pointsEarned)
+
+      setAnswer(currentQuestionIndex, JSON.stringify({ score: result.score, incorrectAttempts: result.incorrectAttempts }))
+      if (pointsEarned > 0) {
+        addScore(pointsEarned)
+      }
+
+      // Save per-question result to Supabase — fire-and-forget (Story 4.10, Task 5.4)
+      saveQuestionResult({
+        chapterId: chapterId ?? quizPayload?.chapter_id ?? 0,
+        bookId: bookId ?? quizPayload?.book_id ?? 0,
+        exerciseType: currentQuestion.exercise_type,
+        vocabularyItem: null,
+        grammarPattern: null,
+        correct: isCorrect,
+        timeSpentMs,
+      })
+
+      // Trigger unified feedback overlay + sound (Story 4.9)
+      handleAnswerResult(isCorrect)
+    },
+    [currentQuestion, currentQuestionIndex, setAnswer, addScore, handleAnswerResult,
      timer, saveQuestionResult, chapterId, bookId, quizPayload]
   )
 
@@ -707,7 +759,33 @@ export default function QuizPlayScreen() {
 
         {/* Question content area */}
         <YStack flex={1} paddingHorizontal="$4" paddingTop="$4" gap="$4">
-          {isSentenceConstruction ? (
+          {isMatching ? (
+            // ─── Matching Exercise Layout (Story 4.5) ────────────────────
+            // NOTE: MatchingExercise has its own "X/Y paired" progress indicator
+            // rendered internally (testID="matching-progress-text"). The QuizProgress
+            // bar above shows question-level progress (e.g., 1/N questions). This is
+            // intentional: matching is a single multi-step question, so the internal
+            // indicator shows pair-level progress while the outer bar shows position
+            // in the overall quiz. Story 4.5 Task 5.4 was fulfilled by the component
+            // managing its own pair-level display.
+            currentQuestion.pairs && currentQuestion.pairs.length > 0 ? (
+              <AnimatePresence>
+                <YStack
+                  key={currentQuestionIndex}
+                  animation="medium"
+                  enterStyle={{ opacity: 0, x: 20 }}
+                  exitStyle={{ opacity: 0, x: -20 }}
+                  flex={1}
+                >
+                  <MatchingExercise
+                    question={currentQuestion}
+                    onComplete={handleMatchingComplete}
+                    testID="matching-exercise"
+                  />
+                </YStack>
+              </AnimatePresence>
+            ) : null
+          ) : isSentenceConstruction ? (
             // ─── Sentence Construction Layout (Story 4.7) ─────────────────
             currentQuestion.scrambled_words && currentQuestion.correct_order ? (
               <AnimatePresence>
@@ -848,7 +926,7 @@ export default function QuizPlayScreen() {
           correctAnswer={
             feedbackIsCorrect === false ? currentQuestion.correct_answer : undefined
           }
-          pointsEarned={feedbackIsCorrect === true ? POINTS_PER_CORRECT : undefined}
+          pointsEarned={feedbackIsCorrect === true ? currentPointsEarned : undefined}
         />
       </YStack>
     </>

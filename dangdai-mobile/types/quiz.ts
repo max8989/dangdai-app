@@ -45,9 +45,21 @@ export interface QuizGenerationParams {
 }
 
 /**
+ * A matched pair for matching exercises.
+ * Story 4.5: Matching Exercise (Tap-to-Pair)
+ */
+export interface MatchingPair {
+  /** Left column item (e.g., Chinese character) */
+  left: string
+  /** Right column item (e.g., pinyin) */
+  right: string
+}
+
+/**
  * A single quiz question from the API response.
  *
  * Story 4.4: Extended with fill-in-blank specific fields.
+ * Story 4.5: Extended with matching-specific fields.
  */
 export interface QuizQuestion {
   question_id: string
@@ -68,6 +80,10 @@ export interface QuizQuestion {
   // Sentence construction fields (Story 4.7)
   scrambled_words?: string[]
   correct_order?: string[]
+  // Matching exercise fields (Story 4.5)
+  pairs?: MatchingPair[]
+  left_items?: string[]
+  right_items?: string[]
 }
 
 /**
