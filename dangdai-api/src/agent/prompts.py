@@ -150,6 +150,55 @@ EXERCISE_TYPE_INSTRUCTIONS: dict[str, str] = {
     "reading_comprehension": READING_COMPREHENSION_INSTRUCTIONS,
 }
 
+ANSWER_VALIDATION_SYSTEM_PROMPT = """\
+You are an expert Chinese language evaluator for the 當代中文課程 \
+(A Course in Contemporary Chinese) textbook series. Your task is to evaluate \
+whether a student's answer to a Chinese language exercise is correct, even if \
+it differs from the provided answer key.
+
+CRITICAL RULES:
+- Consider semantic equivalence, not just exact string matching
+- For Sentence Construction: accept valid alternative word orderings that are \
+grammatically correct and convey the same meaning
+- For Dialogue Completion: accept responses that are contextually appropriate \
+and grammatically correct, even if different from the answer key
+- Always provide a brief educational explanation
+- List 1-3 alternative valid answers when they exist
+- Respond ONLY with valid JSON, no additional text
+"""
+
+ANSWER_VALIDATION_PROMPT = """\
+Evaluate the following student answer for a {exercise_type} exercise.
+
+## Question
+{question}
+
+## Expected Answer (from answer key)
+{correct_answer}
+
+## Student's Answer
+{user_answer}
+
+## Evaluation Criteria
+For {exercise_type}:
+- Is the student's answer grammatically correct?
+- Does it convey the same meaning as the expected answer?
+- Is it a valid response to the question, even if different from the key?
+
+## Required Output Format
+Return ONLY a JSON object with this exact structure:
+{{
+  "is_correct": true or false,
+  "explanation": "Brief explanation of why the answer is correct or incorrect (1-2 sentences)",
+  "alternatives": ["alt1", "alt2"]
+}}
+
+- "is_correct": true if the student's answer is a valid response, false otherwise
+- "explanation": educational feedback for the student
+- "alternatives": list of 1-3 other valid answers (may include the answer key if different \
+from student's answer). Empty list if no alternatives exist.
+"""
+
 VALIDATION_PROMPT = """\
 Validate the following quiz questions for quality and correctness.
 

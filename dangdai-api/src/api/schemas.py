@@ -210,6 +210,46 @@ class ErrorResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Answer validation schemas
+# ---------------------------------------------------------------------------
+
+
+class ValidationExerciseType(str, Enum):
+    """Exercise types that require LLM-based answer validation."""
+
+    SENTENCE_CONSTRUCTION = "sentence_construction"
+    DIALOGUE_COMPLETION = "dialogue_completion"
+
+
+class ValidationRequest(BaseModel):
+    """Answer validation request for complex exercise types."""
+
+    question: str = Field(..., min_length=1, description="The original question text")
+    user_answer: str = Field(
+        ..., min_length=1, description="The user's submitted answer"
+    )
+    correct_answer: str = Field(
+        ..., min_length=1, description="The correct answer from the answer key"
+    )
+    exercise_type: ValidationExerciseType = Field(
+        ..., description="Must be 'sentence_construction' or 'dialogue_completion'"
+    )
+
+
+class ValidationResponse(BaseModel):
+    """Answer validation response from LLM evaluation."""
+
+    is_correct: bool = Field(..., description="Whether the user's answer is valid")
+    explanation: str = Field(
+        ..., description="Educational explanation of the evaluation"
+    )
+    alternatives: list[str] = Field(
+        default_factory=list,
+        description="Alternative valid answers (1-3 items)",
+    )
+
+
+# ---------------------------------------------------------------------------
 # Legacy aliases (kept for backward compatibility with HealthResponse import)
 # ---------------------------------------------------------------------------
 

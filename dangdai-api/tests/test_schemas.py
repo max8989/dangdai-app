@@ -14,6 +14,9 @@ from src.api.schemas import (
     QuizGenerateResponse,
     ReadingComprehensionQuestion,
     SentenceConstructionQuestion,
+    ValidationExerciseType,
+    ValidationRequest,
+    ValidationResponse,
     VocabularyQuestion,
 )
 
@@ -199,6 +202,130 @@ class TestReadingComprehensionQuestion:
             ],
         )
         assert len(q.comprehension_questions) == 1
+
+
+class TestValidationExerciseTypeEnum:
+    def test_only_complex_types_allowed(self):
+        """Only sentence_construction and dialogue_completion are valid."""
+        assert (
+            ValidationExerciseType.SENTENCE_CONSTRUCTION.value
+            == "sentence_construction"
+        )
+        assert ValidationExerciseType.DIALOGUE_COMPLETION.value == "dialogue_completion"
+        assert len(ValidationExerciseType) == 2
+
+    def test_from_string(self):
+        assert (
+            ValidationExerciseType("sentence_construction")
+            == ValidationExerciseType.SENTENCE_CONSTRUCTION
+        )
+        assert (
+            ValidationExerciseType("dialogue_completion")
+            == ValidationExerciseType.DIALOGUE_COMPLETION
+        )
+
+    def test_invalid_type_raises(self):
+        with pytest.raises(ValueError):
+            ValidationExerciseType("vocabulary")
+
+    def test_grammar_type_rejected(self):
+        with pytest.raises(ValueError):
+            ValidationExerciseType("grammar")
+
+    def test_fill_in_blank_type_rejected(self):
+        with pytest.raises(ValueError):
+            ValidationExerciseType("fill_in_blank")
+
+
+class TestValidationRequest:
+    def _valid_request(self, **overrides):
+        defaults = {
+            "question": "Arrange these words: 我 學 中文",
+            "user_answer": "我學中文",
+            "correct_answer": "我學中文",
+            "exercise_type": "sentence_construction",
+        }
+        defaults.update(overrides)
+        return ValidationRequest(**defaults)
+
+    def test_valid_sentence_construction_request(self):
+        req = self._valid_request()
+        assert req.exercise_type == ValidationExerciseType.SENTENCE_CONSTRUCTION
+        assert req.question == "Arrange these words: 我 學 中文"
+        assert req.user_answer == "我學中文"
+        assert req.correct_answer == "我學中文"
+
+    def test_valid_dialogue_completion_request(self):
+        req = self._valid_request(exercise_type="dialogue_completion")
+        assert req.exercise_type == ValidationExerciseType.DIALOGUE_COMPLETION
+
+    def test_empty_question_raises(self):
+        with pytest.raises(ValidationError):
+            self._valid_request(question="")
+
+    def test_empty_user_answer_raises(self):
+        with pytest.raises(ValidationError):
+            self._valid_request(user_answer="")
+
+    def test_empty_correct_answer_raises(self):
+        with pytest.raises(ValidationError):
+            self._valid_request(correct_answer="")
+
+    def test_invalid_exercise_type_raises(self):
+        with pytest.raises(ValidationError):
+            self._valid_request(exercise_type="vocabulary")
+
+    def test_vocabulary_exercise_type_rejected(self):
+        with pytest.raises(ValidationError):
+            self._valid_request(exercise_type="vocabulary")
+
+    def test_grammar_exercise_type_rejected(self):
+        with pytest.raises(ValidationError):
+            self._valid_request(exercise_type="grammar")
+
+    def test_matching_exercise_type_rejected(self):
+        with pytest.raises(ValidationError):
+            self._valid_request(exercise_type="matching")
+
+
+class TestValidationResponse:
+    def test_valid_correct_response(self):
+        resp = ValidationResponse(
+            is_correct=True,
+            explanation="Your answer is correct.",
+            alternatives=["alternative sentence"],
+        )
+        assert resp.is_correct is True
+        assert resp.explanation == "Your answer is correct."
+        assert len(resp.alternatives) == 1
+
+    def test_valid_incorrect_response(self):
+        resp = ValidationResponse(
+            is_correct=False,
+            explanation="Word order is incorrect.",
+            alternatives=["correct order"],
+        )
+        assert resp.is_correct is False
+
+    def test_alternatives_default_empty(self):
+        resp = ValidationResponse(is_correct=True, explanation="Correct!")
+        assert resp.alternatives == []
+
+    def test_multiple_alternatives(self):
+        resp = ValidationResponse(
+            is_correct=True,
+            explanation="Your answer is valid.",
+            alternatives=["alt1", "alt2", "alt3"],
+        )
+        assert len(resp.alternatives) == 3
+
+    def test_missing_is_correct_raises(self):
+        with pytest.raises(ValidationError):
+            ValidationResponse(explanation="test")  # type: ignore[call-arg]
+
+    def test_missing_explanation_raises(self):
+        with pytest.raises(ValidationError):
+            ValidationResponse(is_correct=True)  # type: ignore[call-arg]
 
 
 class TestQuizGenerateResponse:

@@ -73,9 +73,9 @@ development_status:
   # Epic 4: Quiz Experience & Exercise Types
   epic-4: in-progress
   4-1-quiz-generation-api-endpoint: done
-  4-1b-answer-validation-api-endpoint: ready-for-dev
+  4-1b-answer-validation-api-endpoint: review
   4-2-quiz-loading-screen-with-tips: done
-  4-3-vocabulary-grammar-quiz-multiple-choice: ready-for-dev
+  4-3-vocabulary-grammar-quiz-multiple-choice: in-progress
   4-4-fill-in-the-blank-exercise: ready-for-dev
   4-5-matching-exercise: ready-for-dev
   4-6-dialogue-completion-exercise: ready-for-dev
