@@ -68,6 +68,7 @@ import { FeedbackOverlay } from '../../components/quiz/FeedbackOverlay'
 import { validateFillInBlank, parseCorrectAnswers, allBlanksFilled } from '../../lib/validateFillInBlank'
 import { EXERCISE_TYPE_LABELS } from '../../types/quiz'
 import type { ExerciseType, QuizQuestion, DialogueQuestion } from '../../types/quiz'
+import type { Json } from '../../types/supabase'
 import type { QuizDisplayVariant, QuizFeedbackVariant } from '../../components/quiz/QuizQuestionCard'
 import { DialogueCard } from '../../components/quiz/DialogueCard'
 import type { DialogueAnswerResult } from '../../components/quiz/DialogueCard'
@@ -247,7 +248,7 @@ export default function QuizPlayScreen() {
         exerciseType: exType,
         score: finalScore,
         totalQuestions: totalQs,
-        answersJson: finalAnswers as Record<string, string>,
+        answersJson: finalAnswers as unknown as Json,
       })
 
       // Show CompletionScreen in-place (Story 4.11) — no navigation needed.

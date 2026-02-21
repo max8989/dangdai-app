@@ -77,10 +77,10 @@ interface QuizState {
 
   // Quiz completion state (Story 4.11)
   // Set to true by completeQuiz() when the quiz is finished and CompletionScreen shows.
-  // NOT persisted — ephemeral UI state, resets on resetQuiz().
+  // Persisted so crash on CompletionScreen doesn't trigger a false-positive resume dialog.
   isComplete: boolean
   // Timestamp (ms) when the quiz was started, used to compute quiz duration.
-  // Set in startQuiz(), cleared in resetQuiz().
+  // Persisted so duration is accurate after crash recovery. Set in startQuiz(), cleared in resetQuiz().
   quizStartTime: number | null
 
   // Derived getters
@@ -132,9 +132,9 @@ interface QuizState {
  * on every state change (NFR10 — crash-safe progress).
  *
  * Persisted fields: currentQuizId, currentQuestion, answers, score, quizPayload,
- *   chapterId, bookId, exerciseType
+ *   chapterId, bookId, exerciseType, isComplete, quizStartTime
  * NOT persisted: placedTileIds, blankAnswers, blankAnswerIndices, showFeedback,
- *   feedbackIsCorrect, _hasHydrated (and all action functions)
+ *   feedbackIsCorrect, matchingScore, _hasHydrated (and all action functions)
  *
  * Usage:
  * ```tsx
@@ -184,7 +184,10 @@ export const useQuizStore = create<QuizState>()(
 
       hasActiveQuiz: () => {
         const state = get()
-        return state.currentQuizId !== null && state.quizPayload !== null
+        // A quiz is resumable only if it exists AND is not already completed.
+        // isComplete is persisted so crash-on-CompletionScreen doesn't cause
+        // a false-positive resume dialog on next app launch.
+        return state.currentQuizId !== null && state.quizPayload !== null && !state.isComplete
       },
 
       // Story 4.11 derived getters
@@ -344,7 +347,7 @@ export const useQuizStore = create<QuizState>()(
 
       // Persist ONLY the minimal fields needed to resume a quiz after crash.
       // Excludes: _hasHydrated, placedTileIds, blankAnswers, blankAnswerIndices,
-      //   showFeedback, feedbackIsCorrect, and all action functions.
+      //   showFeedback, feedbackIsCorrect, matchingScore, and all action functions.
       partialize: (state) => ({
         currentQuizId: state.currentQuizId,
         currentQuestion: state.currentQuestion,
@@ -354,6 +357,11 @@ export const useQuizStore = create<QuizState>()(
         chapterId: state.chapterId,
         bookId: state.bookId,
         exerciseType: state.exerciseType,
+        // isComplete: persisted so crash on CompletionScreen doesn't trigger
+        // a false-positive resume dialog (hasActiveQuiz returns false when complete)
+        isComplete: state.isComplete,
+        // quizStartTime: persisted so quiz duration is accurate after crash recovery
+        quizStartTime: state.quizStartTime,
       }),
 
       // Called after AsyncStorage data is loaded into the store.

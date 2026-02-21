@@ -32,7 +32,9 @@ export interface ChapterProgress {
   userId: string
   chapterId: number
   bookId: number
-  completionPercentage: number
+  /** Null means "never attempted" — distinct from 0 (attempted, scored 0%) */
+  completionPercentage: number | null
   masteredAt: string | null
-  updatedAt: string
+  /** Null if the database row has no timestamp (should not happen with DEFAULT now()) */
+  updatedAt: string | null
 }
