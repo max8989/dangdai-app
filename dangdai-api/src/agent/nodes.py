@@ -41,9 +41,19 @@ def retrieve_content(state: QuizGenerationState) -> dict[str, Any]:
     Returns:
         State update with retrieved_content.
     """
+    import time
+
+    start = time.perf_counter()
     book_id = state["book_id"]
     chapter_id = state["chapter_id"]
     exercise_type = state["exercise_type"]
+
+    logger.info(
+        "[Node:retrieve_content] START book=%d chapter=%d type=%s",
+        book_id,
+        chapter_id,
+        exercise_type,
+    )
 
     _, lesson = ChapterRepository.parse_chapter_id(chapter_id)
 
@@ -59,9 +69,11 @@ def retrieve_content(state: QuizGenerationState) -> dict[str, Any]:
     else:
         chunks = rag_service.retrieve_content(book_id, lesson, exercise_type)
 
+    elapsed = (time.perf_counter() - start) * 1000
     logger.info(
-        "Retrieved %d content chunks for book=%d, lesson=%d, type=%s",
+        "[Node:retrieve_content] DONE %d chunks in %.0fms for book=%d, lesson=%d, type=%s",
         len(chunks),
+        elapsed,
         book_id,
         lesson,
         exercise_type,
@@ -99,11 +111,21 @@ async def generate_quiz(state: QuizGenerationState) -> dict[str, Any]:
     Returns:
         State update with questions list.
     """
+    import time
+
+    start = time.perf_counter()
     book_id = state["book_id"]
     chapter_id = state["chapter_id"]
     exercise_type = state["exercise_type"]
     retrieved_content = state.get("retrieved_content", [])
     weakness_profile = state.get("weakness_profile", {})
+
+    logger.info(
+        "[Node:generate_quiz] START type=%s chunks=%d retry=%d",
+        exercise_type,
+        len(retrieved_content),
+        state.get("retry_count", 0),
+    )
 
     _, lesson = ChapterRepository.parse_chapter_id(chapter_id)
 
@@ -168,7 +190,12 @@ async def generate_quiz(state: QuizGenerationState) -> dict[str, Any]:
     ]
 
     try:
+        llm_start = time.perf_counter()
+        logger.info("[Node:generate_quiz] Calling LLM...")
         response = await llm.ainvoke(messages)
+        llm_elapsed = (time.perf_counter() - llm_start) * 1000
+        logger.info("[Node:generate_quiz] LLM responded in %.0fms", llm_elapsed)
+
         content = (
             response.content
             if isinstance(response.content, str)
@@ -178,13 +205,23 @@ async def generate_quiz(state: QuizGenerationState) -> dict[str, Any]:
         # Parse JSON from response
         questions = _parse_questions_json(content)
 
+        elapsed = (time.perf_counter() - start) * 1000
         logger.info(
-            "Generated %d questions for exercise_type=%s", len(questions), exercise_type
+            "[Node:generate_quiz] DONE %d questions in %.0fms (LLM=%.0fms)",
+            len(questions),
+            elapsed,
+            llm_elapsed,
         )
         return {"questions": questions}
 
     except Exception as e:
-        logger.error("LLM generation failed: %s", e)
+        elapsed = (time.perf_counter() - start) * 1000
+        logger.error(
+            "[Node:generate_quiz] FAILED after %.0fms: %s: %s",
+            elapsed,
+            type(e).__name__,
+            e,
+        )
         return {"questions": [], "validation_errors": [f"LLM generation failed: {e}"]}
 
 
@@ -207,8 +244,15 @@ def validate_quiz(state: QuizGenerationState) -> dict[str, Any]:
     retry_count = state.get("retry_count", 0)
     errors: list[str] = []
 
+    logger.info(
+        "[Node:validate_quiz] START questions=%d retry=%d",
+        len(questions),
+        retry_count,
+    )
+
     if not questions:
         errors.append("No questions were generated")
+        logger.warning("[Node:validate_quiz] No questions to validate")
         return {
             "validation_errors": errors,
             "retry_count": retry_count + 1,
@@ -245,7 +289,13 @@ def validate_quiz(state: QuizGenerationState) -> dict[str, Any]:
             errors.append(f"{qid}: missing explanation")
 
     if errors:
-        logger.warning("Validation found %d errors: %s", len(errors), errors)
+        logger.warning(
+            "[Node:validate_quiz] DONE with %d errors: %s", len(errors), errors
+        )
+    else:
+        logger.info(
+            "[Node:validate_quiz] DONE — all %d questions passed", len(questions)
+        )
 
     return {
         "validation_errors": errors,

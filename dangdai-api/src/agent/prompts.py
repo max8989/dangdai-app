@@ -37,7 +37,7 @@ Return a JSON array of question objects. Each question must follow this structur
 IMPORTANT:
 - Generate exactly {question_count} questions
 - Every question must have a unique question_id (q1, q2, q3, ...)
-- source_citation format: "Book {book_id}, Chapter {lesson} - {section}"
+- source_citation format: "Book {book_id}, Chapter {lesson} - <section name>"
 - explanations should be concise (1-2 sentences) and educational
 - All content must come from the provided chapter material
 """

@@ -54,8 +54,19 @@ async def generate_quiz(
     Returns:
         QuizGenerateResponse with generated questions.
     """
+    logger.info(
+        "generate_quiz called: user=%s chapter_id=%d book_id=%d exercise_type=%s",
+        user_id,
+        request.chapter_id,
+        request.book_id,
+        request.exercise_type.value,
+    )
+
     # Validate chapter_id format (exercise_type is already validated by Pydantic)
     if request.chapter_id < 100:
+        logger.warning(
+            "Invalid chapter_id=%d from user=%s", request.chapter_id, user_id
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid chapter_id: must be >= 100 (format: book_id * 100 + chapter_number)",
@@ -63,10 +74,20 @@ async def generate_quiz(
 
     try:
         response = await _quiz_service.generate_quiz(request, user_id)
+        logger.info(
+            "Quiz generated successfully: quiz_id=%s questions=%d",
+            response.quiz_id,
+            response.question_count,
+        )
         return response
 
     except TimeoutError as e:
-        logger.error("Quiz generation timeout: %s", e)
+        logger.error(
+            "Quiz generation TIMEOUT for user=%s chapter=%d: %s",
+            user_id,
+            request.chapter_id,
+            e,
+        )
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
             detail=str(e),
@@ -74,6 +95,12 @@ async def generate_quiz(
 
     except ValueError as e:
         error_msg = str(e)
+        logger.error(
+            "Quiz generation ValueError for user=%s chapter=%d: %s",
+            user_id,
+            request.chapter_id,
+            error_msg,
+        )
         if "no questions" in error_msg.lower() or "insufficient" in error_msg.lower():
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -85,7 +112,12 @@ async def generate_quiz(
         )
 
     except Exception:
-        logger.exception("Unexpected error during quiz generation")
+        logger.exception(
+            "Quiz generation UNEXPECTED ERROR for user=%s chapter=%d exercise_type=%s",
+            user_id,
+            request.chapter_id,
+            request.exercise_type.value,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error during quiz generation",

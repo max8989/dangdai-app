@@ -223,7 +223,7 @@ This document provides the complete epic and story breakdown for dangdai-app, de
 - CompletionScreen with celebration sequence + per-exercise-type breakdown
 - ChapterListItem with per-exercise-type progress indicator dots
 - BookCard with overall progress
-- FeedbackOverlay with auto-advance + pre-generated explanation display
+- FeedbackOverlay with "Next" button + pre-generated explanation display
 - WeaknessDashboard (vocabulary, grammar, exercise type accuracy sections)
 - WeakAreaDrillCard (tappable to launch focused drill)
 - AccuracyBar (horizontal color-coded bar)
@@ -1055,7 +1055,7 @@ So that I know instantly if I was correct and learn from the explanation.
 **And** points increment is shown
 **And** the pre-generated explanation is displayed (e.g., "This uses the 把 construction because...")
 **And** source citation is shown (e.g., "From Book 2, Chapter 12 - Grammar")
-**And** feedback displays for ~1 second before auto-advancing
+**And** feedback displays until user taps "Next" to advance
 
 **Given** I have submitted an incorrect answer
 **When** feedback is displayed
@@ -1063,7 +1063,7 @@ So that I know instantly if I was correct and learn from the explanation.
 **And** the correct answer is highlighted in green
 **And** a gentle "bonk" sound plays
 **And** the pre-generated explanation is displayed
-**And** feedback displays for ~1 second before auto-advancing
+**And** feedback displays until user taps "Next" to advance
 
 ---
 

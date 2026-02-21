@@ -20,7 +20,8 @@ class Settings:
 
     # LLM Configuration
     LLM_API_KEY: str = os.getenv("LLM_API_KEY", "")
-    LLM_MODEL: str = os.getenv("LLM_MODEL", "claude-3-5-sonnet-20241022")
+    LLM_MODEL: str = os.getenv("LLM_MODEL", "")
+    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "openai")
 
     # LangSmith (Optional - for observability)
     LANGSMITH_API_KEY: str = os.getenv("LANGSMITH_API_KEY", "")
