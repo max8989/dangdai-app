@@ -86,6 +86,10 @@ export interface QuizQuestion {
   pairs?: MatchingPair[]
   left_items?: string[]
   right_items?: string[]
+  // Reading comprehension fields (Story 4.8)
+  passage?: string
+  passage_pinyin?: string
+  comprehension_questions?: ComprehensionSubQuestion[]
 }
 
 /**
@@ -99,6 +103,23 @@ export interface DialogueLine {
   text: string
   /** Whether this line is the blank the user must fill */
   isBlank: boolean
+}
+
+/**
+ * A sub-question within a reading comprehension passage.
+ * Story 4.8: Reading Comprehension Exercise
+ */
+export interface ComprehensionSubQuestion {
+  /** The question text */
+  question: string
+  /** Multiple choice options for this sub-question */
+  options: string[]
+  /** The correct answer text (resolved from backend's correct index) */
+  correct_answer: string
+  /** Optional per-sub-question explanation */
+  explanation?: string
+  /** Optional per-sub-question source citation */
+  source_citation?: string
 }
 
 /**

@@ -74,6 +74,7 @@ import { DialogueCard } from '../../components/quiz/DialogueCard'
 import type { DialogueAnswerResult } from '../../components/quiz/DialogueCard'
 import { SentenceBuilder } from '../../components/quiz/SentenceBuilder'
 import { MatchingExercise } from '../../components/quiz/MatchingExercise'
+import { ReadingPassageCard } from '../../components/quiz/ReadingPassageCard'
 import { preloadSounds, unloadSounds, playSound } from '../../hooks/useSound'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -192,6 +193,9 @@ export default function QuizPlayScreen() {
   /** Whether fill-in-blank has been validated (disables all interaction) */
   const [fillInBlankValidated, setFillInBlankValidated] = useState(false)
 
+  /** Reading comprehension: current sub-question index (0-based, local state) */
+  const [subQuestionIndex, setSubQuestionIndex] = useState(0)
+
   // ─── On mount: preload sounds ────────────────────────────────────────────
 
   // loading.tsx calls startQuiz(quizId, payload, chapterId, bookId, exerciseType) before
@@ -277,6 +281,7 @@ export default function QuizPlayScreen() {
     setSelectedAnswer(null)
     setFeedbackState('none')
     setCurrentPointsEarned(POINTS_PER_CORRECT)
+    setSubQuestionIndex(0)
   }, [currentQuestionIndex])
 
   // ─── Derived display values (only when quiz data is valid) ────────────────
@@ -306,6 +311,7 @@ export default function QuizPlayScreen() {
   const isDialogue = currentQuestion?.exercise_type === 'dialogue_completion'
   const isSentenceConstruction = currentQuestion?.exercise_type === 'sentence_construction'
   const isMatching = currentQuestion?.exercise_type === 'matching'
+  const isReadingComprehension = currentQuestion?.exercise_type === 'reading_comprehension'
 
   const wordBank: string[] = currentQuestion?.word_bank ?? []
 
@@ -566,6 +572,71 @@ export default function QuizPlayScreen() {
      timer, saveQuestionResult, chapterId, bookId, quizPayload]
   )
 
+  // ─── Reading comprehension sub-question answer handler (Story 4.8) ─────────
+
+  const handleReadingSubQuestionAnswer = useCallback(
+    (isCorrect: boolean, selectedAnswer: string) => {
+      if (!currentQuestion || !currentQuestion.comprehension_questions) return
+
+      const totalSubQuestions = currentQuestion.comprehension_questions.length
+      const isLastSubQuestion = subQuestionIndex === totalSubQuestions - 1
+
+      // Stop timer only on the last sub-question (Story 4.10, Task 5.3)
+      const timeSpentMs = isLastSubQuestion ? timer.stopTimer() : 0
+
+      // Record answer in store (JSON array of sub-answers)
+      // Build up the answers array for all sub-questions
+      const existingAnswer = useQuizStore.getState().answers[currentQuestionIndex]
+      const currentAnswers: string[] = existingAnswer
+        ? (JSON.parse(existingAnswer) as string[])
+        : []
+      currentAnswers[subQuestionIndex] = selectedAnswer
+      setAnswer(currentQuestionIndex, JSON.stringify(currentAnswers))
+
+      // Add score for this sub-question
+      if (isCorrect) {
+        addScore(POINTS_PER_CORRECT)
+      }
+
+      // If this is the last sub-question, save to Supabase
+      if (isLastSubQuestion) {
+        // Calculate overall correctness: all sub-questions must be correct
+        const allSubAnswersCorrect = currentAnswers.every((ans, idx) => {
+          return ans === currentQuestion.comprehension_questions![idx].correct_answer
+        })
+
+        saveQuestionResult({
+          chapterId: chapterId ?? quizPayload?.chapter_id ?? 0,
+          bookId: bookId ?? quizPayload?.book_id ?? 0,
+          exerciseType: currentQuestion.exercise_type,
+          vocabularyItem: null,
+          grammarPattern: null,
+          correct: allSubAnswersCorrect,
+          timeSpentMs,
+        })
+
+        // Trigger feedback and advance to next quiz question
+        handleAnswerResult(isCorrect)
+      } else {
+        // Advance to next sub-question within the same passage
+        setSubQuestionIndex((prev) => prev + 1)
+      }
+    },
+    [
+      currentQuestion,
+      currentQuestionIndex,
+      subQuestionIndex,
+      setAnswer,
+      addScore,
+      handleAnswerResult,
+      timer,
+      saveQuestionResult,
+      chapterId,
+      bookId,
+      quizPayload,
+    ]
+  )
+
   // ─── Answer selection handler (multiple choice) ───────────────────────────
 
   const handleAnswerSelect = useCallback(
@@ -809,6 +880,29 @@ export default function QuizPlayScreen() {
                     onAnswer={handleSentenceAnswer}
                     disabled={showFeedback}
                     testID="sentence-builder"
+                  />
+                </YStack>
+              </AnimatePresence>
+            ) : null
+          ) : isReadingComprehension ? (
+            // ─── Reading Comprehension Layout (Story 4.8) ─────────────────
+            currentQuestion.passage && currentQuestion.comprehension_questions ? (
+              <AnimatePresence exitBeforeEnter>
+                <YStack
+                  key={currentQuestionIndex}
+                  animation="medium"
+                  enterStyle={{ opacity: 0, x: 20 }}
+                  exitStyle={{ opacity: 0, x: -20 }}
+                  flex={1}
+                >
+                  <ReadingPassageCard
+                    passage={currentQuestion.passage}
+                    passagePinyin={currentQuestion.passage_pinyin}
+                    comprehensionQuestions={currentQuestion.comprehension_questions}
+                    currentSubQuestionIndex={subQuestionIndex}
+                    onAnswer={handleReadingSubQuestionAnswer}
+                    disabled={showFeedback}
+                    testID="reading-passage-card"
                   />
                 </YStack>
               </AnimatePresence>

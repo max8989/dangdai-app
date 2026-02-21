@@ -163,6 +163,85 @@ const mockDialogueQuizResponse: QuizResponse = {
   ],
 }
 
+const mockReadingComprehensionQuizResponse: QuizResponse = {
+  quiz_id: 'test-reading-quiz-1',
+  chapter_id: 212,
+  book_id: 2,
+  exercise_type: 'reading_comprehension',
+  question_count: 1,
+  questions: [
+    {
+      question_id: 'rc-1',
+      exercise_type: 'reading_comprehension',
+      question_text: 'Read the passage and answer the questions.',
+      correct_answer: 'See sub-questions',
+      explanation: 'This passage describes a daily morning routine using time expressions and sequential actions.',
+      source_citation: 'Book 2, Chapter 12 - Reading',
+      passage: '我每天早上六點起床。起床以後先去跑步，然後吃早餐。我很喜歡吃包子和豆漿。吃完早餐以後，我就去上課了。',
+      passage_pinyin: 'Wǒ měi tiān zǎo shàng liù diǎn qǐ chuáng. Qǐ chuáng yǐ hòu xiān qù pǎo bù, rán hòu chī zǎo cān. Wǒ hěn xǐ huān chī bāo zi hé dòu jiāng. Chī wán zǎo cān yǐ hòu, wǒ jiù qù shàng kè le.',
+      comprehension_questions: [
+        {
+          question: 'What does the author do first in the morning?',
+          options: ['吃早餐', '去跑步', '喝咖啡', '看書'],
+          correct_answer: '去跑步',
+        },
+        {
+          question: 'What does the author like to eat for breakfast?',
+          options: ['麵包和牛奶', '包子和豆漿', '飯和菜', '水果和咖啡'],
+          correct_answer: '包子和豆漿',
+        },
+        {
+          question: 'What time does the author wake up?',
+          options: ['五點', '六點', '七點', '八點'],
+          correct_answer: '六點',
+        },
+      ],
+    },
+  ],
+}
+
+const mockMixedQuizWithReading: QuizResponse = {
+  quiz_id: 'test-mixed-quiz-1',
+  chapter_id: 212,
+  book_id: 2,
+  exercise_type: 'mixed',
+  question_count: 2,
+  questions: [
+    {
+      question_id: 'v1',
+      exercise_type: 'vocabulary',
+      question_text: 'What does this character mean?',
+      correct_answer: 'to study',
+      explanation: '學 (xué) means to study/learn.',
+      source_citation: 'Book 2, Chapter 12 - Vocabulary',
+      character: '學',
+      pinyin: 'xué',
+      options: ['to study', 'to teach', 'to read', 'to write'],
+    },
+    {
+      question_id: 'rc-1',
+      exercise_type: 'reading_comprehension',
+      question_text: 'Read the passage and answer the questions.',
+      correct_answer: 'See sub-questions',
+      explanation: 'This passage describes weekend activities and preferences.',
+      source_citation: 'Book 2, Chapter 12 - Reading',
+      passage: '週末的時候，我喜歡去圖書館看書。圖書館很安靜，我可以在那裡學習。下午我會去打籃球。',
+      comprehension_questions: [
+        {
+          question: 'Where does the author like to go on weekends?',
+          options: ['公園', '圖書館', '電影院', '商店'],
+          correct_answer: '圖書館',
+        },
+        {
+          question: 'What does the author do in the afternoon?',
+          options: ['看書', '打籃球', '游泳', '跑步'],
+          correct_answer: '打籃球',
+        },
+      ],
+    },
+  ],
+}
+
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
 // Mock react-native-safe-area-context — provides useSafeAreaInsets
@@ -419,6 +498,47 @@ jest.mock('../../components/quiz/MatchingExercise', () => ({
         >
           <Text>Complete With Errors</Text>
         </TouchableOpacity>
+      </View>
+    )
+  },
+}))
+
+// Mock ReadingPassageCard component (Story 4.8)
+jest.mock('../../components/quiz/ReadingPassageCard', () => ({
+  ReadingPassageCard: ({
+    passage,
+    passagePinyin,
+    comprehensionQuestions,
+    currentSubQuestionIndex,
+    onAnswer,
+    disabled,
+    testID,
+  }: any) => {
+    const { View, TouchableOpacity, Text } = require('react-native')
+    const currentQuestion = comprehensionQuestions[currentSubQuestionIndex]
+    return (
+      <View testID={testID || 'reading-passage-card'}>
+        <Text testID="reading-passage-text">{passage}</Text>
+        {passagePinyin && <Text testID="reading-passage-pinyin">{passagePinyin}</Text>}
+        <Text testID="reading-question-text">{currentQuestion?.question}</Text>
+        <Text testID="reading-sub-question-progress">
+          Question {currentSubQuestionIndex + 1}/{comprehensionQuestions.length}
+        </Text>
+        {currentQuestion?.options.map((option: string) => (
+          <TouchableOpacity
+            key={option}
+            testID={`reading-option-${option}`}
+            onPress={() => {
+              if (!disabled) {
+                const isCorrect = option === currentQuestion.correct_answer
+                onAnswer(isCorrect, option)
+              }
+            }}
+            disabled={disabled}
+          >
+            <Text>{option}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
     )
   },
@@ -1176,6 +1296,106 @@ describe('QuizPlayScreen', () => {
       fireEvent.press(getByTestId('matching-complete-trigger'))
       // score=100, POINTS_PER_CORRECT=10, so pointsEarned = Math.round(100/100 * 10) = 10
       expect(mockAddScore).toHaveBeenCalledWith(10)
+    })
+  })
+
+  describe('Story 4.8: Reading Comprehension integration (Task 5)', () => {
+    beforeEach(() => {
+      mockQuizState.quizPayload = mockReadingComprehensionQuizResponse
+      mockQuizState.currentQuestion = 0
+    })
+
+    it('renders ReadingPassageCard when exercise_type === reading_comprehension (Task 5.1)', () => {
+      const { getByTestId } = render(<QuizPlayScreen />)
+      expect(getByTestId('reading-passage-card')).toBeTruthy()
+    })
+
+    it('passage stays visible across all sub-questions for that passage (Task 5.2)', () => {
+      const { getByText, getByTestId } = render(<QuizPlayScreen />)
+
+      const passage = '我每天早上六點起床。起床以後先去跑步，然後吃早餐。我很喜歡吃包子和豆漿。吃完早餐以後，我就去上課了。'
+      
+      // Passage should be visible on first sub-question
+      expect(getByText(passage)).toBeTruthy()
+
+      // Answer first sub-question
+      fireEvent.press(getByText('去跑步'))
+      
+      // Wait for sub-question transition (1s feedback delay)
+      jest.advanceTimersByTime(1000)
+
+      // Passage should STILL be visible on second sub-question
+      expect(getByText(passage)).toBeTruthy()
+    })
+
+    it('answering all sub-questions advances to next quiz question (Task 5.3)', () => {
+      const { getByText } = render(<QuizPlayScreen />)
+
+      // Answer first sub-question
+      fireEvent.press(getByText('去跑步'))
+      jest.advanceTimersByTime(1000)
+
+      // Answer second sub-question
+      fireEvent.press(getByText('包子和豆漿'))
+      jest.advanceTimersByTime(1000)
+
+      // Answer third (last) sub-question
+      fireEvent.press(getByText('六點'))
+      jest.advanceTimersByTime(1000)
+
+      // FeedbackOverlay should appear after last sub-question
+      expect(mockTriggerShowFeedback).toHaveBeenCalledWith(true)
+    })
+
+    it('score increments correctly for each sub-question answered correctly (Task 5.5)', () => {
+      const { getByText } = render(<QuizPlayScreen />)
+
+      // Answer first sub-question correctly
+      fireEvent.press(getByText('去跑步'))
+      jest.advanceTimersByTime(1000)
+      expect(mockAddScore).toHaveBeenCalledWith(10)
+
+      // Answer second sub-question correctly
+      fireEvent.press(getByText('包子和豆漿'))
+      jest.advanceTimersByTime(1000)
+      expect(mockAddScore).toHaveBeenCalledWith(10)
+
+      // Answer third sub-question correctly
+      fireEvent.press(getByText('六點'))
+      jest.advanceTimersByTime(1000)
+      expect(mockAddScore).toHaveBeenCalledWith(10)
+
+      // Total 3 calls to addScore
+      expect(mockAddScore).toHaveBeenCalledTimes(3)
+    })
+
+    it('mixed quiz with reading comprehension + vocabulary questions renders both types correctly (Task 5.6)', () => {
+      mockQuizState.quizPayload = mockMixedQuizWithReading
+      mockQuizState.currentQuestion = 0
+
+      const { getByTestId, getByText } = render(<QuizPlayScreen />)
+
+      // First question is vocabulary — should render QuizQuestionCard
+      expect(getByTestId('quiz-question-card')).toBeTruthy()
+      expect(getByText('學')).toBeTruthy()
+
+      // Answer vocabulary question
+      fireEvent.press(getByText('to study'))
+      jest.advanceTimersByTime(1000)
+
+      // Trigger feedback should be called
+      expect(mockTriggerShowFeedback).toHaveBeenCalledWith(true)
+
+      // Simulate user advancing to next question by updating state
+      mockQuizState.currentQuestion = 1
+
+      const { getByTestId: getByTestId2, rerender } = render(<QuizPlayScreen />)
+
+      // Re-render to show second question
+      rerender(<QuizPlayScreen />)
+
+      // Second question is reading comprehension — should render ReadingPassageCard
+      expect(getByTestId2('reading-passage-card')).toBeTruthy()
     })
   })
 

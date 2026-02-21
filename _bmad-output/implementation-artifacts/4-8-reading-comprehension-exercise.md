@@ -1,6 +1,6 @@
 # Story 4.8: Reading Comprehension Exercise
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -22,56 +22,56 @@ So that I can practice reading skills.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Extend `types/quiz.ts` with reading comprehension types (AC: #1)
-  - [ ] 1.1 Add `ComprehensionSubQuestion` interface: `{ question: string; options: string[]; correct_answer: string; explanation?: string; source_citation?: string }`
-  - [ ] 1.2 Add reading-comprehension-specific optional fields to `QuizQuestion`: `passage?: string`, `passage_pinyin?: string`, `comprehension_questions?: ComprehensionSubQuestion[]`
-  - [ ] 1.3 Verify `ExerciseType` already includes `'reading_comprehension'` (it does — verify only)
+- [x] Task 1: Extend `types/quiz.ts` with reading comprehension types (AC: #1)
+  - [x] 1.1 Add `ComprehensionSubQuestion` interface: `{ question: string; options: string[]; correct_answer: string; explanation?: string; source_citation?: string }`
+  - [x] 1.2 Add reading-comprehension-specific optional fields to `QuizQuestion`: `passage?: string`, `passage_pinyin?: string`, `comprehension_questions?: ComprehensionSubQuestion[]`
+  - [x] 1.3 Verify `ExerciseType` already includes `'reading_comprehension'` (it does — verify only)
 
-- [ ] Task 2: Create `ReadingPassageCard` component (AC: #1, #2)
-  - [ ] 2.1 Create `components/quiz/ReadingPassageCard.tsx` with `PassageContainer` using `styled(Card)` with `size` variant (`short`, `medium`, `long`)
-  - [ ] 2.2 Implement scrollable passage area using `ScrollView` inside `PassageContainer` — passage must scroll independently from the page
-  - [ ] 2.3 Render passage header text ("Read the following passage:")
-  - [ ] 2.4 Render Chinese passage text at 20px minimum body reading size with `$color` token
-  - [ ] 2.5 Implement pinyin toggle button — tap to show/hide pinyin above passage characters
-  - [ ] 2.6 When pinyin is visible, render `passage_pinyin` text above the passage in a smaller font (14px)
-  - [ ] 2.7 Render current comprehension question text below the passage with a `Separator` divider
-  - [ ] 2.8 Render answer options below the question using existing `AnswerOptionGrid` component (REUSE from Story 4.3)
-  - [ ] 2.9 On answer selection: validate locally against `correct_answer` (exact match), show correct/incorrect feedback via `AnswerOptionGrid` state variants
-  - [ ] 2.10 After feedback delay (~1s): call `onAnswer` callback to advance to next comprehension question or next quiz question
-  - [ ] 2.11 Show sub-question progress within the passage (e.g., "Question 1/3")
-  - [ ] 2.12 Enforce `animation="medium"` with `enterStyle={{ opacity: 0 }}` on `PassageContainer`
-  - [ ] 2.13 Enforce minimum 48px touch targets on pinyin toggle and answer options
+- [x] Task 2: Create `ReadingPassageCard` component (AC: #1, #2)
+  - [x] 2.1 Create `components/quiz/ReadingPassageCard.tsx` with `PassageContainer` using `styled(Card)` with `size` variant (`short`, `medium`, `long`)
+  - [x] 2.2 Implement scrollable passage area using `ScrollView` inside `PassageContainer` — passage must scroll independently from the page
+  - [x] 2.3 Render passage header text ("Read the following passage:")
+  - [x] 2.4 Render Chinese passage text at 20px minimum body reading size with `$color` token
+  - [x] 2.5 Implement pinyin toggle button — tap to show/hide pinyin above passage characters
+  - [x] 2.6 When pinyin is visible, render `passage_pinyin` text above the passage in a smaller font (14px)
+  - [x] 2.7 Render current comprehension question text below the passage with a `Separator` divider
+  - [x] 2.8 Render answer options below the question using existing `AnswerOptionGrid` component (REUSE from Story 4.3)
+  - [x] 2.9 On answer selection: validate locally against `correct_answer` (exact match), show correct/incorrect feedback via `AnswerOptionGrid` state variants
+  - [x] 2.10 After feedback delay (~1s): call `onAnswer` callback to advance to next comprehension question or next quiz question
+  - [x] 2.11 Show sub-question progress within the passage (e.g., "Question 1/3")
+  - [x] 2.12 Enforce `animation="medium"` with `enterStyle={{ opacity: 0 }}` on `PassageContainer`
+  - [x] 2.13 Enforce minimum 48px touch targets on pinyin toggle and answer options
 
-- [ ] Task 3: Create `ReadingPassageCard.test.tsx` (AC: #1, #2)
-  - [ ] 3.1 Create `components/quiz/ReadingPassageCard.test.tsx` with mock reading comprehension data
-  - [ ] 3.2 Test: renders passage text in a scrollable container
-  - [ ] 3.3 Test: renders "Read the following passage:" header
-  - [ ] 3.4 Test: renders first comprehension question text below passage
-  - [ ] 3.5 Test: renders 4 answer options via AnswerOptionGrid
-  - [ ] 3.6 Test: pinyin toggle shows/hides pinyin text
-  - [ ] 3.7 Test: selecting correct answer shows success feedback
-  - [ ] 3.8 Test: selecting incorrect answer shows error feedback and highlights correct answer
-  - [ ] 3.9 Test: answer options are disabled after selection
-  - [ ] 3.10 Test: `onAnswer` callback is called after feedback delay
-  - [ ] 3.11 Test: sub-question progress indicator shows correct count (e.g., "Question 2/3")
-  - [ ] 3.12 Test: passage remains rendered (not unmounted) across sub-question transitions
+- [x] Task 3: Create `ReadingPassageCard.test.tsx` (AC: #1, #2)
+  - [x] 3.1 Create `components/quiz/ReadingPassageCard.test.tsx` with mock reading comprehension data
+  - [x] 3.2 Test: renders passage text in a scrollable container
+  - [x] 3.3 Test: renders "Read the following passage:" header
+  - [x] 3.4 Test: renders first comprehension question text below passage
+  - [x] 3.5 Test: renders 4 answer options via AnswerOptionGrid
+  - [x] 3.6 Test: pinyin toggle shows/hides pinyin text
+  - [x] 3.7 Test: selecting correct answer shows success feedback
+  - [x] 3.8 Test: selecting incorrect answer shows error feedback and highlights correct answer
+  - [x] 3.9 Test: answer options are disabled after selection
+  - [x] 3.10 Test: `onAnswer` callback is called after feedback delay
+  - [x] 3.11 Test: sub-question progress indicator shows correct count (e.g., "Question 2/3")
+  - [x] 3.12 Test: passage remains rendered (not unmounted) across sub-question transitions
 
-- [ ] Task 4: Integrate `ReadingPassageCard` into quiz play screen (AC: #1, #2)
-  - [ ] 4.1 Add `'reading_comprehension'` case to the exercise type switch/conditional in `app/quiz/play.tsx`
-  - [ ] 4.2 Render `<ReadingPassageCard>` when `exercise_type === 'reading_comprehension'`, passing passage, passage_pinyin, comprehension_questions, and callbacks
-  - [ ] 4.3 Manage sub-question index state: track which comprehension question within the passage is currently active
-  - [ ] 4.4 On sub-question answer: advance to next comprehension question within the same passage (passage stays visible)
-  - [ ] 4.5 On last sub-question answer: advance to next quiz question via `useQuizStore.nextQuestion()`
-  - [ ] 4.6 Wire each sub-question answer to `useQuizStore.setAnswer()` and `addScore()` — each sub-question counts as a separate scored answer
-  - [ ] 4.7 Reuse `<QuizProgress>` — total question count includes all sub-questions across all passages
+- [x] Task 4: Integrate `ReadingPassageCard` into quiz play screen (AC: #1, #2)
+  - [x] 4.1 Add `'reading_comprehension'` case to the exercise type switch/conditional in `app/quiz/play.tsx`
+  - [x] 4.2 Render `<ReadingPassageCard>` when `exercise_type === 'reading_comprehension'`, passing passage, passage_pinyin, comprehension_questions, and callbacks
+  - [x] 4.3 Manage sub-question index state: track which comprehension question within the passage is currently active
+  - [x] 4.4 On sub-question answer: advance to next comprehension question within the same passage (passage stays visible)
+  - [x] 4.5 On last sub-question answer: advance to next quiz question via `useQuizStore.nextQuestion()`
+  - [x] 4.6 Wire each sub-question answer to `useQuizStore.setAnswer()` and `addScore()` — each sub-question counts as a separate scored answer
+  - [x] 4.7 Reuse `<QuizProgress>` — total question count includes all sub-questions across all passages
 
-- [ ] Task 5: Write integration tests for reading comprehension in play.tsx (AC: all)
-  - [ ] 5.1 Test: `play.tsx` renders `ReadingPassageCard` when `exercise_type === 'reading_comprehension'`
-  - [ ] 5.2 Test: passage stays visible across all sub-questions for that passage
-  - [ ] 5.3 Test: answering all sub-questions advances to next quiz question
-  - [ ] 5.4 Test: `QuizProgress` reflects total sub-question count (not passage count)
-  - [ ] 5.5 Test: score increments correctly for each sub-question answered correctly
-  - [ ] 5.6 Test: mixed quiz with reading comprehension + vocabulary questions renders both types correctly
+- [x] Task 5: Write integration tests for reading comprehension in play.tsx (AC: all)
+  - [x] 5.1 Test: `play.tsx` renders `ReadingPassageCard` when `exercise_type === 'reading_comprehension'`
+  - [x] 5.2 Test: passage stays visible across all sub-questions for that passage
+  - [x] 5.3 Test: answering all sub-questions advances to next quiz question
+  - [x] 5.4 Test: `QuizProgress` reflects total sub-question count (not passage count)
+  - [x] 5.5 Test: score increments correctly for each sub-question answered correctly
+  - [x] 5.6 Test: mixed quiz with reading comprehension + vocabulary questions renders both types correctly
 
 ## Dev Notes
 
@@ -717,10 +717,65 @@ dangdai-mobile/
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+anthropic/claude-sonnet-4-5
 
 ### Debug Log References
 
+N/A
+
 ### Completion Notes List
+
+✅ **Story 4.8 Complete: Reading Comprehension Exercise**
+
+**Implemented:**
+1. Extended `types/quiz.ts` with `ComprehensionSubQuestion` interface and reading comprehension fields (`passage`, `passage_pinyin`, `comprehension_questions`) on `QuizQuestion`
+2. Created `ReadingPassageCard` component with:
+   - Scrollable passage container using `ScrollView` inside styled `Card`
+   - Pinyin toggle button (only shown when `passage_pinyin` is provided)
+   - Sub-question progress indicator (e.g., "Question 1/3")
+   - `AnimatePresence` for sub-question transitions (passage stays mounted)
+   - Reused `AnswerOptionGrid` from Story 4.3 for answer options
+   - 1s feedback delay before advancing to next sub-question
+3. Created comprehensive unit tests for `ReadingPassageCard` (16 tests, all passing)
+4. Integrated reading comprehension into `app/quiz/play.tsx`:
+   - Added `isReadingComprehension` exercise type flag
+   - Managed sub-question index as local state (resets on question change)
+   - Implemented `handleReadingSubQuestionAnswer` handler
+   - Each sub-question counts as a separate scored answer
+   - Passage stays visible across all sub-questions
+   - Timer stops only on the last sub-question
+5. Added integration tests for reading comprehension in `play.test.tsx` (5 tests, all passing)
+
+**All acceptance criteria met:**
+- AC #1: Scrollable Chinese text passage (20px body reading size), pinyin toggle, comprehension questions below with standard multiple choice
+- AC #2: Local answer validation with standard correct/incorrect feedback
+
+**Tests:**
+- All 16 `ReadingPassageCard` unit tests pass
+- All 5 integration tests in `play.test.tsx` pass
+- Type checking passes (`npx tsc`)
+- Linting passes (`npx eslint`)
+- Full test suite: 632/633 tests pass (1 unrelated failing test in `useChapters.test.ts`)
+
+**Key implementation details:**
+- Sub-question index is ephemeral local state (not stored in `useQuizStore`)
+- Passage does NOT unmount when advancing between sub-questions
+- Each sub-question answer is stored as a JSON array in the quiz store
+- Score increments by 10 points per correct sub-question
+- Supabase result saved only after the last sub-question
+- Used Tamagui animation presets (`animation="medium"`) and declarative styles
+- Followed all Tamagui rules (no hardcoded colors, no RN `Animated` API, etc.)
+
+### File List
+
+- `dangdai-mobile/types/quiz.ts` — Added `ComprehensionSubQuestion` interface and reading comprehension fields to `QuizQuestion`
+- `dangdai-mobile/components/quiz/ReadingPassageCard.tsx` — Created scrollable passage card with pinyin toggle and comprehension questions
+- `dangdai-mobile/components/quiz/ReadingPassageCard.test.tsx` — Created unit tests for ReadingPassageCard component
+- `dangdai-mobile/app/quiz/play.tsx` — Integrated reading comprehension exercise type with sub-question management
+- `dangdai-mobile/app/quiz/play.test.tsx` — Added integration tests for reading comprehension in play.tsx
+
+### Change Log
+
+- 2026-02-21: Implemented reading comprehension exercise type with scrollable passage, pinyin toggle, and sub-question navigation (Story 4.8)
 
 ### File List
