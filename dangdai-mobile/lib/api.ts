@@ -22,8 +22,8 @@ if (!apiUrl) {
  */
 export const API_BASE_URL = apiUrl ?? 'http://localhost:8000'
 
-/** Client-side timeout for quiz generation requests (10 seconds). */
-const QUIZ_GENERATION_TIMEOUT_MS = 10_000
+/** Client-side timeout for quiz generation requests (35 seconds). */
+const QUIZ_GENERATION_TIMEOUT_MS = 35_000
 
 /**
  * Client-side timeout for answer validation requests.

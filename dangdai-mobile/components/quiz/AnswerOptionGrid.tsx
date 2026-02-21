@@ -37,7 +37,6 @@ interface AnswerOptionGridProps {
 // ─── Styled Components ────────────────────────────────────────────────────────
 
 const AnswerOption = styled(Button, {
-  animation: 'quick',
   pressStyle: { scale: 0.98 },
   focusStyle: { borderColor: '$borderColorFocus' },
   minHeight: 48,

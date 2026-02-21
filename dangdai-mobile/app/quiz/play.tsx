@@ -50,6 +50,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Alert } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { YStack, XStack, Text, Button, AnimatePresence } from 'tamagui'
 import { useRouter, Stack } from 'expo-router'
 import { ArrowLeft } from '@tamagui/lucide-icons'
@@ -123,6 +124,7 @@ const POINTS_PER_CORRECT = 10
 
 export default function QuizPlayScreen() {
   const router = useRouter()
+  const insets = useSafeAreaInsets()
 
   // ─── Store state ─────────────────────────────────────────────────────────
 
@@ -682,6 +684,8 @@ export default function QuizPlayScreen() {
           key="completion"
           flex={1}
           backgroundColor="$background"
+          paddingTop={insets.top}
+          paddingBottom={insets.bottom}
           testID="quiz-completion-wrapper"
         >
           <CompletionScreen
@@ -715,14 +719,15 @@ export default function QuizPlayScreen() {
       <YStack
         flex={1}
         backgroundColor="$background"
+        paddingBottom={insets.bottom}
         testID="quiz-play-screen"
       >
-        {/* Custom header */}
+        {/* Custom header — paddingTop uses safe area inset for status bar / Dynamic Island */}
         <XStack
           alignItems="center"
           justifyContent="space-between"
           paddingHorizontal="$4"
-          paddingTop="$6"
+          paddingTop={insets.top + 8}
           paddingBottom="$2"
         >
           <Button
@@ -769,7 +774,7 @@ export default function QuizPlayScreen() {
             // in the overall quiz. Story 4.5 Task 5.4 was fulfilled by the component
             // managing its own pair-level display.
             currentQuestion.pairs && currentQuestion.pairs.length > 0 ? (
-              <AnimatePresence>
+              <AnimatePresence exitBeforeEnter>
                 <YStack
                   key={currentQuestionIndex}
                   animation="medium"
@@ -788,7 +793,7 @@ export default function QuizPlayScreen() {
           ) : isSentenceConstruction ? (
             // ─── Sentence Construction Layout (Story 4.7) ─────────────────
             currentQuestion.scrambled_words && currentQuestion.correct_order ? (
-              <AnimatePresence>
+              <AnimatePresence exitBeforeEnter>
                 <YStack
                   key={currentQuestionIndex}
                   animation="medium"
@@ -817,7 +822,7 @@ export default function QuizPlayScreen() {
             // (e.g. API regression), fall through to the MCQ layout rather
             // than crashing with "Cannot read properties of undefined" (M4 fix).
             currentQuestion.dialogue_lines ? (
-            <AnimatePresence>
+            <AnimatePresence exitBeforeEnter>
               <YStack
                 key={currentQuestionIndex}
                 animation="medium"
@@ -836,7 +841,7 @@ export default function QuizPlayScreen() {
             ) : null
           ) : isFillInBlank ? (
             // ─── Fill-in-the-Blank Layout ─────────────────────────────────
-            <AnimatePresence>
+            <AnimatePresence exitBeforeEnter>
               <YStack
                 key={currentQuestionIndex}
                 animation="medium"
@@ -882,10 +887,16 @@ export default function QuizPlayScreen() {
             </AnimatePresence>
           ) : (
             // ─── Multiple Choice Layout ───────────────────────────────────
-            <>
-              <AnimatePresence>
+            <AnimatePresence exitBeforeEnter>
+              <YStack
+                key={currentQuestionIndex}
+                animation="medium"
+                enterStyle={{ opacity: 0, x: 20 }}
+                exitStyle={{ opacity: 0, x: -20 }}
+                gap="$4"
+                flex={1}
+              >
                 <QuizQuestionCard
-                  key={currentQuestionIndex}
                   questionTypeLabel={currentQuestion.question_text}
                   primaryContent={primaryContent}
                   secondaryContent={secondaryContent}
@@ -893,27 +904,27 @@ export default function QuizPlayScreen() {
                   feedback={feedbackState}
                   testID="quiz-question-card"
                 />
-              </AnimatePresence>
 
-              {/* Answer options */}
-              {currentQuestion.options && currentQuestion.options.length > 0 ? (
-                <AnswerOptionGrid
-                  options={currentQuestion.options}
-                  selectedOption={selectedAnswer}
-                  correctAnswer={selectedAnswer !== null ? currentQuestion.correct_answer : null}
-                  onSelect={handleAnswerSelect}
-                  disabled={selectedAnswer !== null || showFeedback}
-                  testID="answer-option-grid"
-                />
-              ) : (
-                // Edge case: question without options
-                <YStack alignItems="center" paddingVertical="$4">
-                  <Text color="$colorSubtle" fontSize="$3">
-                    No answer options available.
-                  </Text>
-                </YStack>
-              )}
-            </>
+                {/* Answer options */}
+                {currentQuestion.options && currentQuestion.options.length > 0 ? (
+                  <AnswerOptionGrid
+                    options={currentQuestion.options}
+                    selectedOption={selectedAnswer}
+                    correctAnswer={selectedAnswer !== null ? currentQuestion.correct_answer : null}
+                    onSelect={handleAnswerSelect}
+                    disabled={selectedAnswer !== null || showFeedback}
+                    testID="answer-option-grid"
+                  />
+                ) : (
+                  // Edge case: question without options
+                  <YStack alignItems="center" paddingVertical="$4">
+                    <Text color="$colorSubtle" fontSize="$3">
+                      No answer options available.
+                    </Text>
+                  </YStack>
+                )}
+              </YStack>
+            </AnimatePresence>
           )}
         </YStack>
 

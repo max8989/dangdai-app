@@ -7,9 +7,6 @@ import { useFonts } from 'expo-font'
 import { SplashScreen, Stack, useRouter } from 'expo-router'
 import {
   AlertDialog,
-  AlertDialogContent,
-  AlertDialogTitle,
-  AlertDialogDescription,
   YStack,
   XStack,
   Theme,
@@ -187,50 +184,70 @@ function QuizResumeDialog() {
     'Quiz'
 
   return (
-    <AlertDialog open={showDialog}>
-      <AlertDialogContent
-        animation="medium"
-        enterStyle={{ opacity: 0, scale: 0.95 }}
-        backgroundColor="$background"
-        borderColor="$borderColor"
-        borderWidth={1}
-      >
-        <YStack gap="$3">
-          <AlertDialogTitle fontSize="$6" fontWeight="600" color="$color">
-            Resume Quiz?
-          </AlertDialogTitle>
+    <AlertDialog open={showDialog} onOpenChange={setShowDialog}>
+      <AlertDialog.Portal>
+        <AlertDialog.Overlay
+          key="overlay"
+          animation="quick"
+          opacity={0.5}
+          enterStyle={{ opacity: 0 }}
+          exitStyle={{ opacity: 0 }}
+        />
 
-          <AlertDialogDescription color="$colorSubtle" fontSize="$4">
-            You have an unfinished {exerciseLabel} quiz (Q{resumeInfo.currentQuestion + 1}/
-            {resumeInfo.totalQuestions}). Resume where you left off?
-          </AlertDialogDescription>
+        <AlertDialog.Content
+          key="content"
+          bordered
+          elevate
+          animation={[
+            'medium',
+            {
+              opacity: {
+                overshootClamping: true,
+              },
+            },
+          ]}
+          enterStyle={{ opacity: 0, scale: 0.95, y: -10 }}
+          exitStyle={{ opacity: 0, scale: 0.95, y: 10 }}
+          backgroundColor="$background"
+          borderColor="$borderColor"
+          borderWidth={1}
+          padding="$4"
+          borderRadius="$4"
+          width={320}
+          maxWidth="90%"
+        >
+          <YStack gap="$3">
+            <AlertDialog.Title fontSize="$6" fontWeight="600" color="$color">
+              Resume Quiz?
+            </AlertDialog.Title>
 
-          {/* Use plain Buttons (not AlertDialogCancel/Action) since we control `open` prop
-              directly. AlertDialogCancel/Action have built-in close behavior that conflicts
-              with the controlled open state, causing a double-close race condition. */}
-          <XStack gap="$3" justifyContent="flex-end" marginTop="$2">
-            <Button
-              onPress={handleDiscard}
-              bordered
-              pressStyle={{ scale: 0.98 }}
-              animation="quick"
-            >
-              Discard
-            </Button>
+            <AlertDialog.Description color="$colorSubtle" fontSize="$4">
+              You have an unfinished {exerciseLabel} quiz (Q{resumeInfo.currentQuestion + 1}/
+              {resumeInfo.totalQuestions}). Resume where you left off?
+            </AlertDialog.Description>
 
-            <Theme name="primary">
+            <XStack gap="$3" justifyContent="flex-end" marginTop="$2">
               <Button
-                onPress={handleResume}
-                theme="primary"
+                onPress={handleDiscard}
+                bordered
                 pressStyle={{ scale: 0.98 }}
-                animation="quick"
               >
-                Resume
+                Discard
               </Button>
-            </Theme>
-          </XStack>
-        </YStack>
-      </AlertDialogContent>
+
+              <Theme name="primary">
+                <Button
+                  onPress={handleResume}
+                  theme="primary"
+                  pressStyle={{ scale: 0.98 }}
+                >
+                  Resume
+                </Button>
+              </Theme>
+            </XStack>
+          </YStack>
+        </AlertDialog.Content>
+      </AlertDialog.Portal>
     </AlertDialog>
   )
 }

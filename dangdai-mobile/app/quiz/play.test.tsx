@@ -165,6 +165,12 @@ const mockDialogueQuizResponse: QuizResponse = {
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
+// Mock react-native-safe-area-context — provides useSafeAreaInsets
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+  SafeAreaProvider: ({ children }: any) => children,
+}))
+
 // Mock AsyncStorage — required by useQuizStore persist middleware (Story 4.10)
 jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock')
