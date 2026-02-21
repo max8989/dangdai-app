@@ -215,20 +215,24 @@ jest.mock('../../components/quiz/FillInBlankSentence', () => ({
 }))
 
 jest.mock('../../components/quiz/WordBankSelector', () => ({
-  WordBankSelector: ({ words, onWordSelect, disabled, testID }: any) => {
+  WordBankSelector: ({ words, usedIndices, onWordSelect, disabled, testID }: any) => {
     const { View, TouchableOpacity, Text } = require('react-native')
     return (
       <View testID={testID || 'word-bank-selector'}>
-        {words.map((word: string, index: number) => (
-          <TouchableOpacity
-            key={index}
-            testID={`word-bank-item-${index}`}
-            onPress={() => !disabled && onWordSelect(word)}
-            disabled={disabled}
-          >
-            <Text>{word}</Text>
-          </TouchableOpacity>
-        ))}
+        {words.map((word: string, index: number) => {
+          const isUsed = usedIndices?.has(index) ?? false
+          const isDisabled = disabled || isUsed
+          return (
+            <TouchableOpacity
+              key={index}
+              testID={`word-bank-item-${index}`}
+              onPress={() => !isDisabled && onWordSelect(word, index)}
+              disabled={isDisabled}
+            >
+              <Text>{word}</Text>
+            </TouchableOpacity>
+          )
+        })}
       </View>
     )
   },
@@ -243,6 +247,7 @@ let mockQuizState = {
   score: 0,
   currentQuizId: null as string | null,
   blankAnswers: {} as Record<number, string | null>,
+  blankAnswerIndices: {} as Record<number, number | null>,
 }
 
 const mockStartQuiz = jest.fn()
@@ -250,11 +255,13 @@ const mockSetAnswer = jest.fn()
 const mockNextQuestion = jest.fn()
 const mockAddScore = jest.fn()
 const mockResetQuiz = jest.fn()
-const mockSetBlankAnswer = jest.fn((blankIndex: number, word: string | null) => {
+const mockSetBlankAnswer = jest.fn((blankIndex: number, word: string | null, wordBankIndex: number | null = null) => {
   mockQuizState.blankAnswers = { ...mockQuizState.blankAnswers, [blankIndex]: word }
+  mockQuizState.blankAnswerIndices = { ...mockQuizState.blankAnswerIndices, [blankIndex]: wordBankIndex }
 })
 const mockClearBlankAnswer = jest.fn((blankIndex: number) => {
   mockQuizState.blankAnswers = { ...mockQuizState.blankAnswers, [blankIndex]: null }
+  mockQuizState.blankAnswerIndices = { ...mockQuizState.blankAnswerIndices, [blankIndex]: null }
 })
 
 const mockGetCurrentQuestion = jest.fn(() => {
@@ -280,6 +287,7 @@ jest.mock('../../stores/useQuizStore', () => ({
       clearBlankAnswer: mockClearBlankAnswer,
       getCurrentQuestion: mockGetCurrentQuestion,
       isLastQuestion: mockIsLastQuestion,
+      blankAnswerIndices: mockQuizState.blankAnswerIndices,
     }
     return selector ? selector(state) : state
   },
@@ -301,6 +309,7 @@ describe('QuizPlayScreen', () => {
       score: 0,
       currentQuizId: 'test-quiz-1',
       blankAnswers: {},
+      blankAnswerIndices: {},
     }
     mockGetCurrentQuestion.mockImplementation(() => {
       if (!mockQuizState.quizPayload) return null
@@ -311,11 +320,13 @@ describe('QuizPlayScreen', () => {
       return mockQuizState.currentQuestion >= mockQuizState.quizPayload.questions.length - 1
     })
     // Reset fill-in-blank mocks
-    mockSetBlankAnswer.mockImplementation((blankIndex: number, word: string | null) => {
+    mockSetBlankAnswer.mockImplementation((blankIndex: number, word: string | null, wordBankIndex: number | null = null) => {
       mockQuizState.blankAnswers = { ...mockQuizState.blankAnswers, [blankIndex]: word }
+      mockQuizState.blankAnswerIndices = { ...mockQuizState.blankAnswerIndices, [blankIndex]: wordBankIndex }
     })
     mockClearBlankAnswer.mockImplementation((blankIndex: number) => {
       mockQuizState.blankAnswers = { ...mockQuizState.blankAnswers, [blankIndex]: null }
+      mockQuizState.blankAnswerIndices = { ...mockQuizState.blankAnswerIndices, [blankIndex]: null }
     })
   })
 
@@ -470,18 +481,19 @@ describe('QuizPlayScreen', () => {
       mockIsLastQuestion.mockReturnValue(false)
     })
 
-    it('calls setBlankAnswer when a word is tapped from the bank', () => {
+    it('calls setBlankAnswer with word value and word-bank index when a word is tapped', () => {
       const { getByTestId } = render(<QuizPlayScreen />)
-      fireEvent.press(getByTestId('word-bank-item-0')) // '想'
-      expect(mockSetBlankAnswer).toHaveBeenCalledWith(0, '想')
+      fireEvent.press(getByTestId('word-bank-item-0')) // '想' at index 0
+      expect(mockSetBlankAnswer).toHaveBeenCalledWith(0, '想', 0)
     })
 
     it('fills the next empty blank when a second word is tapped', () => {
       // Simulate first blank already filled
       mockQuizState.blankAnswers = { 0: '想' }
+      mockQuizState.blankAnswerIndices = { 0: 0 }
       const { getByTestId } = render(<QuizPlayScreen />)
-      fireEvent.press(getByTestId('word-bank-item-2')) // '超市'
-      expect(mockSetBlankAnswer).toHaveBeenCalledWith(1, '超市')
+      fireEvent.press(getByTestId('word-bank-item-2')) // '超市' at index 2
+      expect(mockSetBlankAnswer).toHaveBeenCalledWith(1, '超市', 2)
     })
   })
 })

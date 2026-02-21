@@ -32,6 +32,12 @@ interface QuizState {
 
   // Fill-in-blank state (per question, resets on nextQuestion/resetQuiz)
   blankAnswers: Record<number, string | null>
+  /**
+   * Tracks which word-bank *index* fills each blank position.
+   * Index-based (not value-based) to correctly handle duplicate words in the bank.
+   * blankIndex → wordBankIndex | null
+   */
+  blankAnswerIndices: Record<number, number | null>
 
   // Derived getters
   getCurrentQuestion: () => QuizQuestion | null
@@ -46,7 +52,7 @@ interface QuizState {
   resetQuiz: () => void
 
   // Fill-in-blank actions
-  setBlankAnswer: (blankIndex: number, word: string | null) => void
+  setBlankAnswer: (blankIndex: number, word: string | null, wordBankIndex?: number | null) => void
   clearBlankAnswer: (blankIndex: number) => void
 }
 
@@ -71,6 +77,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
   score: 0,
   quizPayload: null,
   blankAnswers: {},
+  blankAnswerIndices: {},
 
   // Derived getters
   getCurrentQuestion: () => {
@@ -93,6 +100,8 @@ export const useQuizStore = create<QuizState>((set, get) => ({
       answers: {},
       score: 0,
       quizPayload: payload ?? state.quizPayload,
+      blankAnswers: {}, // Reset fill-in-blank state on new session start (H3 fix)
+      blankAnswerIndices: {},
     })),
 
   setQuizPayload: (payload) => set({ quizPayload: payload }),
@@ -106,6 +115,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     set((state) => ({
       currentQuestion: state.currentQuestion + 1,
       blankAnswers: {}, // Reset blank answers on question advance
+      blankAnswerIndices: {},
     })),
 
   addScore: (points) => set((state) => ({ score: state.score + points })),
@@ -118,16 +128,19 @@ export const useQuizStore = create<QuizState>((set, get) => ({
       score: 0,
       quizPayload: null,
       blankAnswers: {}, // Reset blank answers on quiz reset
+      blankAnswerIndices: {},
     }),
 
   // Fill-in-blank actions
-  setBlankAnswer: (blankIndex, word) =>
+  setBlankAnswer: (blankIndex, word, wordBankIndex = null) =>
     set((state) => ({
       blankAnswers: { ...state.blankAnswers, [blankIndex]: word },
+      blankAnswerIndices: { ...state.blankAnswerIndices, [blankIndex]: wordBankIndex },
     })),
 
   clearBlankAnswer: (blankIndex) =>
     set((state) => ({
       blankAnswers: { ...state.blankAnswers, [blankIndex]: null },
+      blankAnswerIndices: { ...state.blankAnswerIndices, [blankIndex]: null },
     })),
 }))

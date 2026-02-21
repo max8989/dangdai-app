@@ -21,12 +21,18 @@ export type WordBankItemState = 'available' | 'selected' | 'correct' | 'incorrec
 interface WordBankSelectorProps {
   /** All words in the word bank */
   words: string[]
-  /** Words currently placed in blanks */
-  usedWords: Set<string>
-  /** Per-word feedback after validation */
-  feedbackState?: Record<string, 'correct' | 'incorrect'>
+  /**
+   * Indices of words currently placed in blanks.
+   * Index-based (not value-based) to correctly handle duplicate words in the bank.
+   */
+  usedIndices: Set<number>
+  /**
+   * Per-index feedback after validation.
+   * Keyed by word-bank index (not word value) to handle duplicates correctly.
+   */
+  feedbackState?: Record<number, 'correct' | 'incorrect'>
   /** Called when user taps an available word */
-  onWordSelect: (word: string) => void
+  onWordSelect: (word: string, wordIndex: number) => void
   /** Disable all interaction after validation */
   disabled?: boolean
   /** testID for the container */
@@ -81,14 +87,17 @@ const WordBankItem = styled(Button, {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Determine the visual state for a word bank item */
+/**
+ * Determine the visual state for a word bank item.
+ * Uses the word's index (not its value) so duplicate words are handled correctly.
+ */
 function getWordState(
-  word: string,
+  wordIndex: number,
   isUsed: boolean,
-  feedbackState?: Record<string, 'correct' | 'incorrect'>
+  feedbackState?: Record<number, 'correct' | 'incorrect'>
 ): WordBankItemState {
   if (isUsed) {
-    const feedback = feedbackState?.[word]
+    const feedback = feedbackState?.[wordIndex]
     if (feedback === 'correct') return 'correct'
     if (feedback === 'incorrect') return 'incorrect'
     return 'used'
@@ -104,7 +113,7 @@ function getWordState(
  */
 export function WordBankSelector({
   words,
-  usedWords,
+  usedIndices,
   feedbackState,
   onWordSelect,
   disabled = false,
@@ -115,12 +124,12 @@ export function WordBankSelector({
       horizontal
       showsHorizontalScrollIndicator={false}
       testID={testID}
-      contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
+      contentContainerStyle={{ paddingHorizontal: 16 }}
     >
       <XStack gap="$2" paddingVertical="$2">
         {words.map((word, index) => {
-          const isUsed = usedWords.has(word)
-          const wordState = getWordState(word, isUsed, feedbackState)
+          const isUsed = usedIndices.has(index)
+          const wordState = getWordState(index, isUsed, feedbackState)
           const isDisabled = disabled || isUsed
 
           return (
@@ -130,13 +139,13 @@ export function WordBankSelector({
               state={wordState}
               onPress={() => {
                 if (!isDisabled) {
-                  onWordSelect(word)
+                  onWordSelect(word, index)
                 }
               }}
               disabled={isDisabled}
               accessibilityState={{ disabled: isDisabled }}
             >
-              <Text fontSize="$4" color={isUsed && !feedbackState?.[word] ? '$colorSubtle' : '$color'}>
+              <Text fontSize="$4" color={isUsed && !feedbackState?.[index] ? '$colorSubtle' : '$color'}>
                 {word}
               </Text>
             </WordBankItem>

@@ -112,6 +112,7 @@ export default function QuizPlayScreen() {
 
   // Fill-in-blank store state
   const blankAnswers = useQuizStore((state) => state.blankAnswers)
+  const blankAnswerIndices = useQuizStore((state) => state.blankAnswerIndices)
   const setBlankAnswer = useQuizStore((state) => state.setBlankAnswer)
   const clearBlankAnswer = useQuizStore((state) => state.clearBlankAnswer)
 
@@ -126,22 +127,24 @@ export default function QuizPlayScreen() {
   /** Per-blank feedback after fill-in-blank validation */
   const [blankFeedback, setBlankFeedback] = useState<Record<number, 'correct' | 'incorrect'>>({})
 
-  /** Per-word feedback for the word bank after fill-in-blank validation */
-  const [wordFeedback, setWordFeedback] = useState<Record<string, 'correct' | 'incorrect'>>({})
+  /**
+   * Per-word-bank-index feedback after fill-in-blank validation.
+   * Index-based (not value-based) to handle duplicate words correctly (M1 fix).
+   */
+  const [wordFeedback, setWordFeedback] = useState<Record<number, 'correct' | 'incorrect'>>({})
 
   /** Whether fill-in-blank has been validated (disables all interaction) */
   const [fillInBlankValidated, setFillInBlankValidated] = useState(false)
 
   // ─── On mount: initialize quiz session ───────────────────────────────────
 
+  // Run once on mount only. quizPayload is guaranteed set by loading.tsx before navigation.
+  // startQuiz intentionally omitted from deps — this is a mount-only initialization.
   useEffect(() => {
     if (quizPayload) {
-      // AC #3: call startQuiz on mount to initialize session state
-      // Intentionally only run on mount — quizPayload is set before navigation
-      // eslint-disable-next-line react-hooks/exhaustive-deps
       startQuiz(quizPayload.quiz_id)
     }
-  }, []) // run once on mount — quizPayload is guaranteed set by loading.tsx before navigation
+  }, []) // mount-only intentional
 
   // ─── Edge case: no quiz data ──────────────────────────────────────────────
 
@@ -173,13 +176,15 @@ export default function QuizPlayScreen() {
   }, [])
 
   // ─── Reset fill-in-blank local state when question changes ───────
+  // Only reset fill-in-blank-specific state here. Multiple-choice state
+  // (selectedAnswer, feedbackState) is reset inside the setTimeout callback
+  // after advancing — resetting it here too would wipe feedback prematurely
+  // before the 1-second display window expires (H2 fix).
 
   useEffect(() => {
     setBlankFeedback({})
     setWordFeedback({})
     setFillInBlankValidated(false)
-    setSelectedAnswer(null)
-    setFeedbackState('none')
   }, [currentQuestionIndex])
 
   // ─── Derived display values (only when quiz data is valid) ────────────────
@@ -209,9 +214,9 @@ export default function QuizPlayScreen() {
 
   const wordBank: string[] = currentQuestion?.word_bank ?? []
 
-  // Words currently placed in blanks (for used-word tracking in word bank)
-  const usedWords = new Set<string>(
-    Object.values(blankAnswers).filter((w): w is string => w !== null)
+  // Word-bank indices currently placed in blanks (index-based to handle duplicates)
+  const usedIndices = new Set<number>(
+    Object.values(blankAnswerIndices).filter((i): i is number => i !== null)
   )
 
   // Total number of blanks derived from word_bank parsing or blank_positions
@@ -221,13 +226,20 @@ export default function QuizPlayScreen() {
 
   // ─── Fill-in-blank: validation ───────────────────────────────────────────
 
-  const handleFillInBlankValidation = useCallback(() => {
+  /**
+   * Validate the current fill-in-blank question.
+   * Accepts an optional `answersOverride` so callers can pass the freshly-computed
+   * answers synchronously without waiting for Zustand state to settle (avoids the
+   * race condition where the last word placed has not yet propagated to the store
+   * when validation fires).
+   */
+  const handleFillInBlankValidation = useCallback((answersOverride?: Record<number, string | null>) => {
     if (!currentQuestion || fillInBlankValidated) return
 
     const correctAnswers = parseCorrectAnswers(currentQuestion.correct_answer)
 
-    // Cast blankAnswers to Record<number, string> — all blanks are filled at this point
-    const filledAnswers = blankAnswers as Record<number, string>
+    // Use the override if provided (avoids stale-closure race on last word placement)
+    const filledAnswers = (answersOverride ?? blankAnswers) as Record<number, string>
     const results = validateFillInBlank(filledAnswers, correctAnswers)
 
     // Compute per-blank feedback
@@ -236,14 +248,15 @@ export default function QuizPlayScreen() {
       newBlankFeedback[index] = isCorrect ? 'correct' : 'incorrect'
     })
 
-    // Compute per-word feedback for the word bank (align words used with their results)
-    const newWordFeedback: Record<string, 'correct' | 'incorrect'> = {}
-    Object.entries(blankAnswers).forEach(([blankIndexStr, word]) => {
-      if (word) {
+    // Compute per-word-bank-index feedback (index-based to handle duplicate words)
+    const answerIndices = blankAnswerIndices
+    const newWordFeedback: Record<number, 'correct' | 'incorrect'> = {}
+    Object.entries(answerIndices).forEach(([blankIndexStr, wordBankIdx]) => {
+      if (wordBankIdx !== null && wordBankIdx !== undefined) {
         const blankIndex = parseInt(blankIndexStr, 10)
         const result = results[blankIndex]
         if (result !== undefined) {
-          newWordFeedback[word] = result ? 'correct' : 'incorrect'
+          newWordFeedback[wordBankIdx] = result ? 'correct' : 'incorrect'
         }
       }
     })
@@ -251,8 +264,8 @@ export default function QuizPlayScreen() {
     // All blanks correct → full points; any incorrect → no points
     const allCorrect = results.every(Boolean)
 
-    // Update store
-    setAnswer(currentQuestionIndex, JSON.stringify(blankAnswers))
+    // Update store (serialize the authoritative answers used for validation)
+    setAnswer(currentQuestionIndex, JSON.stringify(filledAnswers))
     if (allCorrect) {
       addScore(1)
     }
@@ -286,19 +299,25 @@ export default function QuizPlayScreen() {
   // ─── Fill-in-blank: word selection ───────────────────────────────────────
 
   const handleWordSelect = useCallback(
-    (word: string) => {
+    (word: string, wordBankIndex: number) => {
       if (fillInBlankValidated || !currentQuestion) return
+
+      // Guard: if all blanks are already filled (e.g. race between validation
+      // trigger and another tap), silently ignore — prevents confusing no-op (M4 fix)
+      if (allBlanksFilled(blankAnswers, totalBlanks)) return
 
       // Find the first empty blank and fill it
       for (let i = 0; i < totalBlanks; i++) {
         if (!blankAnswers[i]) {
-          setBlankAnswer(i, word)
+          // Pass wordBankIndex so the store can track which bank slot is used (M1 fix)
+          setBlankAnswer(i, word, wordBankIndex)
 
-          // Check if all blanks are now filled (after this word placement)
+          // Compute updated answers synchronously so validation sees the final state.
+          // Do NOT use setTimeout here — pass updatedAnswers directly to avoid a
+          // stale-closure race where the store hasn't flushed yet (H1 fix).
           const updatedAnswers = { ...blankAnswers, [i]: word }
           if (allBlanksFilled(updatedAnswers, totalBlanks)) {
-            // Trigger validation via a small timeout so state has time to settle
-            setTimeout(() => handleFillInBlankValidation(), 0)
+            handleFillInBlankValidation(updatedAnswers)
           }
           return
         }
@@ -483,7 +502,7 @@ export default function QuizPlayScreen() {
                 <YStack marginTop="$4">
                   <WordBankSelector
                     words={wordBank}
-                    usedWords={usedWords}
+                    usedIndices={usedIndices}
                     feedbackState={fillInBlankValidated ? wordFeedback : undefined}
                     onWordSelect={handleWordSelect}
                     disabled={fillInBlankValidated}

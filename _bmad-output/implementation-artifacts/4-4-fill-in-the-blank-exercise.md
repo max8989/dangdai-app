@@ -1,6 +1,6 @@
 # Story 4.4: Fill-in-the-Blank Exercise (Word Bank)
 
-Status: review
+Status: done
 
 ## Story
 
@@ -628,6 +628,7 @@ No blocking issues encountered. Pre-existing ESLint `react-hooks/exhaustive-deps
 ### Change Log
 
 - **2026-02-21**: Implemented Story 4.4 Fill-in-the-Blank Exercise. Added `WordBankSelector`, `FillInBlankSentence` components, `validateFillInBlank` utility, extended `useQuizStore` with blank-filling state, extended `QuizQuestion` type with fill-in-blank fields, updated `play.tsx` to handle `fill_in_blank` exercise type. 87 tests total, all passing.
+- **2026-02-21**: Code review fixes applied. H1: fixed race condition in `handleWordSelect` by passing `updatedAnswers` synchronously to validation instead of relying on Zustand flush. H2: removed premature reset of multiple-choice state (`selectedAnswer`, `feedbackState`) from `currentQuestionIndex` effect. H3: `startQuiz` now resets `blankAnswers` and `blankAnswerIndices`. M1: switched word-bank tracking from value-based `Set<string>` to index-based `Set<number>` + `blankAnswerIndices` store field to correctly handle duplicate words. M2: `getBlankState` now treats any blank with no explicit `'correct'` feedback key as `'incorrect'` when `blankFeedback` is provided. M3: removed phantom `eslint-disable-next-line react-hooks/exhaustive-deps` comment. M4: added early guard in `handleWordSelect` when all blanks already filled. M5: `WordBankSelector` feedback state tests now assert `accessibilityHint` (visual state) not just element existence. 92 tests total, all passing.
 
 ### File List
 
@@ -637,7 +638,7 @@ No blocking issues encountered. Pre-existing ESLint `react-hooks/exhaustive-deps
 - `dangdai-mobile/components/quiz/FillInBlankSentence.test.tsx` — CREATED
 - `dangdai-mobile/lib/validateFillInBlank.ts` — CREATED
 - `dangdai-mobile/lib/validateFillInBlank.test.ts` — CREATED
-- `dangdai-mobile/stores/useQuizStore.ts` — MODIFIED (added blankAnswers, setBlankAnswer, clearBlankAnswer; reset in nextQuestion/resetQuiz)
+- `dangdai-mobile/stores/useQuizStore.ts` — MODIFIED (added blankAnswers, blankAnswerIndices, setBlankAnswer, clearBlankAnswer; reset in nextQuestion/resetQuiz/startQuiz)
 - `dangdai-mobile/stores/useQuizStore.test.ts` — MODIFIED (added Story 4.4 blank-filling state tests)
 - `dangdai-mobile/types/quiz.ts` — MODIFIED (added sentence_with_blanks, word_bank, blank_positions to QuizQuestion)
 - `dangdai-mobile/app/quiz/play.tsx` — MODIFIED (added fill_in_blank exercise type rendering, word selection, blank tap, validation, feedback)

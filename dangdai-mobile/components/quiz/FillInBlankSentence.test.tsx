@@ -232,6 +232,23 @@ describe('FillInBlankSentence', () => {
       expect(blankSlot.props.accessibilityHint).toBe('incorrect')
     })
 
+    it('shows incorrect state for a blank missing from blankFeedback when feedback is present (M2 fix)', () => {
+      // blankFeedback provided for index 0 only; index 1 is filled but has no feedback key
+      const { getByTestId } = render(
+        <FillInBlankSentence
+          sentenceWithBlanks={SENTENCE_2_BLANKS}
+          filledBlanks={{ 0: '想', 1: '要' }}
+          blankFeedback={{ 0: 'correct' }} // index 1 deliberately missing
+          onBlankTap={mockOnBlankTap}
+          testID="fill-sentence"
+        />
+      )
+
+      // Index 1 has a word but no feedback key — should show 'incorrect' not 'filled'
+      const blankSlot = getByTestId('blank-slot-1')
+      expect(blankSlot.props.accessibilityHint).toBe('incorrect')
+    })
+
     it('does not call onBlankTap when disabled', () => {
       const { getByTestId } = render(
         <FillInBlankSentence

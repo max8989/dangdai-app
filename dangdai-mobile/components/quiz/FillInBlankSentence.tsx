@@ -118,7 +118,10 @@ function getBlankState(
   if (blankFeedback) {
     const feedback = blankFeedback[blankIndex]
     if (feedback === 'correct') return 'correct'
-    if (feedback === 'incorrect') return 'incorrect'
+    // When blankFeedback is provided (post-validation), any blank without an
+    // explicit 'correct' entry is treated as 'incorrect'. This prevents the
+    // missing-key gap where an unfilled blank shows as 'filled' post-validation (M2 fix).
+    return 'incorrect'
   }
 
   return 'filled'

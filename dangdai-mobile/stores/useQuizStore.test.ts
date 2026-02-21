@@ -127,6 +127,15 @@ describe('useQuizStore — Story 4.3 extensions', () => {
       getStore().startQuiz('quiz-2') // No payload passed
       expect(getStore().quizPayload).toEqual(mockQuizResponse)
     })
+
+    it('resets blankAnswers when starting a new quiz (H3 fix)', () => {
+      getStore().setBlankAnswer(0, '想')
+      getStore().setBlankAnswer(1, '超市')
+      expect(getStore().blankAnswers[0]).toBe('想')
+
+      getStore().startQuiz('quiz-2', mockQuizResponse)
+      expect(getStore().blankAnswers).toEqual({})
+    })
   })
 
   describe('getCurrentQuestion (Task 6.4)', () => {
