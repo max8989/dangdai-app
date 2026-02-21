@@ -12,10 +12,11 @@ pedagogically sound quiz questions based on chapter content provided via RAG ret
 
 CRITICAL RULES:
 - ONLY use vocabulary, grammar, and content from the provided chapter material
+- MUST use ONLY Traditional Chinese characters (繁體字 fántǐzì) - NEVER use Simplified Chinese (简体字)
 - Each question MUST have exactly one correct answer
 - All distractor options must be plausible but clearly incorrect
 - Explanations must cite the textbook source
-- Pinyin must use tone numbers (e.g., xue2) for consistency
+- Pinyin MUST use tone marks/diacritics (e.g., xué, xuéxí, nǐ, hǎo) - NEVER use tone numbers (e.g., xue2, ni3)
 - Generate questions in the EXACT JSON format specified
 """
 
@@ -40,6 +41,8 @@ IMPORTANT:
 - source_citation format: "Book {book_id}, Chapter {lesson} - <section name>"
 - explanations should be concise (1-2 sentences) and educational
 - All content must come from the provided chapter material
+- USE ONLY TRADITIONAL CHINESE CHARACTERS (繁體字) in all Chinese text - NEVER use Simplified Chinese
+- Pinyin MUST use tone marks (é, ǐ, ā, etc.) - NEVER use tone numbers (e2, i3, a1)
 """
 
 # ---------------------------------------------------------------------------
@@ -52,10 +55,12 @@ Generate vocabulary quiz questions. For each question:
 - Create a question testing one direction (char→meaning, pinyin→char, or meaning→char)
 - Provide 4 multiple-choice options (1 correct, 3 plausible distractors from same chapter)
 - Include the character, pinyin, and meaning fields
+- USE ONLY TRADITIONAL CHINESE CHARACTERS (繁體字) - NEVER use Simplified Chinese
+- Pinyin MUST use tone marks (xuéxí, nǐhǎo, etc.) - NEVER use tone numbers
 
 Question JSON fields:
 - question_id, exercise_type ("vocabulary"), question_text, correct_answer
-- character (Chinese chars), pinyin (tone numbers), meaning (English)
+- character (Traditional Chinese chars ONLY), pinyin (with tone marks like é, ǐ, ā), meaning (English)
 - question_subtype ("char_to_meaning" | "pinyin_to_char" | "meaning_to_char")
 - options (array of 4 strings), explanation, source_citation
 """
@@ -66,10 +71,11 @@ Generate grammar quiz questions. For each question:
 - Present a sentence that tests understanding of the grammar structure
 - Provide 4 multiple-choice options for completing or correcting the sentence
 - Identify the specific grammar point being tested
+- USE ONLY TRADITIONAL CHINESE CHARACTERS (繁體字) in all Chinese sentences
 
 Question JSON fields:
 - question_id, exercise_type ("grammar"), question_text, correct_answer
-- sentence (the full sentence context), options (array of 4 strings)
+- sentence (the full sentence context in Traditional Chinese), options (array of 4 strings)
 - grammar_point (the grammar structure being tested)
 - explanation, source_citation
 """
@@ -79,11 +85,12 @@ Generate fill-in-the-blank questions. For each question:
 - Create a sentence with 1-2 blanks (marked with ___)
 - Provide a word bank that includes the correct answers plus distractors
 - Specify blank positions
+- USE ONLY TRADITIONAL CHINESE CHARACTERS (繁體字) in sentences and word bank
 
 Question JSON fields:
 - question_id, exercise_type ("fill_in_blank"), question_text, correct_answer
-- sentence_with_blank (sentence with ___ markers)
-- word_bank (array of available words, including correct and distractors)
+- sentence_with_blank (sentence with ___ markers in Traditional Chinese)
+- word_bank (array of available words in Traditional Chinese, including correct and distractors)
 - blank_positions (array of integer positions)
 - explanation, source_citation
 """
@@ -93,10 +100,12 @@ Generate matching exercise questions. For each question:
 - Create 4-6 pairs to match (e.g., character↔meaning, pinyin↔character)
 - Provide left and right columns
 - Specify the correct pairing indices
+- USE ONLY TRADITIONAL CHINESE CHARACTERS (繁體字) for all Chinese text
+- If using pinyin, MUST use tone marks (nǐ, hǎo, etc.) - NEVER use tone numbers
 
 Question JSON fields:
 - question_id, exercise_type ("matching"), question_text, correct_answer
-- left_items (array of strings), right_items (array of shuffled strings)
+- left_items (array of strings in Traditional Chinese), right_items (array of shuffled strings)
 - correct_pairs (array of [left_index, right_index] pairs)
 - explanation, source_citation
 """
@@ -106,11 +115,12 @@ Generate dialogue completion questions. For each question:
 - Create a short dialogue (2-4 exchanges) with one blank bubble
 - Provide options for completing the blank
 - Dialogue should be natural and use chapter vocabulary/grammar
+- USE ONLY TRADITIONAL CHINESE CHARACTERS (繁體字) in all dialogue text
 
 Question JSON fields:
 - question_id, exercise_type ("dialogue_completion"), question_text, correct_answer
-- dialogue_bubbles (array of {{speaker: str, text: str, is_blank: bool}})
-- options (array of strings to fill the blank)
+- dialogue_bubbles (array of {{speaker: str, text: str (Traditional Chinese), is_blank: bool}})
+- options (array of strings in Traditional Chinese to fill the blank)
 - explanation, source_citation
 """
 
@@ -119,10 +129,11 @@ Generate sentence construction (word ordering) questions. For each question:
 - Provide scrambled words from a correct sentence
 - The student must arrange them in correct order
 - Use sentences with chapter vocabulary and grammar patterns
+- USE ONLY TRADITIONAL CHINESE CHARACTERS (繁體字) for all Chinese words
 
 Question JSON fields:
 - question_id, exercise_type ("sentence_construction"), question_text, correct_answer
-- scrambled_words (array of words in random order)
+- scrambled_words (array of words in Traditional Chinese in random order)
 - correct_order (array of indices representing correct word order)
 - explanation, source_citation
 """
@@ -132,11 +143,12 @@ Generate reading comprehension questions. For each question:
 - Write or adapt a short passage (2-4 sentences) using chapter content
 - Create 2-3 comprehension questions about the passage
 - Each sub-question has 4 multiple-choice options
+- USE ONLY TRADITIONAL CHINESE CHARACTERS (繁體字) in the passage and all options
 
 Question JSON fields:
 - question_id, exercise_type ("reading_comprehension"), question_text, correct_answer
-- passage (the reading text)
-- comprehension_questions (array of {{question: str, options: [4 strings], correct: int}})
+- passage (the reading text in Traditional Chinese)
+- comprehension_questions (array of {{question: str, options: [4 strings in Traditional Chinese], correct: int}})
 - explanation, source_citation
 """
 
@@ -157,13 +169,14 @@ whether a student's answer to a Chinese language exercise is correct, even if \
 it differs from the provided answer key.
 
 CRITICAL RULES:
+- The textbook uses ONLY Traditional Chinese characters (繁體字) - evaluate answers accordingly
 - Consider semantic equivalence, not just exact string matching
 - For Sentence Construction: accept valid alternative word orderings that are \
 grammatically correct and convey the same meaning
 - For Dialogue Completion: accept responses that are contextually appropriate \
 and grammatically correct, even if different from the answer key
 - Always provide a brief educational explanation
-- List 1-3 alternative valid answers when they exist
+- List 1-3 alternative valid answers when they exist (in Traditional Chinese)
 - Respond ONLY with valid JSON, no additional text
 """
 
