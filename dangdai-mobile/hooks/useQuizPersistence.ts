@@ -25,6 +25,7 @@ import { useCallback } from 'react'
 import { supabase, insertQuestionResult, insertQuizAttempt } from '../lib/supabase'
 import { useQuizStore } from '../stores/useQuizStore'
 import type { QuestionResultInsert, QuizAttemptInsert } from '../types/quiz'
+import type { Json } from '../types/supabase'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -46,7 +47,7 @@ export interface SaveQuizAttemptParams {
   exerciseType: string
   score: number
   totalQuestions: number
-  answersJson: Record<string, unknown>
+  answersJson: Json
 }
 
 /** Return value of checkForResumableQuiz */

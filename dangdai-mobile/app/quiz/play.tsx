@@ -214,12 +214,14 @@ export default function QuizPlayScreen() {
   const currentQuestion: QuizQuestion | null = isInvalidQuiz ? null : getCurrentQuestion()
   const isIndexOutOfRange = !isInvalidQuiz && currentQuestion === null
 
-  // Redirect outside the render phase to avoid React rule violations (no side effects in render)
+  // Redirect outside the render phase to avoid React rule violations (no side effects in render).
+  // Skip redirect when isComplete — after quiz completion, quizPayload is cleared by
+  // clearResumableQuiz() but CompletionScreen should still render (it uses captured props).
   useEffect(() => {
-    if (isInvalidQuiz || isIndexOutOfRange) {
+    if ((isInvalidQuiz || isIndexOutOfRange) && !isComplete) {
       router.replace('/(tabs)/books')
     }
-  }, [isInvalidQuiz, isIndexOutOfRange, router])
+  }, [isInvalidQuiz, isIndexOutOfRange, isComplete, router])
 
   // ─── Manual advance handler ─────────────────────────────────────────────
   // User taps "Next" on FeedbackOverlay to advance to the next question.
@@ -230,7 +232,7 @@ export default function QuizPlayScreen() {
 
     hideFeedback()
     if (isLastQuestion()) {
-      // On quiz completion: save full quiz attempt + clear persisted state (Story 4.10, Tasks 5.6, 5.7)
+      // On quiz completion: save full quiz attempt (Story 4.10, Tasks 5.6, 5.7)
       const finalScore = useQuizStore.getState().score
       const finalAnswers = useQuizStore.getState().answers
       const totalQs = quizPayload?.questions.length ?? 0
@@ -245,18 +247,19 @@ export default function QuizPlayScreen() {
         exerciseType: exType,
         score: finalScore,
         totalQuestions: totalQs,
-        answersJson: finalAnswers as Record<string, unknown>,
+        answersJson: finalAnswers as Record<string, string>,
       })
 
-      // Clear persisted quiz state (crash recovery no longer needed)
-      clearResumableQuiz()
-
-      // Show CompletionScreen in-place (Story 4.11) — no navigation needed
+      // Show CompletionScreen in-place (Story 4.11) — no navigation needed.
+      // NOTE: clearResumableQuiz() is NOT called here. The store state must remain
+      // intact so CompletionScreen can read score, answers, chapterId, etc. from it.
+      // The persisted state is cleared when the user taps "Continue" on CompletionScreen,
+      // which triggers onContinue → clearResumableQuiz() → router.replace('/(tabs)/books').
       completeQuiz()
     } else {
       nextQuestion()
     }
-  }, [showFeedback, hideFeedback, isLastQuestion, nextQuestion, completeQuiz, quizPayload, saveQuizAttempt, clearResumableQuiz])
+  }, [showFeedback, hideFeedback, isLastQuestion, nextQuestion, completeQuiz, quizPayload, saveQuizAttempt])
 
   // ─── Reset local state when question changes ──────────────────────────────
   // Fill-in-blank state resets here. Multiple-choice state (selectedAnswer,
@@ -635,8 +638,10 @@ export default function QuizPlayScreen() {
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
-  // While redirect is pending (invalid/empty quiz), render nothing to avoid a flash
-  if (isInvalidQuiz || isIndexOutOfRange || !currentQuestion) {
+  // While redirect is pending (invalid/empty quiz), render nothing to avoid a flash.
+  // Skip this guard when isComplete — CompletionScreen should render even if
+  // currentQuestion is null (quiz is done, we show results not questions).
+  if ((isInvalidQuiz || isIndexOutOfRange || !currentQuestion) && !isComplete) {
     return null
   }
 
@@ -683,6 +688,9 @@ export default function QuizPlayScreen() {
             durationMinutes={durationMins}
             incorrectItems={incorrectItems}
             onContinue={() => {
+              // Clear persisted quiz state (crash recovery no longer needed)
+              // before navigating away from the CompletionScreen
+              clearResumableQuiz()
               router.replace('/(tabs)/books')
             }}
             testID="completion-screen"
@@ -691,6 +699,10 @@ export default function QuizPlayScreen() {
       </AnimatePresence>
     )
   }
+
+  // At this point isComplete is false (the block above returns early for isComplete).
+  // The render guard ensures currentQuestion is non-null when isComplete is false.
+  if (!currentQuestion) return null
 
   return (
     <>

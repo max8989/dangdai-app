@@ -84,8 +84,7 @@ const PG_ERROR_FK_VIOLATION = '23503'
 export async function insertQuestionResult(data: QuestionResultInsert): Promise<void> {
   try {
     const { error } = await supabase
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .from('question_results' as any)
+      .from('question_results')
       .insert(data)
 
     if (error) {
@@ -119,8 +118,7 @@ export async function insertQuestionResult(data: QuestionResultInsert): Promise<
 export async function insertQuizAttempt(data: QuizAttemptInsert): Promise<void> {
   try {
     const { error } = await supabase
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .from('quiz_attempts' as any)
+      .from('quiz_attempts')
       .insert(data)
 
     if (error) {

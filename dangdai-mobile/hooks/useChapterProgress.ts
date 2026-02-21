@@ -51,9 +51,9 @@ export function useChapterProgress(bookId: number) {
           userId: row.user_id,
           chapterId: row.chapter_id,
           bookId: row.book_id,
-          completionPercentage: row.completion_percentage,
+          completionPercentage: row.completion_percentage ?? 0,
           masteredAt: row.mastered_at,
-          updatedAt: row.updated_at,
+          updatedAt: row.updated_at ?? new Date().toISOString(),
         }
         return acc
       }, {} as ChapterProgressMap)
