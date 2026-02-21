@@ -175,6 +175,9 @@ describe('SentenceBuilder', () => {
   })
 
   afterEach(() => {
+    // Clear any pending timers before restoring real timers (M6 fix: prevents
+    // worker process leak warnings from feedback delay timeouts left running).
+    jest.clearAllTimers()
     jest.useRealTimers()
   })
 
@@ -529,6 +532,46 @@ describe('SentenceBuilder', () => {
       await waitFor(() => {
         expect(queryByTestId('incorrect-feedback')).toBeTruthy()
       })
+    })
+  })
+
+  // ─── H1 fix: sourceCitation is displayed after submit ────────────────────
+
+  describe('sourceCitation — displayed in feedback section after submit', () => {
+    it('shows sourceCitation in the explanation section after a correct answer', async () => {
+      const onAnswer = jest.fn()
+      const { getByTestId } = renderSentenceBuilder({
+        onAnswer,
+        sourceCitation: 'Book 2, Chapter 12 - Grammar',
+      })
+
+      placeAllTilesInOrder(getByTestId)
+
+      await act(async () => {
+        fireEvent.press(getByTestId('submit-button'))
+      })
+
+      await waitFor(() => {
+        expect(getByTestId('source-citation')).toBeTruthy()
+      })
+    })
+
+    it('does not render source-citation when sourceCitation prop is empty string', async () => {
+      const { getByTestId, queryByTestId } = renderSentenceBuilder({
+        sourceCitation: '',
+      })
+
+      placeAllTilesInOrder(getByTestId)
+
+      await act(async () => {
+        fireEvent.press(getByTestId('submit-button'))
+      })
+
+      await waitFor(() => {
+        expect(queryByTestId('feedback-section')).toBeTruthy()
+      })
+
+      expect(queryByTestId('source-citation')).toBeNull()
     })
   })
 

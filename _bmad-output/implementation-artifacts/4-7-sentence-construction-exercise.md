@@ -1,6 +1,6 @@
 # Story 4.7: Sentence Construction Exercise
 
-Status: review
+Status: done
 
 ## Story
 
@@ -46,7 +46,7 @@ So that I can practice Chinese sentence structure.
   - [x] 3.2 Add `placeTile(tileId: string)` action — appends tile to `placedTileIds`
   - [x] 3.3 Add `removeTile(tileId: string)` action — removes tile from `placedTileIds`
   - [x] 3.4 Add `clearTiles()` action — resets `placedTileIds` to empty
-  - [x] 3.5 Add `allTilesPlaced` derived check (compare `placedTileIds.length` to total word count)
+  - [x] 3.5 Implement `allTilesPlaced` derived check in the component (not store — compare `placedTileIds.length` to `scrambledWords.length`; ephemeral UI state per dev notes)
   - [x] 3.6 Reset `placedTileIds` in `resetQuiz()` and on question advance
   - [x] 3.7 Write unit tests for tile placement state in `stores/useQuizStore.test.ts`
 
@@ -639,7 +639,38 @@ dangdai-mobile/components/quiz/SentenceBuilder.tsx
 dangdai-mobile/components/quiz/SentenceBuilder.test.tsx
 dangdai-mobile/app/quiz/play.tsx
 dangdai-mobile/app/quiz/play.test.tsx
+dangdai-mobile/hooks/useAnswerValidation.ts
+dangdai-mobile/hooks/useAnswerValidation.test.ts
+dangdai-mobile/lib/api.ts
 _bmad-output/implementation-artifacts/sprint-status.yaml
+
+### Senior Developer Review (AI)
+
+**Reviewer:** Claude Sonnet 4.6 (code-review workflow) — 2026-02-20
+
+**Outcome:** Changes Requested → Fixed (9 issues resolved, story → done)
+
+**Issues Found and Fixed:**
+
+🔴 HIGH — Fixed:
+- **H1** `SentenceBuilder.tsx` — `sourceCitation` declared in props interface and passed from `play.tsx` but never destructured or used. Added to destructuring; rendered as italic citation below the explanation in the feedback section. Added 2 tests.
+- **H2** `useAnswerValidation.ts:78` — Asymmetric normalization contract: `SentenceBuilder` pre-stripped whitespace before calling `validate()` but `DialogueCard` did not, making local-match behaviour inconsistent. Moved `normalizeForComparison()` (trim + collapse internal whitespace) inside the hook. All callers now pass raw strings; the hook normalizes internally. Removed pre-normalization from `SentenceBuilder.handleSubmit`.
+- **H3** `useAnswerValidation.ts:103` — `isAlternative` and `isCorrect` were identical values, making the four validation states indistinguishable for future callers (Stories 4.9/4.10). Added explicit JSDoc contract table documenting all four states. Added 4 contract tests to `useAnswerValidation.test.ts`.
+
+🟡 MEDIUM — Fixed:
+- **M1** `SentenceBuilder.tsx:202` — Double-submit race condition: React state batching means `isSubmitted` may not be synchronously set on rapid taps. Added `isSubmittingRef = useRef(false)` set synchronously before any async work.
+- **M2** `SentenceBuilder.tsx:78` — `computeTileFeedback` silently marked extra tiles incorrect on length mismatch with no diagnostic. Added `__DEV__` console.warn when `placedWords.length !== correctOrder.length`.
+- **M3** Story task 3.5 wording — Task said "Add `allTilesPlaced` to store" but implementation correctly kept it in the component per dev notes. Clarified task description.
+- **M4** `lib/api.ts:29` — Story spec referenced 5s validation timeout; implementation uses 3s (from Story 4.6). Added explanatory comment documenting the intentional deviation and how to change it.
+- **M5** No test for `sourceCitation` — Added 2 tests covering presence and absence of `sourceCitation` in feedback section.
+- **M6** Test worker leak — `afterEach` missing `jest.clearAllTimers()` before `jest.useRealTimers()`. Fixed. (Note: residual leak from Tamagui animation mocks requires Jest `--forceExit` at infrastructure level.)
+
+**Tests after review fixes:** 76 passing (up from 70) | TypeScript: 0 errors | Lint: 0 errors
+
+**Deferred (LOW — acceptable):**
+- L1: `getTileFontSize` returns 24px for 1-2 char tiles vs 72px AC spec — product decision needed (may affect tile layout significantly at 72px)
+- L2: `AnswerValidationParams` type alias redundancy — minor maintainability
+- L3: `clearTiles()` before `nextQuestion()` is a no-op — harmless
 
 ### Change Log
 
@@ -650,3 +681,13 @@ _bmad-output/implementation-artifacts/sprint-status.yaml
   - Created `SentenceBuilder` component with `WordTile`/`SlotArea` styled components, tap-to-place/return interaction, hybrid local+LLM validation, per-tile feedback
   - Integrated `SentenceBuilder` into `play.tsx` exercise type routing
   - 32 new tests across `useQuizStore.test.ts`, `SentenceBuilder.test.tsx`, and `play.test.tsx`
+- **2026-02-20**: Code review fixes applied (9 HIGH+MEDIUM issues)
+  - H1: `sourceCitation` prop now destructured and displayed in feedback section; 2 tests added
+  - H2: Normalization moved into `useAnswerValidation` hook — all callers pass raw strings
+  - H3: `ValidationResult` contract documented with JSDoc + 4 new contract tests
+  - M1: `isSubmittingRef` useRef guard added to prevent double-submit
+  - M2: `__DEV__` warning added to `computeTileFeedback` for length mismatch
+  - M3: Task 3.5 wording corrected to reflect component-level derivation
+  - M4: 3s timeout deviation documented in `lib/api.ts`
+  - M5: 2 `sourceCitation` display tests added to `SentenceBuilder.test.tsx`
+  - M6: `jest.clearAllTimers()` added in `afterEach`; 76 tests pass (was 70)

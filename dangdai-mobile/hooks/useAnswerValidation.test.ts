@@ -232,4 +232,76 @@ describe('useAnswerValidation', () => {
       expect(typeof result.current.validate).toBe('function')
     })
   })
+
+  describe('ValidationResult contract — H3: isAlternative semantic', () => {
+    it('local match: isCorrect=true, isAlternative=false, usedLlm=false', async () => {
+      const { result } = renderHook(() => useAnswerValidation(), { wrapper: createWrapper() })
+
+      let validationResult: Awaited<ReturnType<typeof result.current.validate>> | undefined
+      await act(async () => {
+        validationResult = await result.current.validate(BASE_PARAMS)
+      })
+
+      expect(validationResult?.isCorrect).toBe(true)
+      expect(validationResult?.isAlternative).toBe(false)
+      expect(validationResult?.usedLlm).toBe(false)
+    })
+
+    it('LLM correct alternative: isCorrect=true, isAlternative=true, usedLlm=true', async () => {
+      mockValidateAnswer.mockResolvedValue(mockLlmCorrectResponse)
+
+      const { result } = renderHook(() => useAnswerValidation(), { wrapper: createWrapper() })
+
+      let validationResult: Awaited<ReturnType<typeof result.current.validate>> | undefined
+      await act(async () => {
+        validationResult = await result.current.validate({
+          ...BASE_PARAMS,
+          userAnswer: '茶',
+          correctAnswer: '咖啡',
+        })
+      })
+
+      expect(validationResult?.isCorrect).toBe(true)
+      expect(validationResult?.isAlternative).toBe(true)
+      expect(validationResult?.usedLlm).toBe(true)
+    })
+
+    it('LLM incorrect: isCorrect=false, isAlternative=false, usedLlm=true', async () => {
+      mockValidateAnswer.mockResolvedValue(mockLlmIncorrectResponse)
+
+      const { result } = renderHook(() => useAnswerValidation(), { wrapper: createWrapper() })
+
+      let validationResult: Awaited<ReturnType<typeof result.current.validate>> | undefined
+      await act(async () => {
+        validationResult = await result.current.validate({
+          ...BASE_PARAMS,
+          userAnswer: '你好',
+          correctAnswer: '咖啡',
+        })
+      })
+
+      expect(validationResult?.isCorrect).toBe(false)
+      expect(validationResult?.isAlternative).toBe(false)
+      expect(validationResult?.usedLlm).toBe(true)
+    })
+
+    it('LLM timeout fallback: isCorrect=false, isAlternative=false, usedLlm=false', async () => {
+      mockValidateAnswer.mockRejectedValue(new QuizGenerationError('timeout', 'timed out'))
+
+      const { result } = renderHook(() => useAnswerValidation(), { wrapper: createWrapper() })
+
+      let validationResult: Awaited<ReturnType<typeof result.current.validate>> | undefined
+      await act(async () => {
+        validationResult = await result.current.validate({
+          ...BASE_PARAMS,
+          userAnswer: '茶',
+          correctAnswer: '咖啡',
+        })
+      })
+
+      expect(validationResult?.isCorrect).toBe(false)
+      expect(validationResult?.isAlternative).toBe(false)
+      expect(validationResult?.usedLlm).toBe(false)
+    })
+  })
 })

@@ -25,7 +25,14 @@ export const API_BASE_URL = apiUrl ?? 'http://localhost:8000'
 /** Client-side timeout for quiz generation requests (10 seconds). */
 const QUIZ_GENERATION_TIMEOUT_MS = 10_000
 
-/** Client-side timeout for answer validation requests (3 seconds). */
+/**
+ * Client-side timeout for answer validation requests.
+ *
+ * Story 4.6 set this to 3 seconds (faster UX, acceptable given LLM latency targets).
+ * Story 4.7 spec referenced 5 seconds, but 3 seconds was retained from 4.6 for
+ * consistency — the hook falls back to local validation on timeout, so UX is safe.
+ * Change to 5_000 here if LLM latency proves too variable in production.
+ */
 const ANSWER_VALIDATION_TIMEOUT_MS = 3_000
 
 /**

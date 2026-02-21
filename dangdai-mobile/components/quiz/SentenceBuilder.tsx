@@ -64,21 +64,23 @@ export interface SentenceBuilderProps {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
- * Normalize a Chinese sentence for comparison:
- * - Trim surrounding whitespace
- * - Remove all internal whitespace (Chinese sentences don't use spaces)
- */
-function normalizeAnswer(answer: string): string {
-  return answer.trim().replace(/\s+/g, '')
-}
-
-/**
  * Compute per-tile correct/incorrect feedback based on position.
+ *
+ * Expects placedWords.length === correctOrder.length (enforced by allTilesPlaced
+ * guard before submit). Logs a warning in dev if lengths differ — indicates a
+ * backend data inconsistency between scrambled_words and correct_order (M2 fix).
  */
 function computeTileFeedback(
   placedWords: string[],
   correctOrder: string[],
 ): Array<'correct' | 'incorrect'> {
+  if (__DEV__ && placedWords.length !== correctOrder.length) {
+    console.warn(
+      `[SentenceBuilder] computeTileFeedback: placedWords.length (${placedWords.length}) ` +
+        `!== correctOrder.length (${correctOrder.length}). ` +
+        'Check that scrambled_words and correct_order have matching lengths in the backend response.',
+    )
+  }
   return placedWords.map((word, index) => {
     if (index < correctOrder.length && word === correctOrder[index]) {
       return 'correct'
@@ -142,6 +144,7 @@ export function SentenceBuilder({
   correctOrder,
   correctAnswer,
   explanation,
+  sourceCitation,
   onAnswer,
   testID,
 }: SentenceBuilderProps) {
@@ -160,6 +163,12 @@ export function SentenceBuilder({
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null)
   const [tileFeedback, setTileFeedback] = useState<Array<'correct' | 'incorrect'>>([])
+
+  // ─── Submission guard ref (M1 fix: prevents double-submit on slow devices) ──
+  // React state batching means isSubmitted may not be synchronously true by the
+  // time a second tap fires. A ref is set synchronously before any async work.
+
+  const isSubmittingRef = useRef(false)
 
   // ─── Feedback timeout ref ─────────────────────────────────────────────────
 
@@ -199,13 +208,17 @@ export function SentenceBuilder({
   }
 
   const handleSubmit = async () => {
-    if (!allTilesPlaced || isSubmitted) return
+    // Guard with both ref (synchronous) and state (for render) to prevent
+    // double-submit on slow devices where React batching delays state updates.
+    if (!allTilesPlaced || isSubmitted || isSubmittingRef.current) return
+    isSubmittingRef.current = true
 
     setIsSubmitted(true)
 
+    // Pass raw strings — useAnswerValidation normalizes internally (H2 fix).
     const result = await validate({
-      userAnswer: normalizeAnswer(constructedSentence),
-      correctAnswer: normalizeAnswer(correctAnswer),
+      userAnswer: constructedSentence,
+      correctAnswer,
       questionText,
       exerciseType: 'sentence_construction',
       preGeneratedExplanation: explanation,
@@ -453,6 +466,16 @@ export function SentenceBuilder({
                 <Text fontSize="$3" color="$color">
                   {validationResult.explanation}
                 </Text>
+                {sourceCitation ? (
+                  <Text
+                    fontSize="$2"
+                    color="$colorSubtle"
+                    fontStyle="italic"
+                    testID="source-citation"
+                  >
+                    {sourceCitation}
+                  </Text>
+                ) : null}
               </YStack>
             </YStack>
           </AnimatePresence>
