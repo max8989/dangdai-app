@@ -38,6 +38,9 @@ export const queryKeys = {
   // Activity and streaks
   dailyActivity: (userId: string) => ['dailyActivity', userId] as const,
   streak: (userId: string) => ['streak', userId] as const,
+
+  // Exercise type progress (Story 4.11)
+  exerciseTypeProgress: (chapterId: number) => ['exerciseTypeProgress', chapterId] as const,
 } as const
 
 // Type helper for query key extraction

@@ -412,6 +412,115 @@ describe('useQuizStore — Story 4.3 extensions', () => {
   })
 })
 
+describe('useQuizStore — Story 4.11 completion state (Task 1)', () => {
+  beforeEach(() => {
+    useQuizStore.getState().resetQuiz()
+  })
+
+  describe('initial state', () => {
+    it('starts with isComplete as false (Task 1.1)', () => {
+      expect(useQuizStore.getState().isComplete).toBe(false)
+    })
+
+    it('starts with quizStartTime as null (Task 1.2)', () => {
+      expect(useQuizStore.getState().quizStartTime).toBeNull()
+    })
+  })
+
+  describe('startQuiz() sets quizStartTime (Task 1.2)', () => {
+    it('sets quizStartTime to a number when startQuiz is called', () => {
+      useQuizStore.getState().startQuiz('quiz-1', mockQuizResponse, 212, 2, 'vocabulary')
+      expect(typeof useQuizStore.getState().quizStartTime).toBe('number')
+    })
+
+    it('quizStartTime is a recent timestamp (within 5 seconds)', () => {
+      const before = Date.now()
+      useQuizStore.getState().startQuiz('quiz-1', mockQuizResponse)
+      const after = Date.now()
+      const startTime = useQuizStore.getState().quizStartTime
+      expect(startTime).toBeGreaterThanOrEqual(before)
+      expect(startTime).toBeLessThanOrEqual(after)
+    })
+  })
+
+  describe('completeQuiz() action (Task 1.3)', () => {
+    it('sets isComplete to true', () => {
+      useQuizStore.getState().completeQuiz()
+      expect(useQuizStore.getState().isComplete).toBe(true)
+    })
+  })
+
+  describe('getQuizDuration() derived getter (Task 1.4)', () => {
+    it('returns 0 when quizStartTime is null', () => {
+      expect(useQuizStore.getState().getQuizDuration()).toBe(0)
+    })
+
+    it('returns elapsed minutes (approximately 0 for a just-started quiz)', () => {
+      useQuizStore.getState().startQuiz('quiz-1', mockQuizResponse)
+      const duration = useQuizStore.getState().getQuizDuration()
+      expect(typeof duration).toBe('number')
+      expect(duration).toBeGreaterThanOrEqual(0)
+    })
+  })
+
+  describe('getIncorrectAnswers() derived getter (Task 1.5)', () => {
+    it('returns empty array when no quiz payload', () => {
+      expect(useQuizStore.getState().getIncorrectAnswers()).toEqual([])
+    })
+
+    it('returns empty array when all answers are correct', () => {
+      useQuizStore.getState().startQuiz('quiz-1', mockQuizResponse)
+      // Answer all correctly
+      useQuizStore.getState().setAnswer(0, 'to study')
+      useQuizStore.getState().setAnswer(1, 'chī')
+      useQuizStore.getState().setAnswer(2, '我把書放在桌子上了')
+      const incorrect = useQuizStore.getState().getIncorrectAnswers()
+      expect(incorrect).toHaveLength(0)
+    })
+
+    it('returns incorrect answers with questionIndex, userAnswer, correctAnswer', () => {
+      useQuizStore.getState().startQuiz('quiz-1', mockQuizResponse)
+      useQuizStore.getState().setAnswer(0, 'to teach') // wrong
+      useQuizStore.getState().setAnswer(1, 'chī') // correct
+      useQuizStore.getState().setAnswer(2, '我放書把桌子上了') // wrong
+      const incorrect = useQuizStore.getState().getIncorrectAnswers()
+      expect(incorrect).toHaveLength(2)
+      expect(incorrect[0]).toEqual({
+        questionIndex: 0,
+        userAnswer: 'to teach',
+        correctAnswer: 'to study',
+      })
+      expect(incorrect[1]).toEqual({
+        questionIndex: 2,
+        userAnswer: '我放書把桌子上了',
+        correctAnswer: '我把書放在桌子上了',
+      })
+    })
+
+    it('returns empty array when no answers recorded', () => {
+      useQuizStore.getState().startQuiz('quiz-1', mockQuizResponse)
+      // No answers set
+      const incorrect = useQuizStore.getState().getIncorrectAnswers()
+      expect(incorrect).toEqual([])
+    })
+  })
+
+  describe('resetQuiz() resets completion state (Task 1.6)', () => {
+    it('resets isComplete to false on reset', () => {
+      useQuizStore.getState().completeQuiz()
+      expect(useQuizStore.getState().isComplete).toBe(true)
+      useQuizStore.getState().resetQuiz()
+      expect(useQuizStore.getState().isComplete).toBe(false)
+    })
+
+    it('resets quizStartTime to null on reset', () => {
+      useQuizStore.getState().startQuiz('quiz-1', mockQuizResponse)
+      useQuizStore.getState().resetQuiz()
+      expect(useQuizStore.getState().quizStartTime).toBeNull()
+    })
+  })
+})
+
 describe('useQuizStore — Story 4.10 persist middleware', () => {
   beforeEach(() => {
     useQuizStore.getState().resetQuiz()

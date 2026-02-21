@@ -44,6 +44,7 @@
  * Story 4.7: Sentence Construction Exercise
  * Story 4.9: Immediate Answer Feedback (FeedbackOverlay + useSound)
  * Story 4.10: Quiz Progress Saving (timer + Supabase writes + crash recovery)
+ * Story 4.11: Quiz Results Screen (CompletionScreen rendered when isComplete === true)
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -55,6 +56,7 @@ import { ArrowLeft } from '@tamagui/lucide-icons'
 import { useQuizStore } from '../../stores/useQuizStore'
 import { useQuestionTimer } from '../../hooks/useQuestionTimer'
 import { useQuizPersistence } from '../../hooks/useQuizPersistence'
+import { CompletionScreen } from '../../components/quiz/CompletionScreen'
 import { QuizQuestionCard } from '../../components/quiz/QuizQuestionCard'
 import { AnswerOptionGrid } from '../../components/quiz/AnswerOptionGrid'
 import { QuizProgress } from '../../components/quiz/QuizProgress'
@@ -149,6 +151,13 @@ export default function QuizPlayScreen() {
   const chapterId = useQuizStore((state) => state.chapterId)
   const bookId = useQuizStore((state) => state.bookId)
 
+  // Story 4.11: completion state
+  const isComplete = useQuizStore((state) => state.isComplete)
+  const completeQuiz = useQuizStore((state) => state.completeQuiz)
+  const getQuizDuration = useQuizStore((state) => state.getQuizDuration)
+  const getIncorrectAnswers = useQuizStore((state) => state.getIncorrectAnswers)
+  const score = useQuizStore((state) => state.score)
+
   // ─── Story 4.10 hooks: per-question timer + Supabase persistence ──────────
 
   const timer = useQuestionTimer(currentQuestionIndex)
@@ -237,8 +246,8 @@ export default function QuizPlayScreen() {
           // Clear persisted quiz state (crash recovery no longer needed)
           clearResumableQuiz()
 
-          // Navigate to results screen (Story 4.11)
-          router.replace('/quiz/results')
+          // Show CompletionScreen in-place (Story 4.11) — no navigation needed
+          completeQuiz()
         } else {
           nextQuestion()
         }
@@ -590,6 +599,56 @@ export default function QuizPlayScreen() {
   // While redirect is pending (invalid/empty quiz), render nothing to avoid a flash
   if (isInvalidQuiz || isIndexOutOfRange || !currentQuestion) {
     return null
+  }
+
+  // ─── CompletionScreen render (Story 4.11) ─────────────────────────────────
+  // When the quiz is complete, render the CompletionScreen in-place using
+  // AnimatePresence for the entrance animation. The quiz UI exits via AnimatePresence.
+
+  const quizExerciseType = (quizPayload?.exercise_type ?? 'vocabulary') as ExerciseType
+  const totalQuestionsCount = quizPayload?.questions.length ?? 0
+  // Points per correct = POINTS_PER_CORRECT (10); score = total points accumulated
+  const correctAnswerCount = Math.round(score / POINTS_PER_CORRECT)
+
+  if (isComplete) {
+    const incorrectAnswers = getIncorrectAnswers()
+    const durationMins = getQuizDuration()
+
+    const incorrectItems = incorrectAnswers.map((item) => {
+      const question = quizPayload?.questions[item.questionIndex]
+      return {
+        questionText: question?.question_text ?? '',
+        userAnswer: item.userAnswer,
+        correctAnswer: item.correctAnswer,
+        character: question?.character,
+      }
+    })
+
+    return (
+      <AnimatePresence>
+        <YStack
+          key="completion"
+          flex={1}
+          backgroundColor="$background"
+          testID="quiz-completion-wrapper"
+        >
+          <CompletionScreen
+            chapterId={chapterId ?? quizPayload?.chapter_id ?? 0}
+            bookId={bookId ?? quizPayload?.book_id ?? 0}
+            exerciseType={quizExerciseType}
+            correctCount={correctAnswerCount}
+            totalQuestions={totalQuestionsCount}
+            pointsEarned={score}
+            durationMinutes={durationMins}
+            incorrectItems={incorrectItems}
+            onContinue={() => {
+              router.replace('/(tabs)/books')
+            }}
+            testID="completion-screen"
+          />
+        </YStack>
+      </AnimatePresence>
+    )
   }
 
   return (

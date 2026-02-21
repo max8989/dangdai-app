@@ -44,6 +44,39 @@ export type Database = {
         }
         Relationships: []
       }
+      exercise_type_progress: {
+        Row: {
+          attempts_count: number
+          best_score: number
+          chapter_id: number
+          exercise_type: string
+          id: string
+          mastered_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts_count?: number
+          best_score?: number
+          chapter_id: number
+          exercise_type: string
+          id?: string
+          mastered_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts_count?: number
+          best_score?: number
+          chapter_id?: number
+          exercise_type?: string
+          id?: string
+          mastered_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       users: {
         Row: {
           created_at: string

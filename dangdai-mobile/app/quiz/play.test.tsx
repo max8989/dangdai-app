@@ -258,20 +258,6 @@ jest.mock('tamagui', () => {
   }
 })
 
-// Mock quiz components to simplify integration test rendering
-jest.mock('../../components/quiz/QuizQuestionCard', () => ({
-  QuizQuestionCard: ({ questionTypeLabel, primaryContent, secondaryContent, testID }: any) => {
-    const { View, Text } = require('react-native')
-    return (
-      <View testID={testID || 'quiz-question-card'}>
-        <Text testID="question-type-label">{questionTypeLabel}</Text>
-        <Text testID="primary-content">{primaryContent}</Text>
-        {secondaryContent ? <Text testID="secondary-content">{secondaryContent}</Text> : null}
-      </View>
-    )
-  },
-}))
-
 jest.mock('../../components/quiz/AnswerOptionGrid', () => ({
   AnswerOptionGrid: ({ options, onSelect, disabled, testID }: any) => {
     const { View, TouchableOpacity, Text } = require('react-native')
@@ -407,6 +393,21 @@ jest.mock('../../components/quiz/DialogueCard', () => ({
   },
 }))
 
+// Mock CompletionScreen component (added in Story 4.11)
+jest.mock('../../components/quiz/CompletionScreen', () => ({
+  CompletionScreen: ({ testID, onContinue }: any) => {
+    const { View, TouchableOpacity, Text } = require('react-native')
+    return (
+      <View testID={testID || 'completion-screen'}>
+        <Text testID="completion-screen-title">Exercise Complete!</Text>
+        <TouchableOpacity testID="completion-continue-button" onPress={onContinue}>
+          <Text>Continue</Text>
+        </TouchableOpacity>
+      </View>
+    )
+  },
+}))
+
 // Mock FeedbackOverlay component (added in Story 4.9)
 jest.mock('../../components/quiz/FeedbackOverlay', () => ({
   FeedbackOverlay: ({ visible, isCorrect, explanation, testID }: any) => {
@@ -435,6 +436,9 @@ let mockQuizState = {
   // Story 4.9 feedback state
   showFeedback: false,
   feedbackIsCorrect: null as boolean | null,
+  // Story 4.11 completion state
+  isComplete: false,
+  quizStartTime: null as number | null,
 }
 
 const mockStartQuiz = jest.fn()
@@ -442,6 +446,10 @@ const mockSetAnswer = jest.fn()
 const mockNextQuestion = jest.fn()
 const mockAddScore = jest.fn()
 const mockResetQuiz = jest.fn()
+// Story 4.11 completion actions
+const mockCompleteQuiz = jest.fn(() => { mockQuizState.isComplete = true })
+const mockGetQuizDuration = jest.fn().mockReturnValue(8)
+const mockGetIncorrectAnswers = jest.fn().mockReturnValue([])
 const mockSetBlankAnswer = jest.fn((blankIndex: number, word: string | null, wordBankIndex: number | null = null) => {
   mockQuizState.blankAnswers = { ...mockQuizState.blankAnswers, [blankIndex]: word }
   mockQuizState.blankAnswerIndices = { ...mockQuizState.blankAnswerIndices, [blankIndex]: wordBankIndex }
@@ -496,6 +504,12 @@ jest.mock('../../stores/useQuizStore', () => {
     _hasHydrated: true,
     hasActiveQuiz: jest.fn().mockReturnValue(true),
     setHasHydrated: jest.fn(),
+    // Story 4.11 completion state
+    isComplete: mockQuizState.isComplete,
+    quizStartTime: mockQuizState.quizStartTime,
+    completeQuiz: mockCompleteQuiz,
+    getQuizDuration: mockGetQuizDuration,
+    getIncorrectAnswers: mockGetIncorrectAnswers,
   })
 
   const useQuizStore = (selector: any) => {
@@ -528,6 +542,9 @@ describe('QuizPlayScreen', () => {
       placedTileIds: [],
       showFeedback: false,
       feedbackIsCorrect: null,
+      // Story 4.11
+      isComplete: false,
+      quizStartTime: null,
     }
     mockGetCurrentQuestion.mockImplementation(() => {
       if (!mockQuizState.quizPayload) return null
@@ -688,9 +705,9 @@ describe('QuizPlayScreen', () => {
         jest.advanceTimersByTime(1100)
       })
 
-      // Should navigate to completion (placeholder)
+      // Should call completeQuiz() to show CompletionScreen (Story 4.11)
       await waitFor(() => {
-        expect(mockRouterReplace).toHaveBeenCalled()
+        expect(mockCompleteQuiz).toHaveBeenCalled()
       })
     })
   })
@@ -926,7 +943,7 @@ describe('QuizPlayScreen', () => {
       expect(mockNextQuestion).toHaveBeenCalled()
     })
 
-    it('navigates to results screen on last sentence_construction question answered', async () => {
+    it('calls completeQuiz on last sentence_construction question answered (Story 4.11)', async () => {
       mockIsLastQuestion.mockReturnValue(true)
       // Pre-set showFeedback=true so the useEffect timer fires on initial render
       mockQuizState.showFeedback = true
@@ -939,7 +956,7 @@ describe('QuizPlayScreen', () => {
       })
 
       await waitFor(() => {
-        expect(mockRouterReplace).toHaveBeenCalledWith('/quiz/results')
+        expect(mockCompleteQuiz).toHaveBeenCalled()
       })
     })
   })
@@ -968,7 +985,7 @@ describe('QuizPlayScreen', () => {
       expect(mockNextQuestion).toHaveBeenCalled()
     })
 
-    it('navigates to results screen on last dialogue question answered', async () => {
+    it('calls completeQuiz on last dialogue question answered (Story 4.11)', async () => {
       mockIsLastQuestion.mockReturnValue(true)
       // Pre-set showFeedback=true to simulate feedback being shown
       mockQuizState.showFeedback = true
@@ -981,7 +998,7 @@ describe('QuizPlayScreen', () => {
       })
 
       await waitFor(() => {
-        expect(mockRouterReplace).toHaveBeenCalledWith('/quiz/results')
+        expect(mockCompleteQuiz).toHaveBeenCalled()
       })
     })
   })
@@ -1025,6 +1042,34 @@ describe('QuizPlayScreen', () => {
       fireEvent.press(getByTestId('answer-option-1')) // incorrect answer
 
       expect(mockTriggerShowFeedback).toHaveBeenCalledWith(false)
+    })
+  })
+
+  describe('Story 4.11: CompletionScreen integration (Task 6, Task 7.8)', () => {
+    it('renders CompletionScreen when isComplete is true (Task 7.8)', () => {
+      // Set isComplete to true in mock state
+      mockQuizState.isComplete = true
+
+      const { getByTestId, queryByTestId } = render(<QuizPlayScreen />)
+
+      // CompletionScreen should be shown
+      expect(getByTestId('completion-screen')).toBeTruthy()
+      expect(getByTestId('completion-screen-title')).toBeTruthy()
+
+      // Quiz play UI should NOT be shown
+      expect(queryByTestId('quiz-play-screen')).toBeNull()
+    })
+
+    it('renders quiz UI when isComplete is false (Task 6.2)', () => {
+      mockQuizState.isComplete = false
+
+      const { getByTestId, queryByTestId } = render(<QuizPlayScreen />)
+
+      // Quiz play UI should be shown
+      expect(getByTestId('quiz-play-screen')).toBeTruthy()
+
+      // CompletionScreen should NOT be shown
+      expect(queryByTestId('completion-screen')).toBeNull()
     })
   })
 })

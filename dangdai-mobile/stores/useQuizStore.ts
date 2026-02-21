@@ -15,6 +15,7 @@
  * Story 4.7: Extended with placedTileIds, placeTile, removeTile, clearTiles
  * Story 4.9: Extended with showFeedback, feedbackIsCorrect, triggerShowFeedback, hideFeedback
  * Story 4.10: Added persist middleware, chapterId/bookId/exerciseType, hasActiveQuiz, _hasHydrated
+ * Story 4.11: Extended with isComplete, quizStartTime, completeQuiz(), getQuizDuration(), getIncorrectAnswers()
  */
 
 import { create } from 'zustand'
@@ -67,12 +68,26 @@ interface QuizState {
   // Use this to gate the resume dialog check.
   _hasHydrated: boolean
 
+  // Quiz completion state (Story 4.11)
+  // Set to true by completeQuiz() when the quiz is finished and CompletionScreen shows.
+  // NOT persisted — ephemeral UI state, resets on resetQuiz().
+  isComplete: boolean
+  // Timestamp (ms) when the quiz was started, used to compute quiz duration.
+  // Set in startQuiz(), cleared in resetQuiz().
+  quizStartTime: number | null
+
   // Derived getters
   getCurrentQuestion: () => QuizQuestion | null
   isLastQuestion: () => boolean
   hasActiveQuiz: () => boolean
+  /** Returns elapsed quiz duration in minutes (0 if not started). Story 4.11 Task 1.4 */
+  getQuizDuration: () => number
+  /** Returns details of incorrectly answered questions. Story 4.11 Task 1.5 */
+  getIncorrectAnswers: () => { questionIndex: number; userAnswer: string; correctAnswer: string }[]
 
   // Actions
+  /** Sets isComplete to true — called when the last question's feedback timer fires. Story 4.11 Task 1.3 */
+  completeQuiz: () => void
   startQuiz: (quizId: string, payload?: QuizResponse, chapterId?: number | null, bookId?: number | null, exerciseType?: string | null) => void
   setQuizPayload: (payload: QuizResponse) => void
   setAnswer: (questionIndex: number, answer: string) => void
@@ -134,6 +149,9 @@ export const useQuizStore = create<QuizState>()(
       showFeedback: false,
       feedbackIsCorrect: null,
       _hasHydrated: false,
+      // Story 4.11 completion state
+      isComplete: false,
+      quizStartTime: null,
 
       // Derived getters
       getCurrentQuestion: () => {
@@ -153,7 +171,37 @@ export const useQuizStore = create<QuizState>()(
         return state.currentQuizId !== null && state.quizPayload !== null
       },
 
+      // Story 4.11 derived getters
+      getQuizDuration: () => {
+        const { quizStartTime } = get()
+        if (quizStartTime === null) return 0
+        const elapsedMs = Date.now() - quizStartTime
+        return Math.round(elapsedMs / 60_000)
+      },
+
+      getIncorrectAnswers: () => {
+        const { quizPayload, answers } = get()
+        if (!quizPayload || !quizPayload.questions) return []
+        const result: { questionIndex: number; userAnswer: string; correctAnswer: string }[] = []
+        quizPayload.questions.forEach((question, index) => {
+          const userAnswer = answers[index]
+          if (userAnswer === undefined) return // Not answered — skip
+          const isCorrect =
+            userAnswer.trim().toLowerCase() === question.correct_answer.trim().toLowerCase()
+          if (!isCorrect) {
+            result.push({
+              questionIndex: index,
+              userAnswer,
+              correctAnswer: question.correct_answer,
+            })
+          }
+        })
+        return result
+      },
+
       // Actions
+      completeQuiz: () => set({ isComplete: true }),
+
       startQuiz: (quizId, payload, chapterId = null, bookId = null, exerciseType = null) =>
         set((state) => ({
           currentQuizId: quizId,
@@ -169,6 +217,9 @@ export const useQuizStore = create<QuizState>()(
           placedTileIds: [], // Reset tile placement state on new session start
           showFeedback: false, // Reset feedback state on new session start
           feedbackIsCorrect: null,
+          // Story 4.11: record start time for duration calculation; reset completion
+          isComplete: false,
+          quizStartTime: Date.now(),
         })),
 
       setQuizPayload: (payload) => set({ quizPayload: payload }),
@@ -205,6 +256,9 @@ export const useQuizStore = create<QuizState>()(
           placedTileIds: [], // Reset tile placement on quiz reset
           showFeedback: false, // Reset feedback state on quiz reset
           feedbackIsCorrect: null,
+          // Story 4.11: reset completion state
+          isComplete: false,
+          quizStartTime: null,
         }),
 
       setHasHydrated: (hydrated) => set({ _hasHydrated: hydrated }),

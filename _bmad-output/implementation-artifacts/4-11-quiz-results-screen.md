@@ -1,6 +1,6 @@
 # Story 4.11: Quiz Results Screen with Per-Type Breakdown
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -24,77 +24,77 @@ So that I know how well I performed and how it fits into my overall chapter mast
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Extend `useQuizStore` with completion state (AC: #1)
-  - [ ] 1.1 Add `isComplete: boolean` to `QuizState` interface (default `false`)
-  - [ ] 1.2 Add `quizStartTime: number | null` to track quiz duration (set in `startQuiz()`)
-  - [ ] 1.3 Add `completeQuiz: () => void` action that sets `isComplete: true`
-  - [ ] 1.4 Add `getQuizDuration: () => number` derived getter (returns elapsed minutes from `quizStartTime`)
-  - [ ] 1.5 Add `getIncorrectAnswers: () => { questionIndex: number; userAnswer: string; correctAnswer: string }[]` derived getter
-  - [ ] 1.6 Reset `isComplete` and `quizStartTime` in `resetQuiz()`
-  - [ ] 1.7 Write unit tests for new completion state fields and actions
+- [x] Task 1: Extend `useQuizStore` with completion state (AC: #1)
+  - [x] 1.1 Add `isComplete: boolean` to `QuizState` interface (default `false`)
+  - [x] 1.2 Add `quizStartTime: number | null` to track quiz duration (set in `startQuiz()`)
+  - [x] 1.3 Add `completeQuiz: () => void` action that sets `isComplete: true`
+  - [x] 1.4 Add `getQuizDuration: () => number` derived getter (returns elapsed minutes from `quizStartTime`)
+  - [x] 1.5 Add `getIncorrectAnswers: () => { questionIndex: number; userAnswer: string; correctAnswer: string }[]` derived getter
+  - [x] 1.6 Reset `isComplete` and `quizStartTime` in `resetQuiz()`
+  - [x] 1.7 Write unit tests for new completion state fields and actions
 
-- [ ] Task 2: Create `PointsCounter` component with Reanimated count-up (AC: #1)
-  - [ ] 2.1 Create `components/quiz/PointsCounter.tsx` with Tamagui `styled(XStack)` wrapper and `size` variant (`inline`, `celebration`)
-  - [ ] 2.2 Implement count-up animation using Reanimated `useSharedValue` + `withTiming` (0 → earned points over ~1.5s)
-  - [ ] 2.3 Display interpolated value via `useDerivedValue` + `useAnimatedProps` or `runOnJS` callback to update displayed text
-  - [ ] 2.4 Add end-of-count scale bounce via Tamagui `animation="bouncy"` with state change (e.g., `isCounting` → `isDone`)
-  - [ ] 2.5 Integrate `useSound` hook from Story 4.9 for "tick" sound during count-up (call `playTick()` on each value change threshold)
-  - [ ] 2.6 Use `$secondary` token color for points text (warm orange per UX spec)
-  - [ ] 2.7 Write co-located test `PointsCounter.test.tsx`
+- [x] Task 2: Create `PointsCounter` component with Reanimated count-up (AC: #1)
+  - [x] 2.1 Create `components/quiz/PointsCounter.tsx` with Tamagui `styled(XStack)` wrapper and `size` variant (`inline`, `celebration`)
+  - [x] 2.2 Implement count-up animation using Reanimated `useSharedValue` + `withTiming` (0 → earned points over ~1.5s)
+  - [x] 2.3 Display interpolated value via `useDerivedValue` + `runOnJS` callback to update displayed text
+  - [x] 2.4 Add end-of-count scale bounce via Tamagui `animation="bouncy"` with state change (`counting` → `done`)
+  - [x] 2.5 Integrate `useSound` hook from Story 4.9 for "tick" sound during count-up — stubbed with `// TODO: Story 4.9` placeholder (useSound not yet implemented)
+  - [x] 2.6 Use `$secondary` token color for points text (warm orange per UX spec)
+  - [x] 2.7 Write co-located test `PointsCounter.test.tsx`
 
-- [ ] Task 3: Create `ExerciseTypeProgressList` component (AC: #1)
-  - [ ] 3.1 Create `components/quiz/ExerciseTypeProgressList.tsx` showing all 7 exercise types for a chapter
-  - [ ] 3.2 For each type, render: label (from `EXERCISE_TYPE_LABELS`), progress bar (animated with `animation="slow"`), percentage, status icon (✓ mastered, in-progress indicator, "New" label)
-  - [ ] 3.3 Highlight the just-completed exercise type with `<Theme name="primary">` wrapper and a subtle left border accent
-  - [ ] 3.4 Progress bars use Tamagui `YStack` with animated width (`animation="slow"`, `enterStyle={{ scaleX: 0 }}`)
-  - [ ] 3.5 Status logic: mastered = `best_score >= 80`, in-progress = `attempts_count > 0 && best_score < 80`, new = `attempts_count === 0`
-  - [ ] 3.6 Use `$success` token for mastered types, `$primary` for in-progress, `$colorSubtle` for new
-  - [ ] 3.7 Accept `exerciseTypeProgress` data array and `highlightType` prop
-  - [ ] 3.8 Write co-located test (not a separate task — included in Task 3)
+- [x] Task 3: Create `ExerciseTypeProgressList` component (AC: #1)
+  - [x] 3.1 Create `components/quiz/ExerciseTypeProgressList.tsx` showing all 7 exercise types for a chapter
+  - [x] 3.2 For each type, render: label (from `EXERCISE_TYPE_LABELS`), progress bar (animated with `animation="slow"`), percentage, status icon (✓ mastered, in-progress indicator, "New" label)
+  - [x] 3.3 Highlight the just-completed exercise type with `<Theme name="primary">` wrapper and a subtle left border accent
+  - [x] 3.4 Progress bars use Tamagui `YStack` with animated width (`animation="slow"`, `enterStyle={{ scaleX: 0 }}`)
+  - [x] 3.5 Status logic: mastered = `best_score >= 80`, in-progress = `attempts_count > 0 && best_score < 80`, new = `attempts_count === 0`
+  - [x] 3.6 Use `$success` token for mastered types, `$primary` for in-progress, `$colorSubtle` for new
+  - [x] 3.7 Accept `exerciseTypeProgress` data array and `highlightType` prop
+  - [x] 3.8 Write co-located test `ExerciseTypeProgressList.test.tsx` (11 tests pass)
 
-- [ ] Task 4: Create `useExerciseTypeProgress` hook (AC: #1)
-  - [ ] 4.1 Create `hooks/useExerciseTypeProgress.ts` using TanStack `useQuery` to fetch from `exercise_type_progress` table
-  - [ ] 4.2 Query: `supabase.from('exercise_type_progress').select('*').eq('chapter_id', chapterId).eq('user_id', userId)`
-  - [ ] 4.3 Add `exerciseTypeProgress` key to `lib/queryKeys.ts`: `exerciseTypeProgress: (chapterId: number) => ['exerciseTypeProgress', chapterId] as const`
-  - [ ] 4.4 Return typed array of `ExerciseTypeProgressRow` (mapped from Supabase generated types)
-  - [ ] 4.5 Include `updateExerciseTypeProgress` mutation: upsert `best_score`, increment `attempts_count`, set `mastered_at` if score ≥ 80%
-  - [ ] 4.6 Invalidate `exerciseTypeProgress` and `chapterProgress` query keys on mutation success
-  - [ ] 4.7 Write co-located test `useExerciseTypeProgress.test.ts`
+- [x] Task 4: Create `useExerciseTypeProgress` hook (AC: #1)
+  - [x] 4.1 Create `hooks/useExerciseTypeProgress.ts` using TanStack `useQuery` to fetch from `exercise_type_progress` table
+  - [x] 4.2 Query: `supabase.from('exercise_type_progress').select('*').eq('chapter_id', chapterId).eq('user_id', userId)`
+  - [x] 4.3 Add `exerciseTypeProgress` key to `lib/queryKeys.ts`: `exerciseTypeProgress: (chapterId: number) => ['exerciseTypeProgress', chapterId] as const`
+  - [x] 4.4 Return typed array of `ExerciseTypeProgressRow` (mapped from Supabase generated types)
+  - [x] 4.5 Include `updateExerciseTypeProgress` mutation: upsert `best_score`, increment `attempts_count`, set `mastered_at` if score ≥ 80%
+  - [x] 4.6 Invalidate `exerciseTypeProgress`, `chapterProgress`, and `userProgress` query keys on mutation success
+  - [x] 4.7 Write co-located test `useExerciseTypeProgress.test.ts` (5 tests pass)
 
-- [ ] Task 5: Create `CompletionScreen` component (AC: #1)
-  - [ ] 5.1 Create `components/quiz/CompletionScreen.tsx` as the main results view
-  - [ ] 5.2 Wrap entire screen in `AnimatePresence` with `key="completion"` and `enterStyle={{ opacity: 0, y: 50 }}` on outer `YStack`
-  - [ ] 5.3 Render celebration emoji/icon with `animation="bouncy"` and `enterStyle={{ scale: 0, rotate: '-20deg' }}`
-  - [ ] 5.4 Render "Exercise Complete!" title with `animation="medium"`
-  - [ ] 5.5 Render `<PointsCounter>` with `size="celebration"` — count-up triggers on mount
-  - [ ] 5.6 Render stats row: score (e.g., "8/10 correct - 80%"), time (e.g., "8 minutes") with `animation="medium"` and `enterStyle={{ opacity: 0 }}`
-  - [ ] 5.7 Render "CHAPTER X PROGRESS" section header
-  - [ ] 5.8 Render `<ExerciseTypeProgressList>` with fetched data and `highlightType` set to current exercise type
-  - [ ] 5.9 Render "FOCUS AREAS UPDATE" section with weakness summary (improvements shown with `<Theme name="success">`, still-weak with neutral styling)
-  - [ ] 5.10 Render "You struggled with:" section listing missed items (only if there are incorrect answers)
-  - [ ] 5.11 Render "Continue" button with `animation="medium"` and `enterStyle={{ opacity: 0, y: 10 }}` — navigates to Exercise Type Selection or dashboard
-  - [ ] 5.12 On mount: call `updateExerciseTypeProgress` mutation to upsert the just-completed exercise type's progress in Supabase
-  - [ ] 5.13 Use `ScrollView` wrapper for content that may exceed viewport height
-  - [ ] 5.14 Write co-located test `CompletionScreen.test.tsx`
+- [x] Task 5: Create `CompletionScreen` component (AC: #1)
+  - [x] 5.1 Create `components/quiz/CompletionScreen.tsx` as the main results view
+  - [x] 5.2 Wrap entire screen in `AnimatePresence` with `key="completion"` and `enterStyle={{ opacity: 0, y: 50 }}` on outer `YStack`
+  - [x] 5.3 Render celebration emoji/icon with `animation="bouncy"` and `enterStyle={{ scale: 0, rotate: '-20deg' }}`
+  - [x] 5.4 Render "Exercise Complete!" title with `animation="medium"`
+  - [x] 5.5 Render `<PointsCounter>` with `size="celebration"` — count-up triggers on mount
+  - [x] 5.6 Render stats row: score (e.g., "8/10 correct - 80%"), time (e.g., "8 minutes") with `animation="medium"` and `enterStyle={{ opacity: 0 }}`
+  - [x] 5.7 Render "CHAPTER X PROGRESS" section header
+  - [x] 5.8 Render `<ExerciseTypeProgressList>` with fetched data and `highlightType` set to current exercise type
+  - [x] 5.9 Render "FOCUS AREAS UPDATE" section with weakness summary (improvements shown with `<Theme name="success">`, still-weak/declining with neutral styling — never `<Theme name="error">`)
+  - [x] 5.10 Render "You struggled with:" section listing missed items (only if there are incorrect answers)
+  - [x] 5.11 Render "Continue" button with `animation="medium"` and `enterStyle={{ opacity: 0, y: 10 }}` — calls `onContinue` callback
+  - [x] 5.12 On mount: call `updateExerciseTypeProgress` mutation to upsert the just-completed exercise type's progress in Supabase
+  - [x] 5.13 Use `ScrollView` wrapper for content that may exceed viewport height
+  - [x] 5.14 Write co-located test `CompletionScreen.test.tsx` (17 tests pass)
 
-- [ ] Task 6: Integrate CompletionScreen into `app/quiz/play.tsx` (AC: #1)
-  - [ ] 6.1 Import `CompletionScreen` and `useQuizStore.isComplete`
-  - [ ] 6.2 When `isComplete === true`, render `<CompletionScreen>` instead of the quiz question UI
-  - [ ] 6.3 Wrap the quiz/completion toggle in `AnimatePresence` so the quiz exits and completion enters
-  - [ ] 6.4 On last question answered (after feedback delay): call `useQuizStore.completeQuiz()`
-  - [ ] 6.5 Pass required props to `CompletionScreen`: `chapterId`, `bookId`, `exerciseType`, `score`, `totalQuestions`, `answers`
+- [x] Task 6: Integrate CompletionScreen into `app/quiz/play.tsx` (AC: #1)
+  - [x] 6.1 Import `CompletionScreen` and `useQuizStore.isComplete`
+  - [x] 6.2 When `isComplete === true`, render `<CompletionScreen>` instead of the quiz question UI
+  - [x] 6.3 Wrap the quiz/completion toggle in `AnimatePresence` so the quiz exits and completion enters
+  - [x] 6.4 On last question answered (after feedback delay): call `useQuizStore.completeQuiz()`
+  - [x] 6.5 Pass required props to `CompletionScreen`: `chapterId`, `bookId`, `exerciseType`, `score`, `totalQuestions`, `incorrectItems` (derived from `getIncorrectAnswers()`)
 
-- [ ] Task 7: Write integration tests (AC: all)
-  - [ ] 7.1 Test: `CompletionScreen` renders score, points counter, exercise type progress, continue button
-  - [ ] 7.2 Test: `PointsCounter` animates from 0 to target value (verify final displayed value)
-  - [ ] 7.3 Test: `ExerciseTypeProgressList` renders all 7 types with correct status (mastered/in-progress/new)
-  - [ ] 7.4 Test: just-completed exercise type is visually highlighted
-  - [ ] 7.5 Test: weakness summary shows improvement indicators with encouraging framing
-  - [ ] 7.6 Test: "You struggled with" section only appears when there are incorrect answers
-  - [ ] 7.7 Test: "Continue" button navigates back to exercise type selection or dashboard
-  - [ ] 7.8 Test: `play.tsx` renders `CompletionScreen` when `isComplete` is true
-  - [ ] 7.9 Test: `useExerciseTypeProgress` hook fetches and returns typed data
-  - [ ] 7.10 Test: `updateExerciseTypeProgress` mutation upserts correctly and invalidates cache
+- [x] Task 7: Write integration tests (AC: all)
+  - [x] 7.1 Test: `CompletionScreen` renders score, points counter, exercise type progress, continue button
+  - [x] 7.2 Test: `PointsCounter` animates from 0 to target value (verify final displayed value)
+  - [x] 7.3 Test: `ExerciseTypeProgressList` renders all 7 types with correct status (mastered/in-progress/new)
+  - [x] 7.4 Test: just-completed exercise type is visually highlighted
+  - [x] 7.5 Test: weakness summary shows improvement indicators with encouraging framing
+  - [x] 7.6 Test: "You struggled with" section only appears when there are incorrect answers
+  - [x] 7.7 Test: "Continue" button calls `onContinue` prop (navigates to `/(tabs)/books` from play.tsx)
+  - [x] 7.8 Test: `play.tsx` renders `CompletionScreen` when `isComplete` is true; quiz UI shows when `isComplete` is false
+  - [x] 7.9 Test: `useExerciseTypeProgress` hook fetches and returns typed data
+  - [x] 7.10 Test: `updateExerciseTypeProgress` mutation upserts correctly and invalidates cache
 
 ## Dev Notes
 
@@ -821,12 +821,56 @@ dangdai-mobile/
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+anthropic/claude-sonnet-4-6 (Claude Code)
 
 ### Debug Log References
 
+None — implementation proceeded cleanly without major blockers.
+
 ### Completion Notes List
+
+- **Story 4.9 dependency (useSound):** Not yet implemented. Stubbed in `PointsCounter.tsx` with `// TODO: Story 4.9 — useSound hook` comment at both the import site and the `runOnJS(playTick)()` call site inside `useDerivedValue`.
+- **Story 4.10 dependency (useQuizPersistence):** Not required for this story — `exercise_type_progress` upsert is handled directly in `useExerciseTypeProgress` hook's mutation. Per-question `question_results` writes are 4.10's responsibility.
+- **Supabase migration applied:** `create_exercise_type_progress` migration applied to project `qhsjaybldyqsavjimxes`. Table includes RLS policies (users can only read/write their own rows). `types/supabase.ts` regenerated with generated types.
+- **Pre-existing test failure:** `hooks/useChapters.test.ts:102` fails with a chapter title mismatch ("Dates" vs "Beef Noodles Are Delicious") — this was introduced in Story 3.2 (git log confirms last touch was `9d79521 dev us 3.2`). Not a regression from this story.
+- **ESLint fixes applied:** Replaced `@ts-ignore` with `@ts-expect-error` in `ExerciseTypeProgressList.tsx`; removed spurious `// eslint-disable-line react-hooks/exhaustive-deps` comment in `PointsCounter.tsx` (the `react-hooks` plugin is not installed in this project's ESLint config).
+- **`transformOrigin` on progress bars:** Used `@ts-expect-error` to suppress the TypeScript error on `style={{ transformOrigin: 'left' }}` on the Tamagui-styled `ProgressBarFill` component — this prop is valid at runtime in React Native/Tamagui but not in the type definition.
+- **Score calculation for points:** Points earned = `score * 10` (each correct answer = 10 points), computed in `play.tsx` before passing to `CompletionScreen`.
+- **`onContinue` navigation:** Routes to `/(tabs)/books` (the books/dashboard tab). Can be updated to route to exercise type selection once that screen exists (Story 3.5).
 
 ### Change Log
 
+| Date | Change | Files |
+|------|--------|-------|
+| 2026-02-20 | Extended useQuizStore with isComplete, quizStartTime, completeQuiz, getQuizDuration, getIncorrectAnswers | `stores/useQuizStore.ts`, `stores/useQuizStore.test.ts` |
+| 2026-02-20 | Created PointsCounter component with Reanimated count-up and Tamagui bouncy end-bounce | `components/quiz/PointsCounter.tsx`, `components/quiz/PointsCounter.test.tsx` |
+| 2026-02-20 | Created ExerciseTypeProgressList showing all 7 types with mastered/in-progress/new status and progress bars | `components/quiz/ExerciseTypeProgressList.tsx`, `components/quiz/ExerciseTypeProgressList.test.tsx` |
+| 2026-02-20 | Applied Supabase migration for exercise_type_progress table with RLS; regenerated TypeScript types | Supabase project `qhsjaybldyqsavjimxes`, `types/supabase.ts` |
+| 2026-02-20 | Created useExerciseTypeProgress hook with TanStack Query fetch and upsert mutation | `hooks/useExerciseTypeProgress.ts`, `hooks/useExerciseTypeProgress.test.ts`, `lib/queryKeys.ts` |
+| 2026-02-20 | Created CompletionScreen with celebration animation, stats, progress list, weakness summary, struggled-with section | `components/quiz/CompletionScreen.tsx`, `components/quiz/CompletionScreen.test.tsx` |
+| 2026-02-20 | Integrated CompletionScreen into play.tsx — completeQuiz() on last answer, conditional render when isComplete | `app/quiz/play.tsx`, `app/quiz/play.test.tsx` |
+| 2026-02-20 | ESLint fixes: @ts-ignore → @ts-expect-error, removed invalid eslint-disable comment | `components/quiz/ExerciseTypeProgressList.tsx`, `components/quiz/PointsCounter.tsx` |
+
 ### File List
+
+**Created:**
+- `dangdai-mobile/components/quiz/PointsCounter.tsx`
+- `dangdai-mobile/components/quiz/PointsCounter.test.tsx`
+- `dangdai-mobile/components/quiz/ExerciseTypeProgressList.tsx`
+- `dangdai-mobile/components/quiz/ExerciseTypeProgressList.test.tsx`
+- `dangdai-mobile/components/quiz/CompletionScreen.tsx`
+- `dangdai-mobile/components/quiz/CompletionScreen.test.tsx`
+- `dangdai-mobile/hooks/useExerciseTypeProgress.ts`
+- `dangdai-mobile/hooks/useExerciseTypeProgress.test.ts`
+
+**Modified:**
+- `dangdai-mobile/stores/useQuizStore.ts`
+- `dangdai-mobile/stores/useQuizStore.test.ts`
+- `dangdai-mobile/lib/queryKeys.ts`
+- `dangdai-mobile/types/supabase.ts`
+- `dangdai-mobile/app/quiz/play.tsx`
+- `dangdai-mobile/app/quiz/play.test.tsx`
+- `_bmad-output/implementation-artifacts/sprint-status.yaml`
+
+**Supabase migrations applied:**
+- `create_exercise_type_progress` (project `qhsjaybldyqsavjimxes`)
