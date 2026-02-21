@@ -262,6 +262,71 @@ describe('useQuizStore — Story 4.3 extensions', () => {
     })
   })
 
+  describe('tile placement state — Story 4.7 (Task 3)', () => {
+    it('starts with empty placedTileIds', () => {
+      expect(getStore().placedTileIds).toEqual([])
+    })
+
+    it('placeTile appends a tile ID to placedTileIds', () => {
+      getStore().placeTile('tile-0')
+      expect(getStore().placedTileIds).toEqual(['tile-0'])
+    })
+
+    it('placeTile appends multiple tiles in order', () => {
+      getStore().placeTile('tile-2')
+      getStore().placeTile('tile-0')
+      getStore().placeTile('tile-3')
+      expect(getStore().placedTileIds).toEqual(['tile-2', 'tile-0', 'tile-3'])
+    })
+
+    it('removeTile removes a tile ID from placedTileIds', () => {
+      getStore().placeTile('tile-0')
+      getStore().placeTile('tile-1')
+      getStore().removeTile('tile-0')
+      expect(getStore().placedTileIds).toEqual(['tile-1'])
+    })
+
+    it('removeTile preserves order of remaining tiles', () => {
+      getStore().placeTile('tile-0')
+      getStore().placeTile('tile-1')
+      getStore().placeTile('tile-2')
+      getStore().removeTile('tile-1')
+      expect(getStore().placedTileIds).toEqual(['tile-0', 'tile-2'])
+    })
+
+    it('removeTile is a no-op when tile ID not found', () => {
+      getStore().placeTile('tile-0')
+      getStore().removeTile('tile-99')
+      expect(getStore().placedTileIds).toEqual(['tile-0'])
+    })
+
+    it('clearTiles resets placedTileIds to empty array', () => {
+      getStore().placeTile('tile-0')
+      getStore().placeTile('tile-1')
+      getStore().clearTiles()
+      expect(getStore().placedTileIds).toEqual([])
+    })
+
+    it('nextQuestion resets placedTileIds to empty array', () => {
+      getStore().placeTile('tile-0')
+      getStore().nextQuestion()
+      expect(getStore().placedTileIds).toEqual([])
+    })
+
+    it('resetQuiz resets placedTileIds to empty array', () => {
+      getStore().placeTile('tile-0')
+      getStore().placeTile('tile-1')
+      getStore().resetQuiz()
+      expect(getStore().placedTileIds).toEqual([])
+    })
+
+    it('startQuiz resets placedTileIds to empty array', () => {
+      getStore().placeTile('tile-0')
+      getStore().startQuiz('quiz-new', mockQuizResponse)
+      expect(getStore().placedTileIds).toEqual([])
+    })
+  })
+
   describe('existing actions (regression tests)', () => {
     it('setAnswer stores the answer at the correct index', () => {
       getStore().setAnswer(1, 'to study')

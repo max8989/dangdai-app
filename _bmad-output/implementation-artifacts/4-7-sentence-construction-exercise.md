@@ -1,6 +1,6 @@
 # Story 4.7: Sentence Construction Exercise
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -31,55 +31,55 @@ So that I can practice Chinese sentence structure.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Extend `QuizQuestion` type for sentence construction fields (AC: #1)
-  - [ ] 1.1 Add `scrambled_words?: string[]` field to `QuizQuestion` in `types/quiz.ts`
-  - [ ] 1.2 Add `correct_order?: string[]` field to `QuizQuestion` in `types/quiz.ts` (the correct sentence as an ordered array of words)
+- [x] Task 1: Extend `QuizQuestion` type for sentence construction fields (AC: #1)
+  - [x] 1.1 Add `scrambled_words?: string[]` field to `QuizQuestion` in `types/quiz.ts`
+  - [x] 1.2 Add `correct_order?: string[]` field to `QuizQuestion` in `types/quiz.ts` (the correct sentence as an ordered array of words)
 
-- [ ] Task 2: Add `validateAnswer()` to API client and create `useAnswerValidation` hook (AC: #3)
-  - [ ] 2.1 Add `validateAnswer(params: AnswerValidationParams): Promise<AnswerValidationResponse>` to `lib/api.ts` with JWT auth, 5s timeout, typed errors
-  - [ ] 2.2 Add `AnswerValidationParams` and `AnswerValidationResponse` types to `types/quiz.ts`
-  - [ ] 2.3 Create `hooks/useAnswerValidation.ts` implementing the hybrid validation pattern: local check first, LLM fallback via `useMutation`, timeout fallback to local
-  - [ ] 2.4 Write co-located test `hooks/useAnswerValidation.test.ts`
+- [x] Task 2: Add `validateAnswer()` to API client and create `useAnswerValidation` hook (AC: #3)
+  - [x] 2.1 Add `validateAnswer(params: AnswerValidationParams): Promise<AnswerValidationResponse>` to `lib/api.ts` with JWT auth, 5s timeout, typed errors
+  - [x] 2.2 Add `AnswerValidationParams` and `AnswerValidationResponse` types to `types/quiz.ts`
+  - [x] 2.3 Create `hooks/useAnswerValidation.ts` implementing the hybrid validation pattern: local check first, LLM fallback via `useMutation`, timeout fallback to local
+  - [x] 2.4 Write co-located test `hooks/useAnswerValidation.test.ts`
 
-- [ ] Task 3: Add tile placement state to `useQuizStore` (AC: #1, #2)
-  - [ ] 3.1 Add `placedTileIds: string[]` (ordered list of tile IDs placed in answer area) to `useQuizStore`
-  - [ ] 3.2 Add `placeTile(tileId: string)` action — appends tile to `placedTileIds`
-  - [ ] 3.3 Add `removeTile(tileId: string)` action — removes tile from `placedTileIds`
-  - [ ] 3.4 Add `clearTiles()` action — resets `placedTileIds` to empty
-  - [ ] 3.5 Add `allTilesPlaced` derived check (compare `placedTileIds.length` to total word count)
-  - [ ] 3.6 Reset `placedTileIds` in `resetQuiz()` and on question advance
-  - [ ] 3.7 Write unit tests for tile placement state in `stores/useQuizStore.test.ts`
+- [x] Task 3: Add tile placement state to `useQuizStore` (AC: #1, #2)
+  - [x] 3.1 Add `placedTileIds: string[]` (ordered list of tile IDs placed in answer area) to `useQuizStore`
+  - [x] 3.2 Add `placeTile(tileId: string)` action — appends tile to `placedTileIds`
+  - [x] 3.3 Add `removeTile(tileId: string)` action — removes tile from `placedTileIds`
+  - [x] 3.4 Add `clearTiles()` action — resets `placedTileIds` to empty
+  - [x] 3.5 Add `allTilesPlaced` derived check (compare `placedTileIds.length` to total word count)
+  - [x] 3.6 Reset `placedTileIds` in `resetQuiz()` and on question advance
+  - [x] 3.7 Write unit tests for tile placement state in `stores/useQuizStore.test.ts`
 
-- [ ] Task 4: Create `SentenceBuilder` component (AC: #1, #2, #3)
-  - [ ] 4.1 Create `components/quiz/SentenceBuilder.tsx` with `WordTile` styled component (state variants: `available`, `placed`, `correct`, `incorrect`)
-  - [ ] 4.2 Create `SlotArea` styled component for the answer area (dashed border, flex-wrap)
-  - [ ] 4.3 Implement word bank area rendering all tiles not yet placed, with `animation="medium"` and `enterStyle={{ scale: 0.8, opacity: 0 }}`
-  - [ ] 4.4 Implement tap-to-place: tapping an available tile calls `placeTile()` and animates tile to answer area
-  - [ ] 4.5 Implement tap-to-return: tapping a placed tile calls `removeTile()` and returns tile to word bank
-  - [ ] 4.6 Implement Submit button — disabled until `allTilesPlaced` is true
-  - [ ] 4.7 On submit: call `useAnswerValidation` hook with constructed sentence vs. correct answer
-  - [ ] 4.8 Render per-tile feedback after validation (green for correct position, orange for incorrect position)
-  - [ ] 4.9 Show correct sentence below answer area when answer is incorrect
-  - [ ] 4.10 Show "Your answer is also valid!" message when LLM confirms a valid alternative ordering
-  - [ ] 4.11 Write co-located test `components/quiz/SentenceBuilder.test.tsx`
+- [x] Task 4: Create `SentenceBuilder` component (AC: #1, #2, #3)
+  - [x] 4.1 Create `components/quiz/SentenceBuilder.tsx` with `WordTile` styled component (state variants: `available`, `placed`, `correct`, `incorrect`)
+  - [x] 4.2 Create `SlotArea` styled component for the answer area (dashed border, flex-wrap)
+  - [x] 4.3 Implement word bank area rendering all tiles not yet placed, with `animation="medium"` and `enterStyle={{ scale: 0.8, opacity: 0 }}`
+  - [x] 4.4 Implement tap-to-place: tapping an available tile calls `placeTile()` and animates tile to answer area
+  - [x] 4.5 Implement tap-to-return: tapping a placed tile calls `removeTile()` and returns tile to word bank
+  - [x] 4.6 Implement Submit button — disabled until `allTilesPlaced` is true
+  - [x] 4.7 On submit: call `useAnswerValidation` hook with constructed sentence vs. correct answer
+  - [x] 4.8 Render per-tile feedback after validation (green for correct position, orange for incorrect position)
+  - [x] 4.9 Show correct sentence below answer area when answer is incorrect
+  - [x] 4.10 Show "Your answer is also valid!" message when LLM confirms a valid alternative ordering
+  - [x] 4.11 Write co-located test `components/quiz/SentenceBuilder.test.tsx`
 
-- [ ] Task 5: Integrate `SentenceBuilder` into quiz play screen (AC: #1, #2, #3)
-  - [ ] 5.1 Add `sentence_construction` case to the exercise type switch in `app/quiz/play.tsx`
-  - [ ] 5.2 Pass current question's `scrambled_words`, `correct_order`, and `correct_answer` to `SentenceBuilder`
-  - [ ] 5.3 Wire `onAnswer` callback to advance to next question after feedback delay (~1.5s for LLM results)
-  - [ ] 5.4 Reset tile placement state on question advance via `clearTiles()`
+- [x] Task 5: Integrate `SentenceBuilder` into quiz play screen (AC: #1, #2, #3)
+  - [x] 5.1 Add `sentence_construction` case to the exercise type switch in `app/quiz/play.tsx`
+  - [x] 5.2 Pass current question's `scrambled_words`, `correct_order`, and `correct_answer` to `SentenceBuilder`
+  - [x] 5.3 Wire `onAnswer` callback to advance to next question after feedback delay (~1.5s for LLM results)
+  - [x] 5.4 Reset tile placement state on question advance via `clearTiles()`
 
-- [ ] Task 6: Write integration tests (AC: all)
-  - [ ] 6.1 Test: SentenceBuilder renders word bank with all scrambled words
-  - [ ] 6.2 Test: tapping a tile moves it to the answer area
-  - [ ] 6.3 Test: tapping a placed tile returns it to the word bank
-  - [ ] 6.4 Test: Submit button is disabled until all tiles are placed
-  - [ ] 6.5 Test: correct answer (local match) shows all tiles green
-  - [ ] 6.6 Test: incorrect answer triggers LLM validation call
-  - [ ] 6.7 Test: LLM returns valid alternative — shows "also valid" message
-  - [ ] 6.8 Test: LLM returns incorrect — shows per-tile green/orange + correct sentence
-  - [ ] 6.9 Test: LLM timeout falls back to local validation (marks as incorrect)
-  - [ ] 6.10 Test: play.tsx renders SentenceBuilder for `sentence_construction` exercise type
+- [x] Task 6: Write integration tests (AC: all)
+  - [x] 6.1 Test: SentenceBuilder renders word bank with all scrambled words
+  - [x] 6.2 Test: tapping a tile moves it to the answer area
+  - [x] 6.3 Test: tapping a placed tile returns it to the word bank
+  - [x] 6.4 Test: Submit button is disabled until all tiles are placed
+  - [x] 6.5 Test: correct answer (local match) shows all tiles green
+  - [x] 6.6 Test: incorrect answer triggers LLM validation call
+  - [x] 6.7 Test: LLM returns valid alternative — shows "also valid" message
+  - [x] 6.8 Test: LLM returns incorrect — shows per-tile green/orange + correct sentence
+  - [x] 6.9 Test: LLM timeout falls back to local validation (marks as incorrect)
+  - [x] 6.10 Test: play.tsx renders SentenceBuilder for `sentence_construction` exercise type
 
 ## Dev Notes
 
@@ -613,10 +613,40 @@ dangdai-mobile/
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+anthropic/claude-sonnet-4-6
 
 ### Debug Log References
 
+No blockers encountered. Pre-existing `useChapters.test.ts` failure (chapter title mismatch from a prior story) confirmed unrelated to this story via `git stash` check.
+
 ### Completion Notes List
 
+- Task 1: Added `scrambled_words?: string[]` and `correct_order?: string[]` to `QuizQuestion` in `types/quiz.ts`. Also added `AnswerValidationParams` type alias (= `AnswerValidationRequest`) for story task naming consistency.
+- Task 2: All items already implemented in Story 4.6 (`api.validateAnswer()`, `AnswerValidationRequest/Response`, `useAnswerValidation.ts`, `useAnswerValidation.test.ts`). Confirmed existing implementation matches story spec; added type alias for `AnswerValidationParams`.
+- Task 3: Extended `useQuizStore` with `placedTileIds: string[]`, `placeTile()`, `removeTile()`, `clearTiles()`. Reset integrated into `startQuiz()`, `nextQuestion()`, and `resetQuiz()`. Note: `allTilesPlaced` derived in component (not store) per spec. 10 new unit tests added to `useQuizStore.test.ts` — all pass.
+- Task 4: Created `SentenceBuilder.tsx` with `WordTile` and `SlotArea` styled components exactly per spec. Implements: tap-to-place with AnimatePresence animation, tap-to-return, disabled submit until all tiles placed, hybrid validation via `useAnswerValidation`, per-tile correct/incorrect feedback, correct sentence display, "Your answer is also valid!" LLM alternative message, 1.5s feedback delay before `onAnswer()` callback. `normalizeAnswer()` strips whitespace for Chinese sentence comparison. `computeTileFeedback()` computes per-position correctness. Tile font size scales by word length (24px for 1-2 chars, down to 16px for 5+).
+- Task 5: Added `sentence_construction` case to `app/quiz/play.tsx` ternary chain. Added `handleSentenceAnswer` callback (records answer in store, calls `clearTiles()`, advances question). `SentenceBuilder` receives `scrambledWords`, `correctOrder`, `correctAnswer`, `explanation`, `sourceCitation`, `onAnswer`. `clearTiles()` is called in `handleSentenceAnswer` before `nextQuestion()` (immediate, not via feedback delay — the SentenceBuilder handles its own 1.5s delay internally before calling `onAnswer`).
+- Task 6: 22 integration tests in `SentenceBuilder.test.tsx` covering all AC scenarios. 10 additional tests in `play.test.tsx` for the sentence_construction exercise type routing (Test 6.10). All 106 story-related tests pass.
+- TypeScript: `npx tsc --noEmit` passes with zero errors.
+- Linting: 14 warn-level `no-explicit-any` in test mocks (consistent with existing codebase pattern in DialogueCard.test.tsx). Zero errors.
+
 ### File List
+
+dangdai-mobile/types/quiz.ts
+dangdai-mobile/stores/useQuizStore.ts
+dangdai-mobile/stores/useQuizStore.test.ts
+dangdai-mobile/components/quiz/SentenceBuilder.tsx
+dangdai-mobile/components/quiz/SentenceBuilder.test.tsx
+dangdai-mobile/app/quiz/play.tsx
+dangdai-mobile/app/quiz/play.test.tsx
+_bmad-output/implementation-artifacts/sprint-status.yaml
+
+### Change Log
+
+- **2026-02-20**: Story 4.7 implemented — Sentence Construction Exercise
+  - Extended `QuizQuestion` type with `scrambled_words` and `correct_order` optional fields
+  - Added `AnswerValidationParams` type alias to `types/quiz.ts`
+  - Extended `useQuizStore` with tile placement state (`placedTileIds`, `placeTile`, `removeTile`, `clearTiles`) including auto-reset on question advance and quiz reset
+  - Created `SentenceBuilder` component with `WordTile`/`SlotArea` styled components, tap-to-place/return interaction, hybrid local+LLM validation, per-tile feedback
+  - Integrated `SentenceBuilder` into `play.tsx` exercise type routing
+  - 32 new tests across `useQuizStore.test.ts`, `SentenceBuilder.test.tsx`, and `play.test.tsx`

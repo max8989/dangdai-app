@@ -65,6 +65,9 @@ export interface QuizQuestion {
   blank_positions?: number[]
   // Dialogue completion fields (Story 4.6)
   dialogue_lines?: DialogueLine[]
+  // Sentence construction fields (Story 4.7)
+  scrambled_words?: string[]
+  correct_order?: string[]
 }
 
 /**
@@ -95,6 +98,7 @@ export interface DialogueQuestion extends QuizQuestion {
 /**
  * Request body for POST /api/quizzes/validate-answer.
  * Story 4.6: Dialogue Completion Exercise
+ * Story 4.7: Sentence Construction Exercise (alias exported)
  */
 export interface AnswerValidationRequest {
   question: string
@@ -102,6 +106,9 @@ export interface AnswerValidationRequest {
   correct_answer: string
   exercise_type: string
 }
+
+/** Alias used by Story 4.7 Sentence Construction. */
+export type AnswerValidationParams = AnswerValidationRequest
 
 /**
  * Response from POST /api/quizzes/validate-answer.

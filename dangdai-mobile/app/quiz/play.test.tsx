@@ -8,6 +8,7 @@
  * Story 4.3: Vocabulary & Grammar Quiz (Multiple Choice)
  * Story 4.4: Fill-in-the-Blank Exercise (Word Bank) — Tasks 6.10, 6.11
  * Story 4.6: Dialogue Completion Exercise — Task 5 integration
+ * Story 4.7: Sentence Construction Exercise — Task 6.10 (play.tsx integration)
  */
 
 import React from 'react'
@@ -90,6 +91,36 @@ const mockQuizResponse: QuizResponse = {
         '把我書放在桌子上了',
         '我書把放在桌子上了',
       ],
+    },
+  ],
+}
+
+const mockSentenceConstructionQuizResponse: QuizResponse = {
+  quiz_id: 'test-sc-quiz-1',
+  chapter_id: 212,
+  book_id: 2,
+  exercise_type: 'sentence_construction',
+  question_count: 2,
+  questions: [
+    {
+      question_id: 'sc-q1',
+      exercise_type: 'sentence_construction',
+      question_text: 'Arrange the words into a correct sentence:',
+      correct_answer: '我很喜歡咖啡。',
+      explanation: 'The adverb 很 comes before the verb 喜歡 in Chinese.',
+      source_citation: 'Book 2, Chapter 12 - Grammar',
+      scrambled_words: ['咖啡', '我', '喜歡', '很', '。'],
+      correct_order: ['我', '很', '喜歡', '咖啡', '。'],
+    },
+    {
+      question_id: 'sc-q2',
+      exercise_type: 'sentence_construction',
+      question_text: 'Arrange the words into a correct sentence:',
+      correct_answer: '他每天早上喝咖啡。',
+      explanation: 'Time expressions come before the verb.',
+      source_citation: 'Book 2, Chapter 12 - Grammar',
+      scrambled_words: ['喝', '每天', '他', '咖啡', '早上', '。'],
+      correct_order: ['他', '每天', '早上', '喝', '咖啡', '。'],
     },
   ],
 }
@@ -276,6 +307,31 @@ jest.mock('../../components/quiz/WordBankSelector', () => ({
   },
 }))
 
+// Mock SentenceBuilder component (added in Story 4.7)
+jest.mock('../../components/quiz/SentenceBuilder', () => ({
+  SentenceBuilder: ({ questionText, scrambledWords, onAnswer, testID }: any) => {
+    const { View, TouchableOpacity, Text } = require('react-native')
+    return (
+      <View testID={testID || 'sentence-builder'}>
+        <Text testID="sentence-builder-question">{questionText}</Text>
+        <Text testID="sentence-builder-word-count">{scrambledWords?.length ?? 0}</Text>
+        <TouchableOpacity
+          testID="sentence-builder-correct-trigger"
+          onPress={() => onAnswer(true)}
+        >
+          <Text>Submit Correct</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          testID="sentence-builder-incorrect-trigger"
+          onPress={() => onAnswer(false)}
+        >
+          <Text>Submit Incorrect</Text>
+        </TouchableOpacity>
+      </View>
+    )
+  },
+}))
+
 // Mock DialogueCard component (added in Story 4.6)
 jest.mock('../../components/quiz/DialogueCard', () => ({
   DialogueCard: ({ question, onAnswerResult, testID }: any) => {
@@ -312,6 +368,7 @@ let mockQuizState = {
   currentQuizId: null as string | null,
   blankAnswers: {} as Record<number, string | null>,
   blankAnswerIndices: {} as Record<number, number | null>,
+  placedTileIds: [] as string[],
 }
 
 const mockStartQuiz = jest.fn()
@@ -327,6 +384,7 @@ const mockClearBlankAnswer = jest.fn((blankIndex: number) => {
   mockQuizState.blankAnswers = { ...mockQuizState.blankAnswers, [blankIndex]: null }
   mockQuizState.blankAnswerIndices = { ...mockQuizState.blankAnswerIndices, [blankIndex]: null }
 })
+const mockClearTiles = jest.fn()
 
 const mockGetCurrentQuestion = jest.fn(() => {
   if (!mockQuizState.quizPayload) return null
@@ -349,9 +407,11 @@ jest.mock('../../stores/useQuizStore', () => ({
       resetQuiz: mockResetQuiz,
       setBlankAnswer: mockSetBlankAnswer,
       clearBlankAnswer: mockClearBlankAnswer,
+      clearTiles: mockClearTiles,
       getCurrentQuestion: mockGetCurrentQuestion,
       isLastQuestion: mockIsLastQuestion,
       blankAnswerIndices: mockQuizState.blankAnswerIndices,
+      placedTileIds: mockQuizState.placedTileIds,
     }
     return selector ? selector(state) : state
   },
@@ -374,6 +434,7 @@ describe('QuizPlayScreen', () => {
       currentQuizId: 'test-quiz-1',
       blankAnswers: {},
       blankAnswerIndices: {},
+      placedTileIds: [],
     }
     mockGetCurrentQuestion.mockImplementation(() => {
       if (!mockQuizState.quizPayload) return null
@@ -631,6 +692,93 @@ describe('QuizPlayScreen', () => {
       await waitFor(() => {
         expect(mockSetAnswer).toHaveBeenCalled()
         expect(mockAddScore).not.toHaveBeenCalled()
+      })
+    })
+  })
+
+  // ─── Story 4.7: Sentence Construction Integration Tests (Task 6.10) ──────────
+
+  describe('6.10 — sentence_construction: renders SentenceBuilder (Task 5.1, AC #1)', () => {
+    beforeEach(() => {
+      mockQuizState.quizPayload = mockSentenceConstructionQuizResponse
+      mockQuizState.currentQuestion = 0
+      mockGetCurrentQuestion.mockReturnValue(mockSentenceConstructionQuizResponse.questions[0])
+      mockIsLastQuestion.mockReturnValue(false)
+    })
+
+    it('renders the SentenceBuilder for sentence_construction exercise type', () => {
+      const { getByTestId } = render(<QuizPlayScreen />)
+      expect(getByTestId('sentence-builder')).toBeTruthy()
+    })
+
+    it('does not render multiple choice answer grid for sentence_construction', () => {
+      const { queryByTestId } = render(<QuizPlayScreen />)
+      expect(queryByTestId('answer-option-grid')).toBeNull()
+    })
+
+    it('does not render fill-in-blank for sentence_construction', () => {
+      const { queryByTestId } = render(<QuizPlayScreen />)
+      expect(queryByTestId('fill-in-blank-sentence')).toBeNull()
+    })
+
+    it('does not render dialogue card for sentence_construction', () => {
+      const { queryByTestId } = render(<QuizPlayScreen />)
+      expect(queryByTestId('dialogue-card')).toBeNull()
+    })
+
+    it('passes question text to SentenceBuilder', () => {
+      const { getByTestId } = render(<QuizPlayScreen />)
+      expect(getByTestId('sentence-builder-question').props.children).toBe(
+        mockSentenceConstructionQuizResponse.questions[0].question_text
+      )
+    })
+
+    it('passes scrambled_words count to SentenceBuilder', () => {
+      const { getByTestId } = render(<QuizPlayScreen />)
+      expect(getByTestId('sentence-builder-word-count').props.children).toBe(5)
+    })
+
+    it('calls setAnswer and addScore(1) when onAnswer(true) fires', async () => {
+      const { getByTestId } = render(<QuizPlayScreen />)
+
+      fireEvent.press(getByTestId('sentence-builder-correct-trigger'))
+
+      await waitFor(() => {
+        expect(mockSetAnswer).toHaveBeenCalledWith(0, '我很喜歡咖啡。')
+        expect(mockAddScore).toHaveBeenCalledWith(1)
+      })
+    })
+
+    it('calls setAnswer but NOT addScore when onAnswer(false) fires', async () => {
+      const { getByTestId } = render(<QuizPlayScreen />)
+
+      fireEvent.press(getByTestId('sentence-builder-incorrect-trigger'))
+
+      await waitFor(() => {
+        expect(mockSetAnswer).toHaveBeenCalledWith(0, '')
+        expect(mockAddScore).not.toHaveBeenCalled()
+      })
+    })
+
+    it('calls nextQuestion after correct answer on non-last question', async () => {
+      const { getByTestId } = render(<QuizPlayScreen />)
+
+      fireEvent.press(getByTestId('sentence-builder-correct-trigger'))
+
+      await waitFor(() => {
+        expect(mockNextQuestion).toHaveBeenCalled()
+      })
+    })
+
+    it('navigates to books on last sentence_construction question answered', async () => {
+      mockIsLastQuestion.mockReturnValue(true)
+
+      const { getByTestId } = render(<QuizPlayScreen />)
+
+      fireEvent.press(getByTestId('sentence-builder-correct-trigger'))
+
+      await waitFor(() => {
+        expect(mockRouterReplace).toHaveBeenCalledWith('/(tabs)/books')
       })
     })
   })

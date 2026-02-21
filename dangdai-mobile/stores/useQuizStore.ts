@@ -11,6 +11,7 @@
  *
  * Story 4.3: Extended with quizPayload, getCurrentQuestion, isLastQuestion
  * Story 4.4: Extended with blankAnswers, setBlankAnswer, clearBlankAnswer
+ * Story 4.7: Extended with placedTileIds, placeTile, removeTile, clearTiles
  */
 
 import { create } from 'zustand'
@@ -39,6 +40,12 @@ interface QuizState {
    */
   blankAnswerIndices: Record<number, number | null>
 
+  // Sentence construction tile placement state (Story 4.7)
+  // Ordered list of tile IDs placed in the answer area.
+  // Tile ID format: "tile-N" where N is the index into scrambled_words[].
+  // This handles duplicate words correctly (two "的" tiles get different IDs).
+  placedTileIds: string[]
+
   // Derived getters
   getCurrentQuestion: () => QuizQuestion | null
   isLastQuestion: () => boolean
@@ -54,6 +61,11 @@ interface QuizState {
   // Fill-in-blank actions
   setBlankAnswer: (blankIndex: number, word: string | null, wordBankIndex?: number | null) => void
   clearBlankAnswer: (blankIndex: number) => void
+
+  // Sentence construction tile placement actions (Story 4.7)
+  placeTile: (tileId: string) => void
+  removeTile: (tileId: string) => void
+  clearTiles: () => void
 }
 
 /**
@@ -78,6 +90,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
   quizPayload: null,
   blankAnswers: {},
   blankAnswerIndices: {},
+  placedTileIds: [],
 
   // Derived getters
   getCurrentQuestion: () => {
@@ -102,6 +115,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
       quizPayload: payload ?? state.quizPayload,
       blankAnswers: {}, // Reset fill-in-blank state on new session start (H3 fix)
       blankAnswerIndices: {},
+      placedTileIds: [], // Reset tile placement state on new session start
     })),
 
   setQuizPayload: (payload) => set({ quizPayload: payload }),
@@ -116,6 +130,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
       currentQuestion: state.currentQuestion + 1,
       blankAnswers: {}, // Reset blank answers on question advance
       blankAnswerIndices: {},
+      placedTileIds: [], // Reset tile placement on question advance
     })),
 
   addScore: (points) => set((state) => ({ score: state.score + points })),
@@ -129,6 +144,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
       quizPayload: null,
       blankAnswers: {}, // Reset blank answers on quiz reset
       blankAnswerIndices: {},
+      placedTileIds: [], // Reset tile placement on quiz reset
     }),
 
   // Fill-in-blank actions
@@ -143,4 +159,17 @@ export const useQuizStore = create<QuizState>((set, get) => ({
       blankAnswers: { ...state.blankAnswers, [blankIndex]: null },
       blankAnswerIndices: { ...state.blankAnswerIndices, [blankIndex]: null },
     })),
+
+  // Sentence construction tile placement actions (Story 4.7)
+  placeTile: (tileId) =>
+    set((state) => ({
+      placedTileIds: [...state.placedTileIds, tileId],
+    })),
+
+  removeTile: (tileId) =>
+    set((state) => ({
+      placedTileIds: state.placedTileIds.filter((id) => id !== tileId),
+    })),
+
+  clearTiles: () => set({ placedTileIds: [] }),
 }))

@@ -34,6 +34,7 @@
  * Story 4.3: Vocabulary & Grammar Quiz (Multiple Choice)
  * Story 4.4: Fill-in-the-Blank Exercise (Word Bank)
  * Story 4.6: Dialogue Completion Exercise
+ * Story 4.7: Sentence Construction Exercise
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -54,6 +55,7 @@ import type { ExerciseType, QuizQuestion, DialogueQuestion } from '../../types/q
 import type { QuizDisplayVariant, QuizFeedbackVariant } from '../../components/quiz/QuizQuestionCard'
 import { DialogueCard } from '../../components/quiz/DialogueCard'
 import type { DialogueAnswerResult } from '../../components/quiz/DialogueCard'
+import { SentenceBuilder } from '../../components/quiz/SentenceBuilder'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -118,6 +120,9 @@ export default function QuizPlayScreen() {
   const blankAnswerIndices = useQuizStore((state) => state.blankAnswerIndices)
   const setBlankAnswer = useQuizStore((state) => state.setBlankAnswer)
   const clearBlankAnswer = useQuizStore((state) => state.clearBlankAnswer)
+
+  // Sentence construction store state (Story 4.7)
+  const clearTiles = useQuizStore((state) => state.clearTiles)
 
   // ─── Local state ──────────────────────────────────────────────────────────
 
@@ -219,6 +224,7 @@ export default function QuizPlayScreen() {
 
   const isFillInBlank = currentQuestion?.exercise_type === 'fill_in_blank'
   const isDialogue = currentQuestion?.exercise_type === 'dialogue_completion'
+  const isSentenceConstruction = currentQuestion?.exercise_type === 'sentence_construction'
 
   const wordBank: string[] = currentQuestion?.word_bank ?? []
 
@@ -342,6 +348,29 @@ export default function QuizPlayScreen() {
       clearBlankAnswer(blankIndex)
     },
     [fillInBlankValidated, clearBlankAnswer]
+  )
+
+  // ─── Sentence construction answer handler (Story 4.7) ────────────────────
+
+  const handleSentenceAnswer = useCallback(
+    (isCorrect: boolean) => {
+      if (!currentQuestion) return
+
+      setAnswer(currentQuestionIndex, isCorrect ? currentQuestion.correct_answer : '')
+      if (isCorrect) {
+        addScore(1)
+      }
+
+      // Clear tile placement state for next question
+      clearTiles()
+
+      if (isLastQuestion()) {
+        router.replace('/(tabs)/books')
+      } else {
+        nextQuestion()
+      }
+    },
+    [currentQuestion, currentQuestionIndex, setAnswer, addScore, clearTiles, isLastQuestion, nextQuestion, router]
   )
 
   // ─── Dialogue answer result handler ──────────────────────────────────────
@@ -498,7 +527,31 @@ export default function QuizPlayScreen() {
 
         {/* Question content area */}
         <YStack flex={1} paddingHorizontal="$4" paddingTop="$4" gap="$4">
-          {isDialogue ? (
+          {isSentenceConstruction ? (
+            // ─── Sentence Construction Layout (Story 4.7) ─────────────────
+            currentQuestion.scrambled_words && currentQuestion.correct_order ? (
+              <AnimatePresence>
+                <YStack
+                  key={currentQuestionIndex}
+                  animation="medium"
+                  enterStyle={{ opacity: 0, x: 20 }}
+                  exitStyle={{ opacity: 0, x: -20 }}
+                  flex={1}
+                >
+                  <SentenceBuilder
+                    questionText={currentQuestion.question_text}
+                    scrambledWords={currentQuestion.scrambled_words}
+                    correctOrder={currentQuestion.correct_order}
+                    correctAnswer={currentQuestion.correct_answer}
+                    explanation={currentQuestion.explanation}
+                    sourceCitation={currentQuestion.source_citation}
+                    onAnswer={handleSentenceAnswer}
+                    testID="sentence-builder"
+                  />
+                </YStack>
+              </AnimatePresence>
+            ) : null
+          ) : isDialogue ? (
             // ─── Dialogue Completion Layout ───────────────────────────────
             // Runtime guard: dialogue_lines is required for DialogueCard but
             // typed as optional on QuizQuestion. If the backend omits it
