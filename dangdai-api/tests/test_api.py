@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.api.main import app
+from src.api.schemas import ValidationResponse
 
 # Shared test JWT secret
 TEST_JWT_SECRET = "test-secret-key-for-unit-tests"
@@ -211,11 +212,11 @@ class TestValidateAnswerEndpoint:
         """Valid sentence_construction request → 200 with correct response shape."""
         mock_settings.SUPABASE_JWT_SECRET = TEST_JWT_SECRET
         mock_service.validate_answer = AsyncMock(
-            return_value={
-                "is_correct": True,
-                "explanation": "Your sentence is correct.",
-                "alternatives": ["在大學我學中文"],
-            }
+            return_value=ValidationResponse(
+                is_correct=True,
+                explanation="Your sentence is correct.",
+                alternatives=["在大學我學中文"],
+            )
         )
 
         response = client.post(
@@ -238,11 +239,11 @@ class TestValidateAnswerEndpoint:
         """Valid dialogue_completion request → 200."""
         mock_settings.SUPABASE_JWT_SECRET = TEST_JWT_SECRET
         mock_service.validate_answer = AsyncMock(
-            return_value={
-                "is_correct": False,
-                "explanation": "A more natural response would be...",
-                "alternatives": ["你好！"],
-            }
+            return_value=ValidationResponse(
+                is_correct=False,
+                explanation="A more natural response would be...",
+                alternatives=["你好！"],
+            )
         )
 
         response = client.post(
@@ -394,11 +395,11 @@ class TestValidateAnswerEndpoint:
         """Response must be flat (no envelope wrapper)."""
         mock_settings.SUPABASE_JWT_SECRET = TEST_JWT_SECRET
         mock_service.validate_answer = AsyncMock(
-            return_value={
-                "is_correct": False,
-                "explanation": "Incorrect word order.",
-                "alternatives": ["我在大學學中文"],
-            }
+            return_value=ValidationResponse(
+                is_correct=False,
+                explanation="Incorrect word order.",
+                alternatives=["我在大學學中文"],
+            )
         )
 
         response = client.post(
