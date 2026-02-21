@@ -116,6 +116,52 @@ function getPrimaryContent(question: QuizQuestion, displayVariant: QuizDisplayVa
   return question.question_text
 }
 
+/**
+ * Calculate the total number of scorable questions in the quiz.
+ * Reading comprehension passages count as multiple questions (one per sub-question).
+ * All other exercise types count as 1 question each.
+ * Story 4.8, Task 4.7.
+ */
+function getTotalQuestionCount(questions: QuizQuestion[]): number {
+  return questions.reduce((total, q) => {
+    if (q.exercise_type === 'reading_comprehension' && q.comprehension_questions) {
+      return total + q.comprehension_questions.length
+    }
+    return total + 1
+  }, 0)
+}
+
+/**
+ * Calculate the current question position (1-based) accounting for sub-questions.
+ * For reading comprehension, this includes the current sub-question index.
+ * Story 4.8, Task 4.7.
+ */
+function getCurrentQuestionPosition(
+  questions: QuizQuestion[],
+  currentQuestionIndex: number,
+  subQuestionIndex: number
+): number {
+  let position = 0
+  for (let i = 0; i < currentQuestionIndex; i++) {
+    const q = questions[i]
+    if (q.exercise_type === 'reading_comprehension' && q.comprehension_questions) {
+      position += q.comprehension_questions.length
+    } else {
+      position += 1
+    }
+  }
+  
+  // Add current question position
+  const currentQ = questions[currentQuestionIndex]
+  if (currentQ?.exercise_type === 'reading_comprehension') {
+    position += subQuestionIndex + 1
+  } else {
+    position += 1
+  }
+  
+  return position
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 /** Points awarded for a correct answer */
@@ -297,8 +343,14 @@ export default function QuizPlayScreen() {
       ? currentQuestion.pinyin
       : undefined
 
-  const totalQuestions = quizPayload?.questions.length ?? 0
-  const displayQuestionNumber = currentQuestionIndex + 1
+  // Calculate total questions including reading comprehension sub-questions (Story 4.8, Task 4.7)
+  const totalQuestions = getTotalQuestionCount(quizPayload?.questions ?? [])
+  // Calculate current position including sub-questions (Story 4.8, Task 4.7)
+  const displayQuestionNumber = getCurrentQuestionPosition(
+    quizPayload?.questions ?? [],
+    currentQuestionIndex,
+    subQuestionIndex
+  )
 
   const exerciseTypeLabel =
     EXERCISE_TYPE_LABELS[(quizPayload?.exercise_type ?? '') as ExerciseType] ??
@@ -585,13 +637,14 @@ export default function QuizPlayScreen() {
       const timeSpentMs = isLastSubQuestion ? timer.stopTimer() : 0
 
       // Record answer in store (JSON array of sub-answers)
-      // Build up the answers array for all sub-questions
+      // Read current state synchronously to build up the answers array
       const existingAnswer = useQuizStore.getState().answers[currentQuestionIndex]
       const currentAnswers: string[] = existingAnswer
         ? (JSON.parse(existingAnswer) as string[])
         : []
       currentAnswers[subQuestionIndex] = selectedAnswer
-      setAnswer(currentQuestionIndex, JSON.stringify(currentAnswers))
+      const serializedAnswers = JSON.stringify(currentAnswers)
+      setAnswer(currentQuestionIndex, serializedAnswers)
 
       // Add score for this sub-question
       if (isCorrect) {
@@ -615,8 +668,9 @@ export default function QuizPlayScreen() {
           timeSpentMs,
         })
 
-        // Trigger feedback and advance to next quiz question
-        handleAnswerResult(isCorrect)
+        // Trigger feedback for the entire passage (not just last sub-question)
+        // FIX: Use allSubAnswersCorrect instead of isCorrect
+        handleAnswerResult(allSubAnswersCorrect)
       } else {
         // Advance to next sub-question within the same passage
         setSubQuestionIndex((prev) => prev + 1)
@@ -722,7 +776,8 @@ export default function QuizPlayScreen() {
   // AnimatePresence for the entrance animation. The quiz UI exits via AnimatePresence.
 
   const quizExerciseType = (quizPayload?.exercise_type ?? 'vocabulary') as ExerciseType
-  const totalQuestionsCount = quizPayload?.questions.length ?? 0
+  // Calculate total including reading comprehension sub-questions (Story 4.8, Task 4.7)
+  const totalQuestionsCount = getTotalQuestionCount(quizPayload?.questions ?? [])
   // Points per correct = POINTS_PER_CORRECT (10); score = total points accumulated
   const correctAnswerCount = Math.round(score / POINTS_PER_CORRECT)
 

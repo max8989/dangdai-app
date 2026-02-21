@@ -142,6 +142,20 @@ describe('ReadingPassageCard', () => {
     expect(screen.queryByTestId('pinyin-toggle')).toBeNull()
   })
 
+  it('does not show pinyin toggle button when passagePinyin is empty string', () => {
+    renderWithTamagui(
+      <ReadingPassageCard
+        passage={mockPassage}
+        passagePinyin=""
+        comprehensionQuestions={mockComprehensionSubQuestions}
+        currentSubQuestionIndex={0}
+        onAnswer={mockOnAnswer}
+      />
+    )
+
+    expect(screen.queryByTestId('pinyin-toggle')).toBeNull()
+  })
+
   it('tapping pinyin toggle shows pinyin text above passage', () => {
     renderWithTamagui(
       <ReadingPassageCard
@@ -379,5 +393,56 @@ describe('ReadingPassageCard', () => {
 
     // onAnswer should NOT be called because component is disabled
     expect(mockOnAnswer).not.toHaveBeenCalled()
+  })
+
+  it('shows error message when comprehensionQuestions is empty array', () => {
+    renderWithTamagui(
+      <ReadingPassageCard
+        passage={mockPassage}
+        comprehensionQuestions={[]}
+        currentSubQuestionIndex={0}
+        onAnswer={mockOnAnswer}
+      />
+    )
+
+    expect(screen.getByText('No comprehension questions available.')).toBeTruthy()
+  })
+
+  it('shows error message when currentSubQuestionIndex is out of bounds', () => {
+    renderWithTamagui(
+      <ReadingPassageCard
+        passage={mockPassage}
+        comprehensionQuestions={mockComprehensionSubQuestions}
+        currentSubQuestionIndex={10}
+        onAnswer={mockOnAnswer}
+      />
+    )
+
+    expect(screen.getByText('Invalid question index.')).toBeTruthy()
+  })
+
+  it('respects custom feedbackDelayMs prop', async () => {
+    renderWithTamagui(
+      <ReadingPassageCard
+        passage={mockPassage}
+        comprehensionQuestions={mockComprehensionSubQuestions}
+        currentSubQuestionIndex={0}
+        onAnswer={mockOnAnswer}
+        feedbackDelayMs={500}
+      />
+    )
+
+    // Select an answer
+    fireEvent.press(screen.getByText('去跑步'))
+
+    // onAnswer should NOT be called after 400ms
+    jest.advanceTimersByTime(400)
+    expect(mockOnAnswer).not.toHaveBeenCalled()
+
+    // onAnswer should be called after 500ms
+    jest.advanceTimersByTime(100)
+    await waitFor(() => {
+      expect(mockOnAnswer).toHaveBeenCalledWith(true, '去跑步')
+    })
   })
 })

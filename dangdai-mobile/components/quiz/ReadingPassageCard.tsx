@@ -8,7 +8,7 @@
  * Story 4.8: Reading Comprehension Exercise
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   styled,
   Card,
@@ -38,6 +38,8 @@ interface ReadingPassageCardProps {
   onAnswer: (isCorrect: boolean, selectedAnswer: string) => void
   /** Whether interaction is disabled (e.g., during feedback delay) */
   disabled?: boolean
+  /** Feedback delay in milliseconds before calling onAnswer (default: 1000) */
+  feedbackDelayMs?: number
   /** testID for the container */
   testID?: string
 }
@@ -53,12 +55,13 @@ const PassageContainer = styled(Card, {
   enterStyle: { opacity: 0 },
   padding: '$4',
   maxHeight: 300,
+  minHeight: 200, // Prevent layout shift while passage renders
 
   variants: {
     size: {
-      short: { maxHeight: 200 },
-      medium: { maxHeight: 300 },
-      long: { maxHeight: 400 },
+      short: { maxHeight: 200, minHeight: 150 },
+      medium: { maxHeight: 300, minHeight: 200 },
+      long: { maxHeight: 400, minHeight: 250 },
     },
   } as const,
 
@@ -104,11 +107,30 @@ export function ReadingPassageCard({
   currentSubQuestionIndex,
   onAnswer,
   disabled = false,
+  feedbackDelayMs = 1000,
   testID = 'reading-passage-card',
 }: ReadingPassageCardProps) {
   const [showPinyin, setShowPinyin] = useState(false)
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
   const [correctAnswer, setCorrectAnswer] = useState<string | null>(null)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Bounds check and error handling
+  if (comprehensionQuestions.length === 0) {
+    return (
+      <YStack testID={testID}>
+        <Text color="$error">No comprehension questions available.</Text>
+      </YStack>
+    )
+  }
+
+  if (currentSubQuestionIndex < 0 || currentSubQuestionIndex >= comprehensionQuestions.length) {
+    return (
+      <YStack testID={testID}>
+        <Text color="$error">Invalid question index.</Text>
+      </YStack>
+    )
+  }
 
   const currentQuestion = comprehensionQuestions[currentSubQuestionIndex]
 
@@ -118,6 +140,15 @@ export function ReadingPassageCard({
     setCorrectAnswer(null)
   }, [currentSubQuestionIndex])
 
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+    }
+  }, [])
+
   const handleAnswerSelect = (answer: string) => {
     if (disabled || selectedOption !== null) return
 
@@ -125,10 +156,11 @@ export function ReadingPassageCard({
     setSelectedOption(answer)
     setCorrectAnswer(currentQuestion.correct_answer)
 
-    // Feedback delay (~1s) before calling onAnswer callback
-    setTimeout(() => {
+    // Feedback delay before calling onAnswer callback (with cleanup)
+    timeoutRef.current = setTimeout(() => {
       onAnswer(isCorrect, answer)
-    }, 1000)
+      timeoutRef.current = null
+    }, feedbackDelayMs)
   }
 
   return (
@@ -140,23 +172,40 @@ export function ReadingPassageCard({
 
       {/* Scrollable passage container */}
       <PassageContainer size="medium">
-        <ScrollView showsVerticalScrollIndicator>
-          {showPinyin && passagePinyin && (
-            <Text fontSize={14} color="$colorSubtle" marginBottom="$2">
+        <ScrollView 
+          showsVerticalScrollIndicator
+          accessibilityLabel="Reading passage"
+          accessibilityRole="text"
+        >
+          {showPinyin && passagePinyin && passagePinyin.trim() && (
+            <Text 
+              fontSize={14} 
+              color="$colorSubtle" 
+              marginBottom="$2"
+              accessibilityLabel="Pinyin pronunciation guide"
+            >
               {passagePinyin}
             </Text>
           )}
-          <Text fontSize={20} lineHeight={32} color="$color">
+          <Text 
+            fontSize={20} 
+            lineHeight={32} 
+            color="$color"
+            accessibilityLabel="Chinese passage text"
+          >
             {passage}
           </Text>
         </ScrollView>
 
         {/* Pinyin toggle button — bottom-right of passage card */}
-        {passagePinyin && (
+        {passagePinyin && passagePinyin.trim() && (
           <XStack justifyContent="flex-end" marginTop="$2">
             <PinyinToggle
               active={showPinyin}
               onPress={() => setShowPinyin(!showPinyin)}
+              accessibilityLabel={showPinyin ? 'Hide pinyin' : 'Show pinyin'}
+              accessibilityRole="button"
+              accessibilityState={{ selected: showPinyin }}
               testID="pinyin-toggle"
             >
               <Text fontSize={14}>拼音</Text>
@@ -168,35 +217,45 @@ export function ReadingPassageCard({
       <Separator />
 
       {/* Sub-question progress */}
-      <Text fontSize={14} color="$colorSubtle" textAlign="center">
+      <Text 
+        fontSize={14} 
+        color="$colorSubtle" 
+        textAlign="center"
+        accessibilityLabel={`Question ${currentSubQuestionIndex + 1} of ${comprehensionQuestions.length}`}
+        accessibilityRole="text"
+      >
         Question {currentSubQuestionIndex + 1}/{comprehensionQuestions.length}
       </Text>
 
       {/* Current comprehension question — AnimatePresence for transitions */}
-      <AnimatePresence>
-        <YStack
-          key={currentSubQuestionIndex}
-          animation="medium"
-          enterStyle={{ opacity: 0, x: 20 }}
-          exitStyle={{ opacity: 0, x: -20 }}
-          gap="$3"
-        >
-          {/* Question text */}
-          <Text fontSize={18} fontWeight="600" color="$color">
+      {/* Only animate the question text to reduce re-renders */}
+      <YStack gap="$3">
+        <AnimatePresence>
+          <Text 
+            key={`question-${currentSubQuestionIndex}`}
+            fontSize={18} 
+            fontWeight="600" 
+            color="$color"
+            animation="quick"
+            enterStyle={{ opacity: 0, x: 20 }}
+            exitStyle={{ opacity: 0, x: -20 }}
+          >
             {currentQuestion.question}
           </Text>
+        </AnimatePresence>
 
-          {/* Answer options — REUSE AnswerOptionGrid from Story 4.3 */}
-          <AnswerOptionGrid
-            options={currentQuestion.options}
-            selectedOption={selectedOption}
-            correctAnswer={correctAnswer}
-            onSelect={handleAnswerSelect}
-            disabled={disabled || selectedOption !== null}
-            testID="comprehension-answer-grid"
-          />
-        </YStack>
-      </AnimatePresence>
+        {/* Answer options — REUSE AnswerOptionGrid from Story 4.3 */}
+        {/* Keep outside AnimatePresence to avoid unnecessary unmount/remount */}
+        <AnswerOptionGrid
+          key={`options-${currentSubQuestionIndex}`}
+          options={currentQuestion.options}
+          selectedOption={selectedOption}
+          correctAnswer={correctAnswer}
+          onSelect={handleAnswerSelect}
+          disabled={disabled || selectedOption !== null}
+          testID="comprehension-answer-grid"
+        />
+      </YStack>
     </YStack>
   )
 }

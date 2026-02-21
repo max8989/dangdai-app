@@ -1,6 +1,6 @@
 # Story 4.8: Reading Comprehension Exercise
 
-Status: review
+Status: done
 
 ## Story
 
@@ -777,5 +777,20 @@ N/A
 ### Change Log
 
 - 2026-02-21: Implemented reading comprehension exercise type with scrollable passage, pinyin toggle, and sub-question navigation (Story 4.8)
+- 2026-02-21: **Code review fixes (13 issues):**
+  - Fixed memory leak: setTimeout now has proper cleanup in useEffect
+  - Added array bounds checking for currentSubQuestionIndex
+  - Fixed race condition in handleReadingSubQuestionAnswer
+  - Fixed incorrect feedback on last sub-question (now uses allSubAnswersCorrect)
+  - Added accessibility labels to all interactive elements
+  - Added error handling for empty comprehension_questions array
+  - Implemented getTotalQuestionCount for accurate QuizProgress
+  - Fixed QuizProgress current position to count sub-questions correctly
+  - Optimized AnimatePresence to reduce unnecessary re-renders
+  - Added null check for empty passage_pinyin string
+  - Made feedback delay configurable via feedbackDelayMs prop
+  - Added minHeight to PassageContainer to prevent layout shift
+  - Added 4 new tests (empty pinyin, error states, custom delay)
+  - **Tests:** All 20 ReadingPassageCard tests pass, all 5 integration tests pass
 
 ### File List
