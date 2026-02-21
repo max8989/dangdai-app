@@ -238,6 +238,32 @@ jest.mock('../../components/quiz/WordBankSelector', () => ({
   },
 }))
 
+// Mock DialogueCard component (added in Story 4.6)
+jest.mock('../../components/quiz/DialogueCard', () => ({
+  DialogueCard: ({ question, onAnswerResult, testID }: any) => {
+    const { View, TouchableOpacity, Text } = require('react-native')
+    return (
+      <View testID={testID || 'dialogue-card'}>
+        <Text testID="dialogue-question-text">{question?.question_text}</Text>
+        {(question?.options ?? []).map((option: string, index: number) => (
+          <TouchableOpacity
+            key={option}
+            testID={`dialogue-option-${index}`}
+            onPress={() => onAnswerResult({
+              correct: option === question?.correct_answer,
+              selectedAnswer: option,
+              isAlternative: false,
+              explanation: question?.explanation ?? '',
+            })}
+          >
+            <Text>{option}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    )
+  },
+}))
+
 // ─── Store mock (isolated per test) ──────────────────────────────────────────
 
 let mockQuizState = {

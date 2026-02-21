@@ -63,6 +63,54 @@ export interface QuizQuestion {
   sentence_with_blanks?: string
   word_bank?: string[]
   blank_positions?: number[]
+  // Dialogue completion fields (Story 4.6)
+  dialogue_lines?: DialogueLine[]
+}
+
+/**
+ * A single line in a dialogue completion exercise.
+ * Story 4.6: Dialogue Completion Exercise
+ */
+export interface DialogueLine {
+  /** Speaker identifier */
+  speaker: 'a' | 'b'
+  /** The text content of this line. Empty string if this is the blank. */
+  text: string
+  /** Whether this line is the blank the user must fill */
+  isBlank: boolean
+}
+
+/**
+ * Extended question type for dialogue completion exercises.
+ * Story 4.6: Dialogue Completion Exercise
+ */
+export interface DialogueQuestion extends QuizQuestion {
+  exercise_type: 'dialogue_completion'
+  /** The conversation lines with one blank */
+  dialogue_lines: DialogueLine[]
+  /** Answer options for the blank (required for dialogue — displayed as vertical list) */
+  options: string[]
+}
+
+/**
+ * Request body for POST /api/quizzes/validate-answer.
+ * Story 4.6: Dialogue Completion Exercise
+ */
+export interface AnswerValidationRequest {
+  question: string
+  user_answer: string
+  correct_answer: string
+  exercise_type: string
+}
+
+/**
+ * Response from POST /api/quizzes/validate-answer.
+ * Story 4.6: Dialogue Completion Exercise
+ */
+export interface AnswerValidationResponse {
+  is_correct: boolean
+  explanation: string
+  alternatives: string[]
 }
 
 /**

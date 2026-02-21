@@ -33,6 +33,7 @@
  *
  * Story 4.3: Vocabulary & Grammar Quiz (Multiple Choice)
  * Story 4.4: Fill-in-the-Blank Exercise (Word Bank)
+ * Story 4.6: Dialogue Completion Exercise
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -49,8 +50,10 @@ import { WordBankSelector } from '../../components/quiz/WordBankSelector'
 import { FillInBlankSentence } from '../../components/quiz/FillInBlankSentence'
 import { validateFillInBlank, parseCorrectAnswers, allBlanksFilled } from '../../lib/validateFillInBlank'
 import { EXERCISE_TYPE_LABELS } from '../../types/quiz'
-import type { ExerciseType, QuizQuestion } from '../../types/quiz'
+import type { ExerciseType, QuizQuestion, DialogueQuestion } from '../../types/quiz'
 import type { QuizDisplayVariant, QuizFeedbackVariant } from '../../components/quiz/QuizQuestionCard'
+import { DialogueCard } from '../../components/quiz/DialogueCard'
+import type { DialogueAnswerResult } from '../../components/quiz/DialogueCard'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -208,9 +211,10 @@ export default function QuizPlayScreen() {
     quizPayload?.exercise_type ??
     ''
 
-  // ─── Fill-in-blank: derived values ───────────────────────────────────────
+  // ─── Exercise type flags ──────────────────────────────────────────────────
 
   const isFillInBlank = currentQuestion?.exercise_type === 'fill_in_blank'
+  const isDialogue = currentQuestion?.exercise_type === 'dialogue_completion'
 
   const wordBank: string[] = currentQuestion?.word_bank ?? []
 
@@ -334,6 +338,31 @@ export default function QuizPlayScreen() {
       clearBlankAnswer(blankIndex)
     },
     [fillInBlankValidated, clearBlankAnswer]
+  )
+
+  // ─── Dialogue answer result handler ──────────────────────────────────────
+
+  const handleDialogueAnswer = useCallback(
+    (result: DialogueAnswerResult) => {
+      if (!currentQuestion) return
+
+      // Record the answer in the store
+      setAnswer(currentQuestionIndex, result.selectedAnswer)
+      if (result.correct) {
+        addScore(1)
+      }
+
+      // Advance after feedback delay (~1s per UX spec)
+      feedbackTimeoutRef.current = setTimeout(() => {
+        feedbackTimeoutRef.current = null
+        if (isLastQuestion()) {
+          router.replace('/(tabs)/books')
+        } else {
+          nextQuestion()
+        }
+      }, FEEDBACK_DELAY_MS)
+    },
+    [currentQuestion, currentQuestionIndex, setAnswer, addScore, isLastQuestion, nextQuestion, router]
   )
 
   // ─── Answer selection handler (multiple choice) ───────────────────────────
@@ -465,7 +494,24 @@ export default function QuizPlayScreen() {
 
         {/* Question content area */}
         <YStack flex={1} paddingHorizontal="$4" paddingTop="$4" gap="$4">
-          {isFillInBlank ? (
+          {isDialogue ? (
+            // ─── Dialogue Completion Layout ───────────────────────────────
+            <AnimatePresence>
+              <YStack
+                key={currentQuestionIndex}
+                animation="medium"
+                enterStyle={{ opacity: 0, x: 20 }}
+                exitStyle={{ opacity: 0, x: -20 }}
+                flex={1}
+              >
+                <DialogueCard
+                  question={currentQuestion as DialogueQuestion}
+                  onAnswerResult={handleDialogueAnswer}
+                  testID="dialogue-card"
+                />
+              </YStack>
+            </AnimatePresence>
+          ) : isFillInBlank ? (
             // ─── Fill-in-the-Blank Layout ─────────────────────────────────
             <AnimatePresence>
               <YStack
