@@ -1,0 +1,222 @@
+/**
+ * useQuizStore Tests
+ *
+ * Unit tests for the quiz store extensions added in Story 4.3:
+ * - quizPayload storage
+ * - getCurrentQuestion derived getter
+ * - isLastQuestion derived boolean
+ * - setQuizPayload action
+ * - resetQuiz clears quizPayload
+ * - startQuiz accepts optional payload
+ *
+ * Story 4.3: Vocabulary & Grammar Quiz (Multiple Choice) — Task 7.8
+ */
+
+import { useQuizStore } from './useQuizStore'
+import type { QuizResponse } from '../types/quiz'
+
+// ─── Mock quiz data ────────────────────────────────────────────────────────────
+
+const mockQuizResponse: QuizResponse = {
+  quiz_id: 'test-quiz-1',
+  chapter_id: 212,
+  book_id: 2,
+  exercise_type: 'vocabulary',
+  question_count: 3,
+  questions: [
+    {
+      question_id: 'q1',
+      exercise_type: 'vocabulary',
+      question_text: 'What does this character mean?',
+      correct_answer: 'to study',
+      explanation: '學 means to study.',
+      source_citation: 'Book 2, Chapter 12',
+      character: '學',
+      pinyin: 'xué',
+      options: ['to study', 'to teach', 'to read', 'to write'],
+    },
+    {
+      question_id: 'q2',
+      exercise_type: 'vocabulary',
+      question_text: 'What is the pinyin?',
+      correct_answer: 'chī',
+      explanation: '吃 means to eat.',
+      source_citation: 'Book 2, Chapter 12',
+      character: '吃',
+      options: ['chī', 'hē', 'chá', 'fàn'],
+    },
+    {
+      question_id: 'q3',
+      exercise_type: 'grammar',
+      question_text: 'Which sentence is correct?',
+      correct_answer: '我把書放在桌子上了',
+      explanation: 'The 把 construction.',
+      source_citation: 'Book 2, Chapter 12',
+      options: ['我把書放在桌子上了', '我放書把桌子上了', '把我書放在桌子上了', '我書把放在桌子上了'],
+    },
+  ],
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Get a clean store state for each test */
+function getStore() {
+  return useQuizStore.getState()
+}
+
+function resetStore() {
+  useQuizStore.getState().resetQuiz()
+}
+
+// ─── Tests ────────────────────────────────────────────────────────────────────
+
+describe('useQuizStore — Story 4.3 extensions', () => {
+  beforeEach(() => {
+    resetStore()
+  })
+
+  describe('initial state', () => {
+    it('starts with quizPayload as null', () => {
+      expect(getStore().quizPayload).toBeNull()
+    })
+
+    it('starts with currentQuestion at 0', () => {
+      expect(getStore().currentQuestion).toBe(0)
+    })
+  })
+
+  describe('setQuizPayload (Task 6.2)', () => {
+    it('stores the quiz payload', () => {
+      getStore().setQuizPayload(mockQuizResponse)
+      expect(getStore().quizPayload).toEqual(mockQuizResponse)
+    })
+
+    it('does not reset currentQuestion when setting payload', () => {
+      getStore().startQuiz('quiz-1')
+      getStore().nextQuestion()
+      getStore().setQuizPayload(mockQuizResponse)
+      expect(getStore().currentQuestion).toBe(1)
+    })
+  })
+
+  describe('startQuiz with optional payload (Task 6.3)', () => {
+    it('accepts a payload and stores it', () => {
+      getStore().startQuiz('quiz-1', mockQuizResponse)
+      expect(getStore().quizPayload).toEqual(mockQuizResponse)
+      expect(getStore().currentQuizId).toBe('quiz-1')
+    })
+
+    it('resets question index to 0 when starting a new quiz', () => {
+      getStore().startQuiz('quiz-1', mockQuizResponse)
+      getStore().nextQuestion()
+      expect(getStore().currentQuestion).toBe(1)
+
+      getStore().startQuiz('quiz-2', mockQuizResponse)
+      expect(getStore().currentQuestion).toBe(0)
+    })
+
+    it('preserves existing payload when no payload provided', () => {
+      getStore().setQuizPayload(mockQuizResponse)
+      getStore().startQuiz('quiz-2') // No payload passed
+      expect(getStore().quizPayload).toEqual(mockQuizResponse)
+    })
+  })
+
+  describe('getCurrentQuestion (Task 6.4)', () => {
+    it('returns the first question when currentQuestion is 0', () => {
+      getStore().setQuizPayload(mockQuizResponse)
+      const question = getStore().getCurrentQuestion()
+      expect(question).toEqual(mockQuizResponse.questions[0])
+    })
+
+    it('returns the second question after nextQuestion is called', () => {
+      getStore().setQuizPayload(mockQuizResponse)
+      getStore().nextQuestion()
+      const question = getStore().getCurrentQuestion()
+      expect(question).toEqual(mockQuizResponse.questions[1])
+    })
+
+    it('returns null when quizPayload is null', () => {
+      expect(getStore().getCurrentQuestion()).toBeNull()
+    })
+
+    it('returns null when currentQuestion is out of range', () => {
+      getStore().setQuizPayload(mockQuizResponse)
+      // Manually set past end (3 questions, index 3 = out of range)
+      getStore().nextQuestion()
+      getStore().nextQuestion()
+      getStore().nextQuestion()
+      const question = getStore().getCurrentQuestion()
+      expect(question).toBeNull()
+    })
+  })
+
+  describe('isLastQuestion (Task 6.5)', () => {
+    it('returns false for the first question of a 3-question quiz', () => {
+      getStore().setQuizPayload(mockQuizResponse)
+      expect(getStore().isLastQuestion()).toBe(false)
+    })
+
+    it('returns false for the second question', () => {
+      getStore().setQuizPayload(mockQuizResponse)
+      getStore().nextQuestion()
+      expect(getStore().isLastQuestion()).toBe(false)
+    })
+
+    it('returns true for the last question (index 2 of 3)', () => {
+      getStore().setQuizPayload(mockQuizResponse)
+      getStore().nextQuestion()
+      getStore().nextQuestion()
+      expect(getStore().isLastQuestion()).toBe(true)
+    })
+
+    it('returns false when quizPayload is null', () => {
+      expect(getStore().isLastQuestion()).toBe(false)
+    })
+  })
+
+  describe('resetQuiz clears quizPayload (Task 6.6)', () => {
+    it('sets quizPayload back to null on reset', () => {
+      getStore().setQuizPayload(mockQuizResponse)
+      expect(getStore().quizPayload).not.toBeNull()
+
+      getStore().resetQuiz()
+      expect(getStore().quizPayload).toBeNull()
+    })
+
+    it('resets all state fields on reset', () => {
+      getStore().startQuiz('quiz-1', mockQuizResponse)
+      getStore().nextQuestion()
+      getStore().addScore(3)
+      getStore().setAnswer(0, 'to study')
+
+      getStore().resetQuiz()
+
+      const state = getStore()
+      expect(state.currentQuizId).toBeNull()
+      expect(state.currentQuestion).toBe(0)
+      expect(state.answers).toEqual({})
+      expect(state.score).toBe(0)
+      expect(state.quizPayload).toBeNull()
+    })
+  })
+
+  describe('existing actions (regression tests)', () => {
+    it('setAnswer stores the answer at the correct index', () => {
+      getStore().setAnswer(1, 'to study')
+      expect(getStore().answers[1]).toBe('to study')
+    })
+
+    it('addScore accumulates points', () => {
+      getStore().addScore(2)
+      getStore().addScore(3)
+      expect(getStore().score).toBe(5)
+    })
+
+    it('nextQuestion increments currentQuestion', () => {
+      getStore().nextQuestion()
+      getStore().nextQuestion()
+      expect(getStore().currentQuestion).toBe(2)
+    })
+  })
+})

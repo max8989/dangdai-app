@@ -1,6 +1,6 @@
 # Story 4.3: Vocabulary & Grammar Quiz (Multiple Choice)
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -36,60 +36,60 @@ So that I can practice character/pinyin/meaning recognition and grammar patterns
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create `QuizQuestionCard` component (AC: #1)
-  - [ ] 1.1 Create `components/quiz/QuizQuestionCard.tsx` using Tamagui `styled(Card)` with `display` and `feedback` variants
-  - [ ] 1.2 Implement `display` variants: `character` (72px Chinese), `pinyin` (24px), `meaning` (20px English)
-  - [ ] 1.3 Implement `feedback` variants: `none`, `correct`, `incorrect` (border color changes)
-  - [ ] 1.4 Add `animation="medium"` with `enterStyle={{ opacity: 0, scale: 0.95, y: 10 }}`
-  - [ ] 1.5 Render question type label, primary content (character/pinyin/meaning), secondary content
-  - [ ] 1.6 Write co-located test `QuizQuestionCard.test.tsx`
+- [x] Task 1: Create `QuizQuestionCard` component (AC: #1)
+  - [x] 1.1 Create `components/quiz/QuizQuestionCard.tsx` using Tamagui `styled(Card)` with `display` and `feedback` variants
+  - [x] 1.2 Implement `display` variants: `character` (72px Chinese), `pinyin` (24px), `meaning` (20px English)
+  - [x] 1.3 Implement `feedback` variants: `none`, `correct`, `incorrect` (border color changes)
+  - [x] 1.4 Add `animation="medium"` with `enterStyle={{ opacity: 0, scale: 0.95, y: 10 }}`
+  - [x] 1.5 Render question type label, primary content (character/pinyin/meaning), secondary content
+  - [x] 1.6 Write co-located test `QuizQuestionCard.test.tsx`
 
-- [ ] Task 2: Create `AnswerOptionGrid` component (AC: #1, #2)
-  - [ ] 2.1 Create `components/quiz/AnswerOptionGrid.tsx` with `layout` variant: `grid` (2x2) and `list` (vertical)
-  - [ ] 2.2 Create individual `AnswerOption` using `styled(Button)` with `state` variant: `default`, `selected`, `correct`, `incorrect`, `disabled`
-  - [ ] 2.3 Implement `pressStyle={{ scale: 0.98 }}` and `animation="quick"` on each option
-  - [ ] 2.4 Enforce minimum 48px touch targets via `minHeight: 48`
-  - [ ] 2.5 Auto-select `grid` layout for short answers (≤15 chars), `list` for longer answers
-  - [ ] 2.6 Disable all options after an answer is selected (AC #2)
-  - [ ] 2.7 Write co-located test `AnswerOptionGrid.test.tsx`
+- [x] Task 2: Create `AnswerOptionGrid` component (AC: #1, #2)
+  - [x] 2.1 Create `components/quiz/AnswerOptionGrid.tsx` with `layout` variant: `grid` (2x2) and `list` (vertical)
+  - [x] 2.2 Create individual `AnswerOption` using `styled(Button)` with `state` variant: `default`, `selected`, `correct`, `incorrect`, `disabled`
+  - [x] 2.3 Implement `pressStyle={{ scale: 0.98 }}` and `animation="quick"` on each option
+  - [x] 2.4 Enforce minimum 48px touch targets via `minHeight: 48`
+  - [x] 2.5 Auto-select `grid` layout for short answers (≤15 chars), `list` for longer answers
+  - [x] 2.6 Disable all options after an answer is selected (AC #2)
+  - [x] 2.7 Write co-located test `AnswerOptionGrid.test.tsx`
 
-- [ ] Task 3: Create `QuizProgress` component (AC: #1)
-  - [ ] 3.1 Create `components/quiz/QuizProgress.tsx` showing "X/Y" text + animated progress bar
-  - [ ] 3.2 Use Tamagui `animation="slow"` on the progress bar width for smooth transitions
-  - [ ] 3.3 Write co-located test `QuizProgress.test.tsx`
+- [x] Task 3: Create `QuizProgress` component (AC: #1)
+  - [x] 3.1 Create `components/quiz/QuizProgress.tsx` showing "X/Y" text + animated progress bar
+  - [x] 3.2 Use Tamagui `animation="slow"` on the progress bar width for smooth transitions
+  - [x] 3.3 Write co-located test `QuizProgress.test.tsx`
 
-- [ ] Task 4: Implement quiz screen `app/quiz/play.tsx` (AC: #1, #2, #3, #4)
-  - [ ] 4.1 Create `app/quiz/play.tsx` route that receives quiz data via route params or shared state
-  - [ ] 4.2 Read quiz data: receive `quizId` param, retrieve quiz payload from `useQuizStore` or navigation state
-  - [ ] 4.3 On mount: call `useQuizStore.startQuiz(quizId)` (AC #3)
-  - [ ] 4.4 Wrap question display in `AnimatePresence` with `key={currentQuestionIndex}` for enter/exit transitions
-  - [ ] 4.5 Implement answer selection: validate locally against `correct_answer`, update `useQuizStore.setAnswer()` and `addScore()`
-  - [ ] 4.6 After answer validation + feedback delay (~1s): call `useQuizStore.nextQuestion()` and advance to next question
-  - [ ] 4.7 On last question answered: navigate to results/completion (placeholder for Story 4.11)
-  - [ ] 4.8 Add exit confirmation dialog: "Leave exercise? Your progress will be saved." with Keep Learning / Leave options
-  - [ ] 4.9 Handle edge cases: empty quiz data, single question quiz, invalid quiz payload
+- [x] Task 4: Implement quiz screen `app/quiz/play.tsx` (AC: #1, #2, #3, #4)
+  - [x] 4.1 Create `app/quiz/play.tsx` route that receives quiz data via route params or shared state
+  - [x] 4.2 Read quiz data: receive `quizId` param, retrieve quiz payload from `useQuizStore` or navigation state
+  - [x] 4.3 On mount: call `useQuizStore.startQuiz(quizId)` (AC #3)
+  - [x] 4.4 Wrap question display in `AnimatePresence` with `key={currentQuestionIndex}` for enter/exit transitions
+  - [x] 4.5 Implement answer selection: validate locally against `correct_answer`, update `useQuizStore.setAnswer()` and `addScore()`
+  - [x] 4.6 After answer validation + feedback delay (~1s): call `useQuizStore.nextQuestion()` and advance to next question
+  - [x] 4.7 On last question answered: navigate to results/completion (placeholder for Story 4.11)
+  - [x] 4.8 Add exit confirmation dialog: "Leave exercise? Your progress will be saved." with Keep Learning / Leave options
+  - [x] 4.9 Handle edge cases: empty quiz data, single question quiz, invalid quiz payload
 
-- [ ] Task 5: Wire navigation from loading screen to quiz play screen (AC: #3)
-  - [ ] 5.1 Update `app/quiz/loading.tsx`: on successful quiz generation, store quiz payload and navigate to `app/quiz/play.tsx`
-  - [ ] 5.2 Pass quiz data via a shared mechanism (Zustand store extension, or route params for quiz ID + store lookup)
+- [x] Task 5: Wire navigation from loading screen to quiz play screen (AC: #3)
+  - [x] 5.1 Update `app/quiz/loading.tsx`: on successful quiz generation, store quiz payload and navigate to `app/quiz/play.tsx`
+  - [x] 5.2 Pass quiz data via a shared mechanism (Zustand store extension, or route params for quiz ID + store lookup)
 
-- [ ] Task 6: Extend `useQuizStore` for quiz payload storage (AC: #3, #4)
-  - [ ] 6.1 Add `quizPayload: QuizResponse | null` to `useQuizStore` state
-  - [ ] 6.2 Add `setQuizPayload(payload: QuizResponse)` action
-  - [ ] 6.3 Update `startQuiz()` to accept and store the quiz payload
-  - [ ] 6.4 Add `getCurrentQuestion()` derived getter
-  - [ ] 6.5 Add `isLastQuestion` derived boolean
-  - [ ] 6.6 Clear quiz payload on `resetQuiz()`
+- [x] Task 6: Extend `useQuizStore` for quiz payload storage (AC: #3, #4)
+  - [x] 6.1 Add `quizPayload: QuizResponse | null` to `useQuizStore` state
+  - [x] 6.2 Add `setQuizPayload(payload: QuizResponse)` action
+  - [x] 6.3 Update `startQuiz()` to accept and store the quiz payload
+  - [x] 6.4 Add `getCurrentQuestion()` derived getter
+  - [x] 6.5 Add `isLastQuestion` derived boolean
+  - [x] 6.6 Clear quiz payload on `resetQuiz()`
 
-- [ ] Task 7: Write tests (AC: all)
-  - [ ] 7.1 Unit test `QuizQuestionCard` renders all 3 display variants
-  - [ ] 7.2 Unit test `AnswerOptionGrid` renders 2x2 grid and vertical list
-  - [ ] 7.3 Unit test answer selection disables other options
-  - [ ] 7.4 Unit test `QuizProgress` shows correct position
-  - [ ] 7.5 Integration test: quiz play screen renders first question from quiz data
-  - [ ] 7.6 Integration test: selecting answer advances to next question
-  - [ ] 7.7 Integration test: last question triggers completion
-  - [ ] 7.8 Unit test `useQuizStore` extensions (quizPayload, getCurrentQuestion, isLastQuestion)
+- [x] Task 7: Write tests (AC: all)
+  - [x] 7.1 Unit test `QuizQuestionCard` renders all 3 display variants
+  - [x] 7.2 Unit test `AnswerOptionGrid` renders 2x2 grid and vertical list
+  - [x] 7.3 Unit test answer selection disables other options
+  - [x] 7.4 Unit test `QuizProgress` shows correct position
+  - [x] 7.5 Integration test: quiz play screen renders first question from quiz data
+  - [x] 7.6 Integration test: selecting answer advances to next question
+  - [x] 7.7 Integration test: last question triggers completion
+  - [x] 7.8 Unit test `useQuizStore` extensions (quizPayload, getCurrentQuestion, isLastQuestion)
 
 ## Dev Notes
 
@@ -487,10 +487,38 @@ Recent commits show: Story 4.1 and 4.2 were created (commit `1f94908`, `2460f93`
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+anthropic/claude-sonnet-4-6
 
 ### Debug Log References
 
+No blocking issues encountered. Pre-existing `hooks/useChapters.test.ts` failure (1 test) confirmed unrelated to this story via git stash verification.
+
 ### Completion Notes List
 
+- Implemented all 7 tasks with full red-green-refactor TDD cycle (59 new tests, all passing)
+- `useQuizStore` extended with `quizPayload`, `setQuizPayload`, `getCurrentQuestion()`, `isLastQuestion()`. `startQuiz()` updated to accept optional payload. `resetQuiz()` now clears `quizPayload`. 20 unit tests.
+- `QuizQuestionCard`: Tamagui `styled(Card)` with `feedback` variants (none/correct/incorrect border colors), 3 display modes (character/72px, pinyin/24px, meaning/20px), `animation="medium"` enter transition. 12 unit tests.
+- `AnswerOptionGrid`: Tamagui `styled(Button)` with `state` variants (default/selected/correct/incorrect/disabled), auto layout detection (grid for ≤15 chars, list for longer), `minHeight:48` touch targets, full disabling post-answer. 9 unit tests.
+- `QuizProgress`: "X/Y" counter + animated progress bar (`animation="slow"`). 7 unit tests.
+- `app/quiz/play.tsx`: Full quiz play screen with AnimatePresence question transitions, local answer validation, 1s feedback delay via `setTimeout`+`useEffect`, exit confirmation dialog via `Alert.alert`, graceful null-payload edge case. 11 integration tests.
+- `app/quiz/loading.tsx` modified: replaces old dynamic route navigation with `setQuizPayload(data)` + `startQuiz(quizId, data)` + `router.replace('/quiz/play')`. Updated loading test mock and assertions to match.
+- TypeScript: `npx tsc` passes clean. ESLint: 0 errors, warnings in test files only (consistent with project standard).
+
 ### File List
+
+- `dangdai-mobile/stores/useQuizStore.ts` — MODIFIED: added quizPayload, setQuizPayload, getCurrentQuestion, isLastQuestion, updated startQuiz, resetQuiz
+- `dangdai-mobile/stores/useQuizStore.test.ts` — CREATED: 20 unit tests for store extensions
+- `dangdai-mobile/components/quiz/QuizQuestionCard.tsx` — CREATED: question display component
+- `dangdai-mobile/components/quiz/QuizQuestionCard.test.tsx` — CREATED: 12 unit tests
+- `dangdai-mobile/components/quiz/AnswerOptionGrid.tsx` — CREATED: answer options grid/list component
+- `dangdai-mobile/components/quiz/AnswerOptionGrid.test.tsx` — CREATED: 9 unit tests
+- `dangdai-mobile/components/quiz/QuizProgress.tsx` — CREATED: progress bar + counter component
+- `dangdai-mobile/components/quiz/QuizProgress.test.tsx` — CREATED: 7 unit tests
+- `dangdai-mobile/app/quiz/play.tsx` — CREATED: main quiz play screen route
+- `dangdai-mobile/app/quiz/play.test.tsx` — CREATED: 11 integration tests
+- `dangdai-mobile/app/quiz/loading.tsx` — MODIFIED: navigate to /quiz/play with payload stored in Zustand
+- `dangdai-mobile/app/quiz/loading.test.tsx` — MODIFIED: updated mock + assertions for new navigation
+
+## Change Log
+
+- **2026-02-21 (Story 4.3):** Implemented vocabulary/grammar multiple choice quiz screen. Created `components/quiz/` directory with `QuizQuestionCard`, `AnswerOptionGrid`, `QuizProgress` components. Created `app/quiz/play.tsx` play screen with AnimatePresence transitions, local validation, 1s feedback delay, exit dialog, and null-payload guard. Extended `useQuizStore` with quiz payload storage, `getCurrentQuestion()`, `isLastQuestion()`, `setQuizPayload()`. Updated `loading.tsx` to store payload in Zustand and navigate to `/quiz/play`. Added 59 tests (20 store unit, 12+9+7 component unit, 11 integration). TypeScript and ESLint pass clean.

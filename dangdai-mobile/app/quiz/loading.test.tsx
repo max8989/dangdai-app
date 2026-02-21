@@ -39,9 +39,10 @@ jest.mock('../../hooks/useQuizGeneration', () => ({
 
 // Mock useQuizStore
 const mockStartQuiz = jest.fn()
+const mockSetQuizPayload = jest.fn()
 jest.mock('../../stores/useQuizStore', () => ({
   useQuizStore: (selector: (state: Record<string, unknown>) => unknown) =>
-    selector({ startQuiz: mockStartQuiz }),
+    selector({ startQuiz: mockStartQuiz, setQuizPayload: mockSetQuizPayload }),
 }))
 
 // Mock tips
@@ -402,7 +403,8 @@ describe('QuizLoadingScreen', () => {
       }
 
       render(<QuizLoadingScreen />)
-      expect(mockStartQuiz).toHaveBeenCalledWith('test-quiz-123')
+      // startQuiz is now called with (quizId, payload) in Story 4.3
+      expect(mockStartQuiz).toHaveBeenCalledWith('test-quiz-123', mockQuizData)
     })
 
     it('navigates to quiz session screen after delay', () => {
@@ -423,15 +425,8 @@ describe('QuizLoadingScreen', () => {
         jest.advanceTimersByTime(300)
       })
 
-      expect(mockRouterReplace).toHaveBeenCalledWith({
-        pathname: '/quiz/test-quiz-123',
-        params: {
-          chapterId: '212',
-          bookId: '2',
-          quizType: 'vocabulary',
-          quizId: 'test-quiz-123',
-        },
-      })
+      // Story 4.3: navigates to /quiz/play (not dynamic quiz ID route)
+      expect(mockRouterReplace).toHaveBeenCalledWith('/quiz/play')
     })
 
     it('does not navigate before the delay completes', () => {

@@ -8,9 +8,13 @@
  * It is ephemeral - quiz results are synced to server via TanStack Query.
  *
  * Server data like quiz history is managed by TanStack Query, not this store.
+ *
+ * Story 4.3: Extended with quizPayload, getCurrentQuestion, isLastQuestion
  */
 
 import { create } from 'zustand'
+
+import type { QuizResponse, QuizQuestion } from '../types/quiz'
 
 /**
  * Quiz session state interface
@@ -22,8 +26,16 @@ interface QuizState {
   answers: Record<number, string>
   score: number
 
+  // Quiz payload (full quiz data for active session)
+  quizPayload: QuizResponse | null
+
+  // Derived getters
+  getCurrentQuestion: () => QuizQuestion | null
+  isLastQuestion: () => boolean
+
   // Actions
-  startQuiz: (quizId: string) => void
+  startQuiz: (quizId: string, payload?: QuizResponse) => void
+  setQuizPayload: (payload: QuizResponse) => void
   setAnswer: (questionIndex: number, answer: string) => void
   nextQuestion: () => void
   addScore: (points: number) => void
@@ -43,21 +55,38 @@ interface QuizState {
  * }
  * ```
  */
-export const useQuizStore = create<QuizState>((set) => ({
+export const useQuizStore = create<QuizState>((set, get) => ({
   // Initial state
   currentQuizId: null,
   currentQuestion: 0,
   answers: {},
   score: 0,
+  quizPayload: null,
+
+  // Derived getters
+  getCurrentQuestion: () => {
+    const { quizPayload, currentQuestion } = get()
+    if (!quizPayload || !quizPayload.questions) return null
+    return quizPayload.questions[currentQuestion] ?? null
+  },
+
+  isLastQuestion: () => {
+    const { quizPayload, currentQuestion } = get()
+    if (!quizPayload || !quizPayload.questions) return false
+    return currentQuestion >= quizPayload.questions.length - 1
+  },
 
   // Actions
-  startQuiz: (quizId) =>
-    set({
+  startQuiz: (quizId, payload) =>
+    set((state) => ({
       currentQuizId: quizId,
       currentQuestion: 0,
       answers: {},
       score: 0,
-    }),
+      quizPayload: payload ?? state.quizPayload,
+    })),
+
+  setQuizPayload: (payload) => set({ quizPayload: payload }),
 
   setAnswer: (questionIndex, answer) =>
     set((state) => ({
@@ -74,5 +103,6 @@ export const useQuizStore = create<QuizState>((set) => ({
       currentQuestion: 0,
       answers: {},
       score: 0,
+      quizPayload: null,
     }),
 }))

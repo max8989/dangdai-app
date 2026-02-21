@@ -20,7 +20,7 @@ import { useQuizGeneration } from '../../hooks/useQuizGeneration'
 import { useQuizStore } from '../../stores/useQuizStore'
 import { LOADING_TIPS, TIP_ROTATION_INTERVAL_MS, getNextTipIndex } from '../../constants/tips'
 import { EXERCISE_TYPE_LABELS } from '../../types/quiz'
-import type { ExerciseType, QuizGenerationError } from '../../types/quiz'
+import type { ExerciseType, QuizGenerationError, QuizResponse } from '../../types/quiz'
 
 export default function QuizLoadingScreen() {
   const { chapterId, bookId, quizType, exerciseType: exerciseTypeParam } = useLocalSearchParams<{
@@ -31,6 +31,7 @@ export default function QuizLoadingScreen() {
   }>()
   const router = useRouter()
   const startQuiz = useQuizStore((state) => state.startQuiz)
+  const setQuizPayload = useQuizStore((state) => state.setQuizPayload)
 
   // Support both exerciseType (preferred) and quizType (legacy Story 3.4 param)
   const exerciseType = exerciseTypeParam ?? quizType ?? 'vocabulary'
@@ -94,26 +95,21 @@ export default function QuizLoadingScreen() {
   useEffect(() => {
     if (data) {
       setProgress(100)
-      startQuiz(data.quiz_id)
+
+      // Store quiz payload in Zustand store before navigation
+      const quizData = data as QuizResponse
+      setQuizPayload(quizData)
+      startQuiz(quizData.quiz_id, quizData)
 
       // Small delay for the progress bar to reach 100% visually
       const timeout = setTimeout(() => {
-        // Navigate to quiz question screen (Story 4.3+)
-        // TODO(story-4.3): Replace with typed route once quiz session screen exists
-        router.replace({
-          pathname: `/quiz/${data.quiz_id}` as '/quiz/[chapterId]',
-          params: {
-            chapterId: chapterIdNum.toString(),
-            bookId: bookIdNum.toString(),
-            quizType: exerciseType,
-            quizId: data.quiz_id,
-          },
-        })
+        // Navigate to quiz play screen (Story 4.3)
+        router.replace('/quiz/play' as '/quiz/play')
       }, 300)
 
       return () => clearTimeout(timeout)
     }
-  }, [data, startQuiz, router, chapterIdNum, bookIdNum, exerciseType])
+  }, [data, startQuiz, setQuizPayload, router])
 
   const handleCancel = useCallback(() => {
     router.back()
