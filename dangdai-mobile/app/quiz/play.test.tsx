@@ -441,13 +441,18 @@ jest.mock('../../components/quiz/CompletionScreen', () => ({
 
 // Mock FeedbackOverlay component (added in Story 4.9)
 jest.mock('../../components/quiz/FeedbackOverlay', () => ({
-  FeedbackOverlay: ({ visible, isCorrect, explanation, testID }: any) => {
-    const { View, Text } = require('react-native')
+  FeedbackOverlay: ({ visible, isCorrect, explanation, onNext, testID }: any) => {
+    const { View, Text, TouchableOpacity } = require('react-native')
     if (!visible) return null
     return (
       <View testID={testID || 'feedback-overlay'}>
         <Text testID="feedback-overlay-correct">{isCorrect ? 'correct' : 'incorrect'}</Text>
         <Text testID="feedback-overlay-explanation">{explanation}</Text>
+        {onNext && (
+          <TouchableOpacity testID="feedback-next-button" onPress={onNext}>
+            <Text>Next</Text>
+          </TouchableOpacity>
+        )}
       </View>
     )
   },
@@ -709,37 +714,37 @@ describe('QuizPlayScreen', () => {
   })
 
   describe('question advancement (AC #2)', () => {
-    it('calls nextQuestion after feedback delay (~1s)', async () => {
+    it('calls nextQuestion when user taps Next button on FeedbackOverlay', async () => {
+      // Pre-set showFeedback=true so FeedbackOverlay renders with Next button
+      mockQuizState.showFeedback = true
+      mockQuizState.feedbackIsCorrect = true
+
       const { getByTestId } = render(<QuizPlayScreen />)
 
-      fireEvent.press(getByTestId('answer-option-0'))
-
-      // Before delay: nextQuestion not called yet
+      // Before pressing Next: nextQuestion not called yet
       expect(mockNextQuestion).not.toHaveBeenCalled()
 
-      // After 1s feedback delay
-      act(() => {
-        jest.advanceTimersByTime(1100)
-      })
+      // User taps "Next" on the FeedbackOverlay
+      fireEvent.press(getByTestId('feedback-next-button'))
 
       expect(mockNextQuestion).toHaveBeenCalled()
     })
   })
 
   describe('last question handling (AC #4)', () => {
-    it('navigates to results after last question is answered', async () => {
+    it('calls completeQuiz when user taps Next on last question', async () => {
       // Set to last question
       mockQuizState.currentQuestion = 2
       mockIsLastQuestion.mockReturnValue(true)
       mockGetCurrentQuestion.mockReturnValue(mockQuizResponse.questions[2])
+      // Pre-set showFeedback=true so FeedbackOverlay renders with Next button
+      mockQuizState.showFeedback = true
+      mockQuizState.feedbackIsCorrect = true
 
       const { getByTestId } = render(<QuizPlayScreen />)
 
-      fireEvent.press(getByTestId('answer-option-0')) // select first option
-
-      act(() => {
-        jest.advanceTimersByTime(1100)
-      })
+      // User taps "Next" on the FeedbackOverlay
+      fireEvent.press(getByTestId('feedback-next-button'))
 
       // Should call completeQuiz() to show CompletionScreen (Story 4.11)
       await waitFor(() => {
@@ -963,33 +968,29 @@ describe('QuizPlayScreen', () => {
       })
     })
 
-    it('calls nextQuestion after 1s feedback delay on correct answer (Story 4.9)', async () => {
-      // Pre-set showFeedback=true so the useEffect timer fires on initial render
+    it('calls nextQuestion when user taps Next on sentence_construction feedback (Story 4.9)', async () => {
+      // Pre-set showFeedback=true so FeedbackOverlay renders with Next button
       mockQuizState.showFeedback = true
       mockQuizState.feedbackIsCorrect = true
 
-      render(<QuizPlayScreen />)
+      const { getByTestId } = render(<QuizPlayScreen />)
 
       expect(mockNextQuestion).not.toHaveBeenCalled()
 
-      act(() => {
-        jest.advanceTimersByTime(1100)
-      })
+      fireEvent.press(getByTestId('feedback-next-button'))
 
       expect(mockNextQuestion).toHaveBeenCalled()
     })
 
-    it('calls completeQuiz on last sentence_construction question answered (Story 4.11)', async () => {
+    it('calls completeQuiz when user taps Next on last sentence_construction question (Story 4.11)', async () => {
       mockIsLastQuestion.mockReturnValue(true)
-      // Pre-set showFeedback=true so the useEffect timer fires on initial render
+      // Pre-set showFeedback=true so FeedbackOverlay renders with Next button
       mockQuizState.showFeedback = true
       mockQuizState.feedbackIsCorrect = true
 
-      render(<QuizPlayScreen />)
+      const { getByTestId } = render(<QuizPlayScreen />)
 
-      act(() => {
-        jest.advanceTimersByTime(1100)
-      })
+      fireEvent.press(getByTestId('feedback-next-button'))
 
       await waitFor(() => {
         expect(mockCompleteQuiz).toHaveBeenCalled()
@@ -1005,33 +1006,29 @@ describe('QuizPlayScreen', () => {
       mockIsLastQuestion.mockReturnValue(false)
     })
 
-    it('calls nextQuestion after 1s feedback delay on dialogue answer (Story 4.9)', async () => {
-      // Pre-set showFeedback=true to simulate feedback being shown
+    it('calls nextQuestion when user taps Next on dialogue feedback (Story 4.9)', async () => {
+      // Pre-set showFeedback=true so FeedbackOverlay renders with Next button
       mockQuizState.showFeedback = true
       mockQuizState.feedbackIsCorrect = true
 
-      render(<QuizPlayScreen />)
+      const { getByTestId } = render(<QuizPlayScreen />)
 
       expect(mockNextQuestion).not.toHaveBeenCalled()
 
-      act(() => {
-        jest.advanceTimersByTime(1100)
-      })
+      fireEvent.press(getByTestId('feedback-next-button'))
 
       expect(mockNextQuestion).toHaveBeenCalled()
     })
 
-    it('calls completeQuiz on last dialogue question answered (Story 4.11)', async () => {
+    it('calls completeQuiz when user taps Next on last dialogue question (Story 4.11)', async () => {
       mockIsLastQuestion.mockReturnValue(true)
-      // Pre-set showFeedback=true to simulate feedback being shown
+      // Pre-set showFeedback=true so FeedbackOverlay renders with Next button
       mockQuizState.showFeedback = true
       mockQuizState.feedbackIsCorrect = true
 
-      render(<QuizPlayScreen />)
+      const { getByTestId } = render(<QuizPlayScreen />)
 
-      act(() => {
-        jest.advanceTimersByTime(1100)
-      })
+      fireEvent.press(getByTestId('feedback-next-button'))
 
       await waitFor(() => {
         expect(mockCompleteQuiz).toHaveBeenCalled()

@@ -10,8 +10,8 @@
  * - Validates answers locally against correct_answer (exact match)
  * - Shows FeedbackOverlay with explanation after each answer
  * - Plays sound effect (ding/bonk) simultaneously with feedback display
- * - Auto-advances after ~1 second feedback display
- * - Disables all interaction during feedback display
+ * - User taps "Next" button on FeedbackOverlay to advance to the next question
+ * - Disables answer interaction during feedback display
  * - Exit confirmation dialog: "Leave exercise? Your progress will be saved."
  * - Graceful edge case handling: empty quiz, null payload
  * - fill_in_blank: word bank + sentence with blank slots, auto-submit when all filled
@@ -48,7 +48,7 @@
  * Story 4.5: Matching Exercise (MatchingExercise rendered when exercise_type === 'matching')
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Alert } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { YStack, XStack, Text, Button, AnimatePresence } from 'tamagui'
@@ -115,9 +115,6 @@ function getPrimaryContent(question: QuizQuestion, displayVariant: QuizDisplayVa
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
-
-/** Feedback display duration in milliseconds before auto-advancing (1s per UX spec) */
-const FEEDBACK_DISPLAY_MS = 1_000
 
 /** Points awarded for a correct answer */
 const POINTS_PER_CORRECT = 10
@@ -224,54 +221,42 @@ export default function QuizPlayScreen() {
     }
   }, [isInvalidQuiz, isIndexOutOfRange, router])
 
-  // ─── Feedback auto-advance timer (Story 4.9) ──────────────────────────────
-  // When showFeedback becomes true, start a 1-second timer then advance.
-  // useRef stores the timer ID for safe cleanup on unmount.
+  // ─── Manual advance handler ─────────────────────────────────────────────
+  // User taps "Next" on FeedbackOverlay to advance to the next question.
+  // Replaces the previous auto-advance timer for a better learning experience.
 
-  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const handleNext = useCallback(() => {
+    if (!showFeedback) return
 
-  useEffect(() => {
-    if (showFeedback) {
-      feedbackTimerRef.current = setTimeout(async () => {
-        feedbackTimerRef.current = null
-        hideFeedback()
-        if (isLastQuestion()) {
-          // On quiz completion: save full quiz attempt + clear persisted state (Story 4.10, Tasks 5.6, 5.7)
-          const finalScore = useQuizStore.getState().score
-          const finalAnswers = useQuizStore.getState().answers
-          const totalQs = quizPayload?.questions.length ?? 0
-          const exType = useQuizStore.getState().exerciseType ?? quizPayload?.exercise_type ?? ''
-          const capChapterId = useQuizStore.getState().chapterId ?? quizPayload?.chapter_id ?? 0
-          const capBookId = useQuizStore.getState().bookId ?? quizPayload?.book_id ?? 0
+    hideFeedback()
+    if (isLastQuestion()) {
+      // On quiz completion: save full quiz attempt + clear persisted state (Story 4.10, Tasks 5.6, 5.7)
+      const finalScore = useQuizStore.getState().score
+      const finalAnswers = useQuizStore.getState().answers
+      const totalQs = quizPayload?.questions.length ?? 0
+      const exType = useQuizStore.getState().exerciseType ?? quizPayload?.exercise_type ?? ''
+      const capChapterId = useQuizStore.getState().chapterId ?? quizPayload?.chapter_id ?? 0
+      const capBookId = useQuizStore.getState().bookId ?? quizPayload?.book_id ?? 0
 
-          // Save quiz attempt (async — fire without blocking navigation)
-          saveQuizAttempt({
-            chapterId: capChapterId,
-            bookId: capBookId,
-            exerciseType: exType,
-            score: finalScore,
-            totalQuestions: totalQs,
-            answersJson: finalAnswers as Record<string, unknown>,
-          })
+      // Save quiz attempt (async — fire without blocking navigation)
+      saveQuizAttempt({
+        chapterId: capChapterId,
+        bookId: capBookId,
+        exerciseType: exType,
+        score: finalScore,
+        totalQuestions: totalQs,
+        answersJson: finalAnswers as Record<string, unknown>,
+      })
 
-          // Clear persisted quiz state (crash recovery no longer needed)
-          clearResumableQuiz()
+      // Clear persisted quiz state (crash recovery no longer needed)
+      clearResumableQuiz()
 
-          // Show CompletionScreen in-place (Story 4.11) — no navigation needed
-          completeQuiz()
-        } else {
-          nextQuestion()
-        }
-      }, FEEDBACK_DISPLAY_MS)
+      // Show CompletionScreen in-place (Story 4.11) — no navigation needed
+      completeQuiz()
+    } else {
+      nextQuestion()
     }
-
-    return () => {
-      if (feedbackTimerRef.current !== null) {
-        clearTimeout(feedbackTimerRef.current)
-        feedbackTimerRef.current = null
-      }
-    }
-  }, [showFeedback]) // Only re-run when showFeedback changes
+  }, [showFeedback, hideFeedback, isLastQuestion, nextQuestion, completeQuiz, quizPayload, saveQuizAttempt, clearResumableQuiz])
 
   // ─── Reset local state when question changes ──────────────────────────────
   // Fill-in-blank state resets here. Multiple-choice state (selectedAnswer,
@@ -938,6 +923,7 @@ export default function QuizPlayScreen() {
             feedbackIsCorrect === false ? currentQuestion.correct_answer : undefined
           }
           pointsEarned={feedbackIsCorrect === true ? currentPointsEarned : undefined}
+          onNext={handleNext}
         />
       </YStack>
     </>

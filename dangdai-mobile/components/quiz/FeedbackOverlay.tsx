@@ -7,16 +7,16 @@
  * Design decisions:
  * - Uses <Theme name="success"> / <Theme name="error"> so all color tokens
  *   resolve automatically to the correct sub-theme values
- * - pointerEvents="none" prevents accidental taps on the overlay during 1s display
  * - Correct answer is shown inside nested <Theme name="success"> even within error theme
  * - Points earned uses animation="bouncy" for a satisfying pop-in effect
  * - AnimatePresence with enterStyle/exitStyle for smooth appearance/disappearance
+ * - "Next" button allows user to manually advance to the next question
  *
  * Story 4.9: Immediate Answer Feedback — Task 3
  */
 
-import { AnimatePresence, Theme, YStack, XStack, Text } from 'tamagui'
-import { Check, X } from '@tamagui/lucide-icons'
+import { AnimatePresence, Theme, YStack, XStack, Text, Button } from 'tamagui'
+import { Check, X, ChevronRight } from '@tamagui/lucide-icons'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -33,6 +33,8 @@ export interface FeedbackOverlayProps {
   correctAnswer?: string
   /** Points earned (shown when correct) */
   pointsEarned?: number
+  /** Callback when the user taps the Next button to advance to the next question */
+  onNext?: () => void
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -48,6 +50,7 @@ export function FeedbackOverlay({
   sourceCitation,
   correctAnswer,
   pointsEarned,
+  onNext,
 }: FeedbackOverlayProps) {
   return (
     <AnimatePresence>
@@ -68,7 +71,6 @@ export function FeedbackOverlay({
             gap="$2"
             marginHorizontal="$4"
             marginBottom="$4"
-            pointerEvents="none"
             testID="feedback-overlay"
           >
             {/* Icon + Result Header */}
@@ -121,6 +123,25 @@ export function FeedbackOverlay({
             <Text fontSize="$2" color="$colorSubtle" testID="feedback-citation">
               {sourceCitation}
             </Text>
+
+            {/* Next button — user taps to advance to the next question */}
+            {onNext && (
+              <Button
+                onPress={onNext}
+                backgroundColor="$color"
+                color="$background"
+                fontWeight="600"
+                fontSize="$4"
+                borderRadius={10}
+                marginTop="$2"
+                pressStyle={{ scale: 0.97, opacity: 0.85 }}
+                animation="quick"
+                iconAfter={<ChevronRight size={18} color="$background" />}
+                testID="feedback-next-button"
+              >
+                Next
+              </Button>
+            )}
           </YStack>
         </Theme>
       )}
