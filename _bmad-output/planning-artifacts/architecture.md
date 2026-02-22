@@ -11,8 +11,10 @@ date: 'Sat Feb 14 2026'
 lastStep: 8
 status: 'complete'
 completedAt: '2026-02-14'
-updatedAt: '2026-02-21'
+updatedAt: 'Sat Feb 21 2026'
 updateHistory:
+  - date: 'Sat Feb 21 2026'
+    changes: 'Added Request Cancellation Architecture: Server-side cancellation via FastAPI Request.is_disconnected() to prevent orphaned LangGraph executions when users navigate away during quiz generation. Reduces cost waste by 70-90% on abandoned requests (~$16/month savings). Added enforcement guidelines for all backend endpoints.'
   - date: '2026-02-21'
     changes: 'Added configurable LLM provider architecture with Azure OpenAI GPT-4o as default. Supports switching between Azure OpenAI, OpenAI, and other providers via environment configuration. Updated cost estimates for Azure pricing model.'
   - date: '2026-02-21'
@@ -121,6 +123,7 @@ Mobile App (Expo) ──┬──▶ Supabase (Auth, Progress, User Data, Perfor
 11. **Adaptive Learning Pipeline**: Weakness profile computation → quiz bias → performance tracking → profile update loop
 12. **Hybrid Answer Validation**: Local validation for structured answers, LLM validation for open-ended answers (Sentence Construction, Dialogue Completion)
 13. **Exercise Type System**: 7 distinct exercise types with type-specific UI interactions, generation prompts, validation rules, and progress tracking
+14. **Request Cancellation**: Backend request cancellation when users navigate away from loading states, preventing resource waste and orphaned LangGraph executions
 
 ## Starter Template Evaluation
 
@@ -345,6 +348,225 @@ Azure Resource Group
 - Custom error boundary for React components
 - Toast notifications for recoverable errors
 - Progressive quiz loading: show first question ASAP while remaining generate in background
+
+### Request Cancellation Architecture
+
+This section defines the request cancellation mechanism that prevents resource waste when users navigate away from loading states (e.g., pressing "back" during quiz generation).
+
+#### Problem Statement
+
+**Current Behavior (Without Cancellation):**
+1. User initiates quiz generation → Mobile sends `POST /api/quizzes/generate` → Backend starts LangGraph execution
+2. User presses "back" button while quiz is loading (< 8 seconds typically)
+3. Mobile AbortController cancels the HTTP request (client-side only)
+4. Backend LangGraph execution **continues running** for the full duration (~8-60s depending on retries)
+5. Backend generates a complete quiz that is never consumed
+6. Wasted resources: LLM API calls ($0.02-0.06), CPU, database queries
+
+**Impact:**
+- Cost waste: ~$0.02-0.06 per abandoned quiz (2-3 LLM calls if evaluator triggers retries)
+- Server load: Orphaned LangGraph tasks accumulate under high user churn
+- User perception: Rapid back-and-forth navigation feels unresponsive because backend is still processing previous requests
+
+#### Architecture: Server-Side Cancellation via Request Context
+
+FastAPI provides native request cancellation detection through `Request.is_disconnected()`. When a client aborts an HTTP request (via AbortController), FastAPI automatically marks the request as disconnected. Long-running backend tasks should check this flag periodically and terminate gracefully.
+
+**Design Principle:** All long-running async operations (quiz generation, answer validation) must respect client disconnection by checking `Request.is_disconnected()` at key checkpoints and raising `asyncio.CancelledError` to abort execution.
+
+#### Implementation Pattern (FastAPI + LangGraph)
+
+**Step 1: Pass Request Object to Service Layer**
+
+Modify all endpoint handlers to pass the FastAPI `Request` object to service methods:
+
+```python
+# src/api/routes/quizzes.py
+from fastapi import Request
+
+@router.post("/generate")
+async def generate_quiz(
+    request_body: QuizGenerateRequest,
+    user_id: str = Depends(get_current_user),
+    request: Request,  # NEW: FastAPI request object
+) -> QuizGenerateResponse:
+    return await _quiz_service.generate_quiz(request_body, user_id, request)
+```
+
+**Step 2: Service Layer Checks Disconnection Before Expensive Operations**
+
+Modify service methods to check `request.is_disconnected()` before invoking the LangGraph agent:
+
+```python
+# src/services/quiz_service.py
+from fastapi import Request
+import asyncio
+
+class QuizService:
+    async def generate_quiz(
+        self,
+        params: QuizGenerateRequest,
+        user_id: str,
+        request: Request,  # NEW: Accept request object
+    ) -> QuizGenerateResponse:
+        # Check if client disconnected BEFORE starting expensive LangGraph execution
+        if await request.is_disconnected():
+            logger.info(
+                "[QuizService] Client disconnected before graph start (chapter=%d user=%s)",
+                params.chapter_id,
+                user_id,
+            )
+            raise asyncio.CancelledError("Client disconnected")
+        
+        # Invoke graph with cancellation awareness
+        result = await asyncio.wait_for(
+            self._run_graph_with_cancellation_check(graph_input, request),
+            timeout=GENERATION_TIMEOUT_SECONDS,
+        )
+        # ... rest of method
+```
+
+**Step 3: LangGraph Nodes Check Disconnection at Expensive Checkpoints**
+
+Modify LangGraph graph nodes to accept and check the request object at expensive operation boundaries:
+
+```python
+# src/agent/state.py (add request to state)
+from fastapi import Request
+
+class QuizGenerationState(TypedDict, total=False):
+    # ... existing fields ...
+    request: Request  # NEW: FastAPI request for cancellation checks
+
+# src/agent/nodes.py
+async def generate_quiz(state: QuizGenerationState) -> dict:
+    """Generate quiz questions using LLM (cancellation-aware)."""
+    request = state.get("request")
+    
+    # Check disconnection BEFORE expensive LLM call
+    if request and await request.is_disconnected():
+        logger.info("[generate_quiz] Client disconnected, aborting LLM call")
+        raise asyncio.CancelledError("Client disconnected")
+    
+    # Proceed with LLM generation
+    llm = get_llm(temperature=0.7, max_tokens=2048)
+    structured_llm = llm.with_structured_output(QuizSchema)
+    result = await structured_llm.ainvoke(prompt)
+    
+    # ... rest of generation logic
+
+async def evaluate_content(state: QuizGenerationState) -> dict:
+    """Evaluate quiz content quality (cancellation-aware)."""
+    request = state.get("request")
+    
+    # Check disconnection BEFORE evaluator LLM call
+    if request and await request.is_disconnected():
+        logger.info("[evaluate_content] Client disconnected, skipping evaluation")
+        raise asyncio.CancelledError("Client disconnected")
+    
+    # Proceed with evaluation
+    # ... evaluation logic
+```
+
+**Checkpoint Selection Criteria:**
+- ✅ Check BEFORE each LLM API call (most expensive operation, ~1-3s + cost)
+- ✅ Check BEFORE database queries (for weakness profile, RAG retrieval)
+- ❌ Do NOT check inside tight loops or after every line (overhead not worth it)
+- ❌ Do NOT check in synchronous/fast operations (<10ms)
+
+**Step 4: Handle CancelledError Gracefully**
+
+Modify service layer to catch `asyncio.CancelledError` and return a cancellation response instead of 500 error:
+
+```python
+# src/services/quiz_service.py
+try:
+    result = await asyncio.wait_for(
+        graph.ainvoke(graph_input),
+        timeout=GENERATION_TIMEOUT_SECONDS,
+    )
+except asyncio.CancelledError:
+    logger.info(
+        "[QuizService] Quiz generation cancelled by client disconnect (chapter=%d user=%s)",
+        params.chapter_id,
+        user_id,
+    )
+    # Re-raise so FastAPI can handle it (returns no response to disconnected client)
+    raise
+except asyncio.TimeoutError:
+    # ... existing timeout handling
+```
+
+FastAPI automatically handles `asyncio.CancelledError` by closing the response without sending data (client is already gone).
+
+#### Mobile Client Behavior (No Changes Required)
+
+The mobile client already uses `AbortController` for timeouts (see `lib/api.ts:86-102`). This same mechanism triggers server-side disconnection detection:
+
+```typescript
+// lib/api.ts (existing code, no changes needed)
+const controller = new AbortController()
+const timeoutId = setTimeout(() => controller.abort(), QUIZ_GENERATION_TIMEOUT_MS)
+
+const response = await fetch(`${API_BASE_URL}/api/quizzes/generate`, {
+  signal: controller.signal,  // This triggers is_disconnected() on backend when aborted
+})
+```
+
+**User Navigation Triggers Abort:**
+When the user presses "back" or navigates away from the quiz loading screen, React Native automatically aborts all in-flight fetch requests. The `signal` property ensures the backend detects this via `request.is_disconnected()`.
+
+#### Updated Endpoint Coverage
+
+**All backend endpoints must implement cancellation checks:**
+
+| Endpoint | Expensive Operations | Cancellation Checkpoints |
+|----------|---------------------|--------------------------|
+| `POST /api/quizzes/generate` | RAG retrieval, weakness profile query, LLM generation (2-4 calls), LLM evaluation (1-2 calls) | Before RAG query, before each LLM call in `generate_quiz` and `evaluate_content` nodes |
+| `POST /api/quizzes/validate-answer` | LLM answer validation call | Before LLM call in validation service |
+| `GET /health` | None (instant response) | No cancellation checks needed |
+
+#### Cost & Performance Impact
+
+| Metric | Before Cancellation | After Cancellation | Improvement |
+|--------|---------------------|-----------------------|-------------|
+| **Cost per abandoned quiz** | $0.02-0.06 (full generation) | $0-0.01 (partial, stopped early) | ~70-90% cost savings on cancellations |
+| **Server CPU waste** | 8-60s per orphaned task | <1s (stops at first checkpoint) | ~90-95% CPU savings |
+| **User experience** | No change (client already aborts) | No change (client already aborts) | Transparent to user |
+| **Code overhead** | None | ~3-5 lines per node + 1 state field | Minimal |
+
+**Expected cancellation rate:** ~5-15% of quiz generations (users exploring chapters, accidental taps, network issues).
+
+**Monthly savings estimate (100 active users, 10 quizzes/user/week, 10% cancellation rate):**
+- Cancellations per month: 100 × 10 × 4 × 0.10 = 400 cancellations
+- Cost savings: 400 × $0.04 (avg) = **~$16/month** (~8% of total LLM budget)
+
+#### Enforcement Guidelines
+
+**All AI Agents implementing backend endpoints MUST:**
+1. Accept `Request` object as a parameter in all route handlers for long-running operations (quiz generation, answer validation)
+2. Pass `Request` object to service layer methods
+3. Add `request: Request` field to LangGraph state definitions
+4. Check `await request.is_disconnected()` BEFORE each LLM API call in graph nodes
+5. Check `await request.is_disconnected()` BEFORE expensive database queries (RAG, weakness profile)
+6. Raise `asyncio.CancelledError` immediately when disconnection is detected
+7. Let FastAPI handle `CancelledError` (do NOT catch it in route handlers)
+8. Log cancellation events at INFO level for monitoring
+9. Never check disconnection in synchronous code or tight loops (use only before async I/O operations)
+
+**Testing cancellation behavior:**
+```bash
+# Simulate client disconnect mid-request using curl timeout
+curl -X POST http://localhost:8000/api/quizzes/generate \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $JWT" \
+  -d '{"chapter_id": 105, "book_id": 1, "exercise_type": "vocabulary"}' \
+  --max-time 2  # Abort after 2 seconds (quiz generation takes ~8s)
+
+# Expected backend logs:
+# [generate_quiz] Client disconnected, aborting LLM call
+# [QuizService] Quiz generation cancelled by client disconnect
+```
 
 ### Quiz Generation Quality: Evaluator-Optimizer Pattern
 
