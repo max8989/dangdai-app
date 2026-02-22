@@ -86,6 +86,7 @@ export interface QuizQuestion {
   pairs?: MatchingPair[]
   left_items?: string[]
   right_items?: string[]
+  correct_pairs?: number[][]  // Backend format: [[left_idx, right_idx], ...]
   // Reading comprehension fields (Story 4.8)
   passage?: string
   passage_pinyin?: string

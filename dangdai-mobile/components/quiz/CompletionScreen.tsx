@@ -356,16 +356,6 @@ export function CompletionScreen({
           gap="$4"
           alignItems="center"
         >
-          {/* 1. Celebration emoji */}
-          <Text
-            fontSize={64}
-            animation="bouncy"
-            enterStyle={{ scale: 0, rotate: '-20deg' }}
-            testID="celebration-emoji"
-          >
-            🎉
-          </Text>
-
           {/* 2. "Exercise Complete!" title */}
           <Text
             fontSize="$8"

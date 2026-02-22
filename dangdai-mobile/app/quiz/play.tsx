@@ -49,7 +49,7 @@
  * Story 4.12: Text Input Answer Type (TextInputAnswer rendered when input_type === 'text_input')
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Alert } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { YStack, XStack, Text, Button, AnimatePresence } from 'tamagui'
@@ -80,6 +80,81 @@ import { TextInputAnswer } from '../../components/quiz/TextInputAnswer'
 import { preloadSounds, unloadSounds, playSound } from '../../hooks/useSound'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Transform backend matching data format to frontend format.
+ * Backend API changed to send index-based format for performance optimization.
+ * This transforms: left_items, right_items, correct_pairs (indices) 
+ * → pairs array of {left, right} objects
+ */
+function transformMatchingData(question: QuizQuestion): QuizQuestion {
+  // If pairs already exists and is non-empty, data is already transformed
+  if (question.pairs !== undefined && question.pairs.length > 0) {
+    return question
+  }
+
+  // Only transform if we have all required backend fields
+  if (!question.left_items || !question.right_items || !question.correct_pairs) {
+    return question
+  }
+
+  // Validate arrays are non-empty
+  if (question.left_items.length === 0 || question.right_items.length === 0 || question.correct_pairs.length === 0) {
+    console.error('[transformMatchingData] Empty arrays in matching question:', question.question_id)
+    return question
+  }
+
+  try {
+    const pairs = question.correct_pairs
+      .filter((pair): pair is [number, number] => {
+        // Validate pair structure: must be array with exactly 2 numbers
+        if (!Array.isArray(pair) || pair.length !== 2) {
+          console.warn('[transformMatchingData] Invalid pair structure:', pair)
+          return false
+        }
+        const [leftIdx, rightIdx] = pair
+        // Validate indices are within bounds
+        if (
+          typeof leftIdx !== 'number' || 
+          typeof rightIdx !== 'number' ||
+          leftIdx < 0 || 
+          leftIdx >= question.left_items!.length ||
+          rightIdx < 0 || 
+          rightIdx >= question.right_items!.length
+        ) {
+          console.warn('[transformMatchingData] Out of bounds indices:', { leftIdx, rightIdx, leftLen: question.left_items!.length, rightLen: question.right_items!.length })
+          return false
+        }
+        return true
+      })
+      .map(([leftIdx, rightIdx]) => ({
+        left: question.left_items![leftIdx],
+        right: question.right_items![rightIdx],
+      }))
+
+    // Warn if we filtered out invalid pairs
+    if (pairs.length !== question.correct_pairs.length) {
+      console.warn('[transformMatchingData] Filtered out invalid pairs. Expected:', question.correct_pairs.length, 'Got:', pairs.length)
+    }
+
+    // If no valid pairs after filtering, return original question (will fail gracefully downstream)
+    if (pairs.length === 0) {
+      console.error('[transformMatchingData] No valid pairs after filtering for question:', question.question_id)
+      return question
+    }
+
+    // Keep left_items/right_items since MatchingExercise uses them for rendering columns.
+    // Remove only correct_pairs (index-based) since it's been resolved into pairs.
+    const { correct_pairs: _resolved, ...rest } = question
+    return {
+      ...rest,
+      pairs,
+    }
+  } catch (error) {
+    console.error('[transformMatchingData] Transformation failed:', error)
+    return question
+  }
+}
 
 /**
  * Validate answer locally using exact string match (case-insensitive, trimmed).
@@ -282,7 +357,12 @@ export default function QuizPlayScreen() {
   const isInvalidQuiz =
     !quizPayload || !quizPayload.questions || quizPayload.questions.length === 0
 
-  const currentQuestion: QuizQuestion | null = isInvalidQuiz ? null : getCurrentQuestion()
+  const rawCurrentQuestion: QuizQuestion | null = isInvalidQuiz ? null : getCurrentQuestion()
+  // Transform matching data from backend format to frontend format (memoized to avoid re-running on every render)
+  const currentQuestion: QuizQuestion | null = useMemo(
+    () => rawCurrentQuestion ? transformMatchingData(rawCurrentQuestion) : null,
+    [rawCurrentQuestion]
+  )
   const isIndexOutOfRange = !isInvalidQuiz && currentQuestion === null
 
   // Redirect outside the render phase to avoid React rule violations (no side effects in render).
@@ -383,6 +463,21 @@ export default function QuizPlayScreen() {
   const isDialogue = currentQuestion?.exercise_type === 'dialogue_completion'
   const isSentenceConstruction = currentQuestion?.exercise_type === 'sentence_construction'
   const isMatching = currentQuestion?.exercise_type === 'matching'
+
+  // Debug log for matching quiz data (remove after confirming fix)
+  if (isMatching && currentQuestion) {
+    console.log('[QuizPlay] Matching question data:', {
+      exercise_type: currentQuestion.exercise_type,
+      hasPairs: !!currentQuestion.pairs,
+      pairsLength: currentQuestion.pairs?.length,
+      hasLeftItems: !!currentQuestion.left_items,
+      leftItemsLength: currentQuestion.left_items?.length,
+      hasRightItems: !!currentQuestion.right_items,
+      rightItemsLength: currentQuestion.right_items?.length,
+      hasCorrectPairs: !!currentQuestion.correct_pairs,
+      questionKeys: Object.keys(currentQuestion),
+    })
+  }
   const isReadingComprehension = currentQuestion?.exercise_type === 'reading_comprehension'
   
   // Text input detection (Story 4.12): check input_type field, fallback to checking for absence of options
@@ -954,7 +1049,8 @@ export default function QuizPlayScreen() {
             // indicator shows pair-level progress while the outer bar shows position
             // in the overall quiz. Story 4.5 Task 5.4 was fulfilled by the component
             // managing its own pair-level display.
-            currentQuestion.pairs && currentQuestion.pairs.length > 0 ? (
+            (currentQuestion.pairs && currentQuestion.pairs.length > 0) || 
+            (currentQuestion.left_items && currentQuestion.left_items.length > 0) ? (
               <AnimatePresence exitBeforeEnter>
                 <YStack
                   key={currentQuestionIndex}

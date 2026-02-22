@@ -105,7 +105,6 @@ function getTileFontSize(word: string): number {
 // ─── Styled Components ────────────────────────────────────────────────────────
 
 const WordTile = styled(Button, {
-  animation: 'medium',
   pressStyle: { scale: 0.95 },
   paddingHorizontal: '$3',
   paddingVertical: '$2',

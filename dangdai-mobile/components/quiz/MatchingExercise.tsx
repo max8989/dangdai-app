@@ -177,8 +177,10 @@ export function MatchingExercise({
   const addIncorrectMatchingAttempt = useQuizStore((state) => state.addIncorrectMatchingAttempt)
 
   const pairs = question.pairs ?? []
-  const leftItems = question.left_items ?? []
-  const rightItems = question.right_items ?? []
+  // Derive left/right columns from left_items/right_items if available,
+  // otherwise fall back to extracting from pairs (for transformed data)
+  const leftItems = question.left_items ?? pairs.map((p) => p.left)
+  const rightItems = question.right_items ?? pairs.map((p) => p.right)
   const totalPairs = pairs.length
 
   // ─── Completion check (runs after every pair match) ───────────────────────
