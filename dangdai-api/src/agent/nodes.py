@@ -4,7 +4,8 @@ Implement nodes for the quiz generation graph:
 - retrieve_content: RAG retrieval node
 - query_weakness: Weakness profile node
 - generate_quiz: Quiz generation via LLM
-- validate_quiz: Self-check validation node
+- validate_structure: Rule-based structural validation node
+- evaluate_content: LLM-based content quality evaluation node
 """
 
 from __future__ import annotations
@@ -16,6 +17,8 @@ from typing import Any
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from src.agent.prompts import (
+    CONTENT_EVALUATION_PROMPT,
+    CONTENT_EVALUATION_SYSTEM_PROMPT,
     EXERCISE_TYPE_INSTRUCTIONS,
     QUIZ_GENERATION_PROMPT,
     SYSTEM_PROMPT,
@@ -182,6 +185,20 @@ async def generate_quiz(state: QuizGenerationState) -> dict[str, Any]:
         output_schema=output_schema,
     )
 
+    # Append evaluator feedback for self-correction on retry
+    evaluator_feedback = state.get("evaluator_feedback", "")
+    if evaluator_feedback:
+        prompt_text += (
+            "\n\n## CRITICAL: Previous Attempt Failed Content Evaluation\n"
+            "The following issues were found in your previous generation. "
+            "You MUST fix ALL of these issues in this attempt:\n\n"
+            f"{evaluator_feedback}\n\n"
+            "Pay special attention to:\n"
+            "- Use ONLY Traditional Chinese characters (繁體字) — NEVER Simplified\n"
+            "- Pinyin MUST use tone diacritics (nǐ, xué) — NEVER tone numbers\n"
+            "- question_text MUST be in English — NEVER in Chinese\n"
+        )
+
     # Call LLM asynchronously
     llm = get_llm_client()
     messages = [
@@ -225,14 +242,17 @@ async def generate_quiz(state: QuizGenerationState) -> dict[str, Any]:
         return {"questions": [], "validation_errors": [f"LLM generation failed: {e}"]}
 
 
-def validate_quiz(state: QuizGenerationState) -> dict[str, Any]:
-    """Validate generated quiz questions for quality and correctness.
+def validate_structure(state: QuizGenerationState) -> dict[str, Any]:
+    """Validate generated quiz questions for structural correctness.
 
-    Performs rule-based validation:
+    Performs rule-based validation (no LLM call):
     - Correct answers exist
     - Options are distinct
     - No duplicate questions
     - Required fields present
+
+    Content quality checks (Traditional Chinese, pinyin, etc.) are handled
+    by the evaluate_content node downstream.
 
     Args:
         state: Current graph state with questions.
@@ -245,14 +265,14 @@ def validate_quiz(state: QuizGenerationState) -> dict[str, Any]:
     errors: list[str] = []
 
     logger.info(
-        "[Node:validate_quiz] START questions=%d retry=%d",
+        "[Node:validate_structure] START questions=%d retry=%d",
         len(questions),
         retry_count,
     )
 
     if not questions:
         errors.append("No questions were generated")
-        logger.warning("[Node:validate_quiz] No questions to validate")
+        logger.warning("[Node:validate_structure] No questions to validate")
         return {
             "validation_errors": errors,
             "retry_count": retry_count + 1,
@@ -290,18 +310,141 @@ def validate_quiz(state: QuizGenerationState) -> dict[str, Any]:
 
     if errors:
         logger.warning(
-            "[Node:validate_quiz] DONE with %d errors: %s", len(errors), errors
+            "[Node:validate_structure] DONE with %d errors: %s",
+            len(errors),
+            errors,
         )
     else:
         logger.info(
-            "[Node:validate_quiz] DONE — all %d questions passed", len(questions)
+            "[Node:validate_structure] DONE — all %d questions passed",
+            len(questions),
         )
 
     return {
         "validation_errors": errors,
         "retry_count": retry_count + (1 if errors else 0),
-        "quiz_payload": {"questions": questions} if not errors else {},
     }
+
+
+async def evaluate_content(state: QuizGenerationState) -> dict[str, Any]:
+    """Evaluate generated quiz content quality using LLM as judge.
+
+    Checks 5 rules via an LLM evaluator:
+    1. Traditional Chinese only (no Simplified)
+    2. Pinyin uses tone diacritics (not tone numbers)
+    3. question_text is in English (not Chinese)
+    4. Curriculum alignment (content from specified chapter)
+    5. Pedagogical quality (plausible distractors, good explanations)
+
+    On failure, sets evaluator_feedback for the generator to self-correct.
+    If the evaluator LLM itself fails, defaults to pass (don't block the quiz).
+
+    Args:
+        state: Current graph state with questions from generate_quiz.
+
+    Returns:
+        State update with validation_errors, evaluator_feedback,
+        retry_count, and quiz_payload.
+    """
+    import time
+
+    start = time.perf_counter()
+    questions = state.get("questions", [])
+    retry_count = state.get("retry_count", 0)
+
+    # Skip evaluation if structural validation already failed
+    structural_errors = state.get("validation_errors", [])
+    if structural_errors:
+        logger.info("[Node:evaluate_content] SKIPPED — structural errors present")
+        return {}
+
+    logger.info(
+        "[Node:evaluate_content] START evaluating %d questions (retry=%d)",
+        len(questions),
+        retry_count,
+    )
+
+    try:
+        questions_json = json.dumps(questions, ensure_ascii=False, indent=2)
+
+        prompt_text = CONTENT_EVALUATION_PROMPT.format(
+            questions_json=questions_json,
+        )
+
+        llm = get_llm_client()
+        messages = [
+            SystemMessage(content=CONTENT_EVALUATION_SYSTEM_PROMPT),
+            HumanMessage(content=prompt_text),
+        ]
+
+        llm_start = time.perf_counter()
+        response = await llm.ainvoke(messages)
+        llm_elapsed = (time.perf_counter() - llm_start) * 1000
+        logger.info("[Node:evaluate_content] LLM responded in %.0fms", llm_elapsed)
+
+        content = (
+            response.content
+            if isinstance(response.content, str)
+            else str(response.content)
+        )
+
+        evaluation = _parse_evaluation_response(content)
+
+        if evaluation.get("passed", False):
+            elapsed = (time.perf_counter() - start) * 1000
+            logger.info(
+                "[Node:evaluate_content] PASSED in %.0fms — all rules satisfied",
+                elapsed,
+            )
+            return {
+                "validation_errors": [],
+                "evaluator_feedback": "",
+                "quiz_payload": {"questions": questions},
+            }
+
+        # Evaluation failed — format feedback for generator self-correction
+        issues = evaluation.get("issues", [])
+        feedback_lines: list[str] = []
+        for issue in issues:
+            qid = issue.get("question_id", "unknown")
+            rule = issue.get("rule", "unknown")
+            detail = issue.get("detail", "no detail")
+            feedback_lines.append(f"- [{qid}] {rule}: {detail}")
+
+        feedback = "\n".join(feedback_lines)
+
+        elapsed = (time.perf_counter() - start) * 1000
+        logger.warning(
+            "[Node:evaluate_content] FAILED in %.0fms with %d issues:\n%s",
+            elapsed,
+            len(issues),
+            feedback,
+        )
+
+        return {
+            "validation_errors": [
+                f"Content evaluation failed: {len(issues)} issues found"
+            ],
+            "evaluator_feedback": feedback,
+            "retry_count": retry_count + 1,
+            "quiz_payload": {},
+        }
+
+    except Exception as e:
+        # If the evaluator itself fails, don't block the quiz
+        elapsed = (time.perf_counter() - start) * 1000
+        logger.error(
+            "[Node:evaluate_content] EVALUATOR ERROR after %.0fms: %s: %s "
+            "— defaulting to PASS",
+            elapsed,
+            type(e).__name__,
+            e,
+        )
+        return {
+            "validation_errors": [],
+            "evaluator_feedback": "",
+            "quiz_payload": {"questions": questions},
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -370,6 +513,37 @@ def _get_output_schema_hint(exercise_type: str) -> str:
 
     suffix = type_fields.get(exercise_type, "}")
     return base + suffix
+
+
+def _parse_evaluation_response(content: str) -> dict[str, Any]:
+    """Parse JSON evaluation response from evaluator LLM.
+
+    Handles markdown code blocks and various JSON formats.
+
+    Args:
+        content: Raw LLM response text.
+
+    Returns:
+        Parsed evaluation dict with 'passed' and 'issues' keys.
+        Defaults to passed=True if parsing fails.
+    """
+    text = content.strip()
+    if text.startswith("```"):
+        first_newline = text.index("\n") if "\n" in text else len(text)
+        text = text[first_newline + 1 :]
+        if text.rstrip().endswith("```"):
+            text = text.rstrip()[:-3].rstrip()
+
+    try:
+        parsed = json.loads(text)
+        if isinstance(parsed, dict):
+            result: dict[str, Any] = parsed
+            return result
+        logger.warning("Evaluation response is not a dict: %s", type(parsed))
+        return {"passed": True, "issues": []}
+    except json.JSONDecodeError as e:
+        logger.error("Failed to parse evaluation JSON response: %s", e)
+        return {"passed": True, "issues": []}
 
 
 def _parse_questions_json(content: str) -> list[dict[str, Any]]:

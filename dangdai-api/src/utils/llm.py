@@ -12,7 +12,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from src.utils.config import settings
 
 # Default models per provider
-_DEFAULT_OPENAI_MODEL = "gpt-4o"
+_DEFAULT_OPENAI_MODEL = "gpt-4.1"
 _DEFAULT_ANTHROPIC_MODEL = "claude-3-5-sonnet-20241022"
 
 

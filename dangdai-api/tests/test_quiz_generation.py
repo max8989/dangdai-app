@@ -5,9 +5,10 @@ from unittest.mock import MagicMock, patch
 
 from src.agent.nodes import (
     _format_chapter_content,
+    _parse_evaluation_response,
     _parse_questions_json,
     retrieve_content,
-    validate_quiz,
+    validate_structure,
 )
 from src.repositories.chapter_repo import ChapterRepository
 from src.services.weakness_service import WeaknessService
@@ -117,10 +118,10 @@ class TestParseQuestionsJson:
         assert len(result) == 1
 
 
-class TestValidateQuiz:
+class TestValidateStructure:
     def test_validates_empty_questions(self):
         state = {"questions": [], "retry_count": 0}
-        result = validate_quiz(state)
+        result = validate_structure(state)
         assert len(result["validation_errors"]) > 0
         assert result["retry_count"] == 1
 
@@ -129,7 +130,7 @@ class TestValidateQuiz:
             "questions": [{"question_id": "q1"}],
             "retry_count": 0,
         }
-        result = validate_quiz(state)
+        result = validate_structure(state)
         assert len(result["validation_errors"]) > 0
 
     def test_validates_duplicate_question_text(self):
@@ -152,7 +153,7 @@ class TestValidateQuiz:
             ],
             "retry_count": 0,
         }
-        result = validate_quiz(state)
+        result = validate_structure(state)
         assert any("duplicate" in e for e in result["validation_errors"])
 
     def test_validates_duplicate_options(self):
@@ -169,7 +170,7 @@ class TestValidateQuiz:
             ],
             "retry_count": 0,
         }
-        result = validate_quiz(state)
+        result = validate_structure(state)
         assert any("duplicate options" in e for e in result["validation_errors"])
 
     def test_validates_correct_answer_not_in_options(self):
@@ -186,7 +187,7 @@ class TestValidateQuiz:
             ],
             "retry_count": 0,
         }
-        result = validate_quiz(state)
+        result = validate_structure(state)
         assert any(
             "correct_answer not in options" in e for e in result["validation_errors"]
         )
@@ -205,14 +206,54 @@ class TestValidateQuiz:
             ],
             "retry_count": 0,
         }
-        result = validate_quiz(state)
+        result = validate_structure(state)
         assert result["validation_errors"] == []
-        assert result["quiz_payload"]["questions"] is not None
+        # validate_structure no longer sets quiz_payload (evaluate_content does)
+        assert "quiz_payload" not in result
 
     def test_retry_count_increments_on_error(self):
         state = {"questions": [], "retry_count": 1}
-        result = validate_quiz(state)
+        result = validate_structure(state)
         assert result["retry_count"] == 2
+
+
+class TestParseEvaluationResponse:
+    def test_parse_valid_passed(self):
+        content = '{"passed": true, "issues": []}'
+        result = _parse_evaluation_response(content)
+        assert result["passed"] is True
+        assert result["issues"] == []
+
+    def test_parse_valid_failed(self):
+        content = json.dumps(
+            {
+                "passed": False,
+                "issues": [
+                    {
+                        "question_id": "q1",
+                        "rule": "traditional_chinese",
+                        "detail": "Found Simplified 学",
+                    }
+                ],
+            }
+        )
+        result = _parse_evaluation_response(content)
+        assert result["passed"] is False
+        assert len(result["issues"]) == 1
+
+    def test_parse_with_code_block(self):
+        content = '```json\n{"passed": true, "issues": []}\n```'
+        result = _parse_evaluation_response(content)
+        assert result["passed"] is True
+
+    def test_parse_invalid_json_defaults_to_pass(self):
+        result = _parse_evaluation_response("not valid json")
+        assert result["passed"] is True
+        assert result["issues"] == []
+
+    def test_parse_non_dict_defaults_to_pass(self):
+        result = _parse_evaluation_response("[1, 2, 3]")
+        assert result["passed"] is True
 
 
 class TestRetrieveContentNode:

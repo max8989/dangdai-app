@@ -34,9 +34,12 @@ class QuizGenerationState(TypedDict, total=False):
     # Generation output (set by generate_quiz node)
     questions: list[dict[str, Any]]
 
-    # Validation (set by validate_quiz node)
+    # Validation (set by validate_structure and evaluate_content nodes)
     validation_errors: list[str]
     retry_count: int
 
-    # Final output (set on successful validation)
+    # Evaluator feedback for self-correction (set by evaluate_content node)
+    evaluator_feedback: str
+
+    # Final output (set on successful content evaluation)
     quiz_payload: dict[str, Any]
