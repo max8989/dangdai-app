@@ -14,6 +14,8 @@ completedAt: '2026-02-14'
 updatedAt: 'Sat Feb 21 2026'
 updateHistory:
   - date: 'Sat Feb 21 2026'
+    changes: 'Added Quiz Pause/Resume Architecture: Allows users to pause in-progress quizzes and resume later with full state restoration. Paused quizzes stored in Supabase paused_quizzes table with JSONB state. Exit modal updated with Pause/Cancel options. Improves UX by preventing accidental quiz loss.'
+  - date: 'Sat Feb 21 2026'
     changes: 'Added Request Cancellation Architecture: Server-side cancellation via FastAPI Request.is_disconnected() to prevent orphaned LangGraph executions when users navigate away during quiz generation. Reduces cost waste by 70-90% on abandoned requests (~$16/month savings). Added enforcement guidelines for all backend endpoints.'
   - date: '2026-02-21'
     changes: 'Added configurable LLM provider architecture with Azure OpenAI GPT-4o as default. Supports switching between Azure OpenAI, OpenAI, and other providers via environment configuration. Updated cost estimates for Azure pricing model.'
@@ -124,6 +126,7 @@ Mobile App (Expo) ──┬──▶ Supabase (Auth, Progress, User Data, Perfor
 12. **Hybrid Answer Validation**: Local validation for structured answers, LLM validation for open-ended answers (Sentence Construction, Dialogue Completion)
 13. **Exercise Type System**: 7 distinct exercise types with type-specific UI interactions, generation prompts, validation rules, and progress tracking
 14. **Request Cancellation**: Backend request cancellation when users navigate away from loading states, preventing resource waste and orphaned LangGraph executions
+15. **Quiz Pause/Resume**: Allow users to pause in-progress quizzes and resume later with full state restoration via Supabase `paused_quizzes` table
 
 ## Starter Template Evaluation
 
@@ -223,6 +226,7 @@ Project initialization should be the first implementation task, creating:
 - `exercise_type_progress` - **NEW**: Per exercise type per chapter progress (user_id, chapter_id, exercise_type, best_score, attempts_count, mastered_at). Directly feeds the Exercise Type Selection UI. Chapter mastery requires ≥4 of 7 types attempted with ≥80% average.
 - `chapter_progress` - Per-chapter overall completion percentage (calculated from `exercise_type_progress`)
 - `daily_activity` - Streak tracking (one row per active day)
+- `paused_quizzes` - **NEW**: Paused in-progress quiz state (user_id, chapter_id, exercise_type, quiz_state JSONB, paused_at, expires_at). Allows users to pause and resume quizzes. One paused quiz per chapter per user (upsert). Auto-expires after 7 days.
 
 **Weakness Profile Query (agent calls via Supabase service key):**
 ```sql
@@ -566,6 +570,570 @@ curl -X POST http://localhost:8000/api/quizzes/generate \
 # Expected backend logs:
 # [generate_quiz] Client disconnected, aborting LLM call
 # [QuizService] Quiz generation cancelled by client disconnect
+```
+
+### Quiz Pause/Resume Architecture
+
+This section defines the quiz pause/resume mechanism that allows users to pause an in-progress quiz and resume it later with full state restoration, preventing accidental loss of progress.
+
+#### Problem Statement
+
+**Current Behavior (Without Pause):**
+1. User starts a quiz → answers 3 out of 10 questions
+2. User accidentally navigates away or presses back button
+3. Exit confirmation modal appears with only "Cancel Quiz" option
+4. User must choose between:
+   - Losing all progress (cancel quiz)
+   - Staying on quiz screen (but they wanted to leave temporarily)
+5. No way to save partial progress and resume later
+
+**Impact:**
+- User frustration when accidentally navigating away
+- Lost progress discourages re-engagement
+- No flexibility to pause and resume across sessions
+- Users feel pressured to complete quizzes in one sitting
+
+#### Architecture: Paused Quiz State Persistence
+
+The pause/resume feature uses Supabase to persist the full quiz state (questions, user answers, current position, timer) when the user pauses, allowing them to resume exactly where they left off.
+
+**Design Principle:** Paused quiz state is stored separately from completed quiz attempts. Only one paused quiz per chapter per user is allowed (new pause overwrites old). Paused quizzes expire after 7 days.
+
+#### Database Schema
+
+**New Table: `paused_quizzes`**
+
+```sql
+CREATE TABLE paused_quizzes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  chapter_id INTEGER NOT NULL,
+  exercise_type TEXT NOT NULL, -- 'vocabulary' | 'grammar' | 'fill_in_blank' | 'matching' | 'dialogue' | 'sentence_construction' | 'reading' | 'mixed'
+  
+  -- Quiz state snapshot (JSONB for flexibility)
+  quiz_state JSONB NOT NULL, -- { questions, currentQuestionIndex, answers, startedAt, timeElapsed }
+  
+  -- Metadata
+  paused_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '7 days'),
+  
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  
+  -- Constraints
+  CONSTRAINT paused_quizzes_user_chapter_unique UNIQUE (user_id, chapter_id, exercise_type)
+);
+
+-- Index for user's paused quizzes lookup
+CREATE INDEX idx_paused_quizzes_user_id ON paused_quizzes(user_id);
+
+-- Index for cleanup job (delete expired quizzes)
+CREATE INDEX idx_paused_quizzes_expires_at ON paused_quizzes(expires_at);
+
+-- RLS policies
+ALTER TABLE paused_quizzes ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own paused quizzes"
+  ON paused_quizzes FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own paused quizzes"
+  ON paused_quizzes FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own paused quizzes"
+  ON paused_quizzes FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own paused quizzes"
+  ON paused_quizzes FOR DELETE
+  USING (auth.uid() = user_id);
+```
+
+**Quiz State JSONB Schema:**
+
+```typescript
+interface PausedQuizState {
+  questions: Question[];           // Full quiz payload from backend
+  currentQuestionIndex: number;    // 0-based index of current question
+  answers: Record<number, string>; // Map of questionIndex → user's answer
+  startedAt: string;               // ISO timestamp when quiz started
+  timeElapsed: number;             // Total time spent in milliseconds
+  exerciseType: ExerciseType;      // Exercise type (for type-specific UI restoration)
+  chapterId: number;               // Chapter ID
+  bookId: number;                  // Book ID
+}
+```
+
+#### Mobile App Changes
+
+**Updated Exit Modal (Exit Confirmation)**
+
+The exit confirmation modal (shown when user presses back during a quiz) now has **two** buttons instead of one:
+
+**Before:**
+```
+┌─────────────────────────────────────┐
+│   Are you sure you want to exit?   │
+│   Your progress will be lost.      │
+│                                     │
+│  [Cancel]         [Exit Quiz]      │
+└─────────────────────────────────────┘
+```
+
+**After:**
+```
+┌─────────────────────────────────────┐
+│   What would you like to do?       │
+│                                     │
+│  [Stay]  [Pause Quiz]  [Cancel Quiz]│
+└─────────────────────────────────────┘
+```
+
+**Button Behaviors:**
+
+| Button | Action | State Change |
+|--------|--------|--------------|
+| **Stay** | Dismiss modal, continue quiz | No state change |
+| **Pause Quiz** | Save current state to Supabase `paused_quizzes`, navigate away | Quiz state saved, user returns to previous screen |
+| **Cancel Quiz** | Discard all progress, navigate away | Quiz state lost, no database changes |
+
+**Modal Implementation Pattern:**
+
+```tsx
+// components/quiz/ExitConfirmationModal.tsx
+import { Dialog, Button, XStack, YStack, Text, Theme } from '@tamagui/core';
+import { usePauseQuiz } from '../../hooks/usePauseQuiz';
+
+interface ExitConfirmationModalProps {
+  open: boolean;
+  onStay: () => void;
+  onPause: () => void;
+  onCancel: () => void;
+}
+
+export function ExitConfirmationModal({
+  open,
+  onStay,
+  onPause,
+  onCancel,
+}: ExitConfirmationModalProps) {
+  return (
+    <Dialog open={open}>
+      <Dialog.Portal>
+        <Dialog.Overlay
+          animation="quick"
+          enterStyle={{ opacity: 0 }}
+          exitStyle={{ opacity: 0 }}
+        />
+        <Dialog.Content
+          animation="medium"
+          enterStyle={{ opacity: 0, scale: 0.9 }}
+          exitStyle={{ opacity: 0, scale: 0.9 }}
+        >
+          <YStack gap="$4" padding="$4">
+            <Dialog.Title>What would you like to do?</Dialog.Title>
+            
+            <XStack gap="$3" justifyContent="space-between">
+              <Button
+                flex={1}
+                onPress={onStay}
+                chromeless
+              >
+                Stay
+              </Button>
+              
+              <Theme name="primary">
+                <Button
+                  flex={1}
+                  onPress={onPause}
+                >
+                  Pause Quiz
+                </Button>
+              </Theme>
+              
+              <Theme name="error">
+                <Button
+                  flex={1}
+                  onPress={onCancel}
+                >
+                  Cancel Quiz
+                </Button>
+              </Theme>
+            </XStack>
+          </YStack>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog>
+  );
+}
+```
+
+**Quiz Screen Integration:**
+
+The quiz screen (`app/quiz/[chapterId].tsx`) uses React Navigation's `beforeRemove` listener to intercept back button presses:
+
+```typescript
+// app/quiz/[chapterId].tsx
+import { useNavigation } from '@react-navigation/native';
+import { useEffect, useState } from 'react';
+import { usePauseQuiz } from '../hooks/usePauseQuiz';
+
+export default function QuizScreen() {
+  const navigation = useNavigation();
+  const [showExitModal, setShowExitModal] = useState(false);
+  const { pauseQuiz } = usePauseQuiz();
+  const quizState = useQuizStore();
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      // If quiz is already complete, allow navigation
+      if (quizState.isComplete) {
+        return;
+      }
+
+      // Prevent default navigation
+      e.preventDefault();
+
+      // Show exit confirmation modal
+      setShowExitModal(true);
+    });
+
+    return unsubscribe;
+  }, [navigation, quizState.isComplete]);
+
+  const handlePause = async () => {
+    await pauseQuiz({
+      chapterId: quizState.chapterId,
+      exerciseType: quizState.exerciseType,
+      quizState: {
+        questions: quizState.questions,
+        currentQuestionIndex: quizState.currentQuestionIndex,
+        answers: quizState.answers,
+        startedAt: quizState.startedAt,
+        timeElapsed: quizState.timeElapsed,
+        exerciseType: quizState.exerciseType,
+        chapterId: quizState.chapterId,
+        bookId: quizState.bookId,
+      },
+    });
+    setShowExitModal(false);
+    navigation.goBack();
+  };
+
+  const handleCancel = () => {
+    setShowExitModal(false);
+    navigation.goBack();
+  };
+
+  return (
+    <>
+      {/* Quiz UI */}
+      
+      <ExitConfirmationModal
+        open={showExitModal}
+        onStay={() => setShowExitModal(false)}
+        onPause={handlePause}
+        onCancel={handleCancel}
+      />
+    </>
+  );
+}
+```
+
+#### Resume Flow
+
+**Resume Entry Points:**
+
+Users can resume paused quizzes from two locations:
+
+1. **Dashboard Continue Card**: If the user has a paused quiz, the "Continue Learning" card shows "Resume [Exercise Type] for Chapter X" instead of starting a new quiz
+2. **Exercise Type Selection Screen**: A banner appears at the top: "You have a paused [Exercise Type] quiz for this chapter. Resume?"
+
+**Resume Implementation:**
+
+```typescript
+// hooks/usePauseQuiz.ts
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '../lib/supabase';
+
+export function usePauseQuiz() {
+  const queryClient = useQueryClient();
+
+  const pauseQuiz = useMutation({
+    mutationFn: async ({ chapterId, exerciseType, quizState }: {
+      chapterId: number;
+      exerciseType: string;
+      quizState: PausedQuizState;
+    }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Upsert (insert or update) paused quiz
+      const { error } = await supabase
+        .from('paused_quizzes')
+        .upsert({
+          user_id: user.id,
+          chapter_id: chapterId,
+          exercise_type: exerciseType,
+          quiz_state: quizState,
+          paused_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pausedQuizzes'] });
+    },
+  });
+
+  const resumeQuiz = useMutation({
+    mutationFn: async ({ chapterId, exerciseType }: {
+      chapterId: number;
+      exerciseType: string;
+    }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Fetch paused quiz
+      const { data, error } = await supabase
+        .from('paused_quizzes')
+        .select('quiz_state')
+        .eq('user_id', user.id)
+        .eq('chapter_id', chapterId)
+        .eq('exercise_type', exerciseType)
+        .single();
+
+      if (error) throw error;
+      return data.quiz_state as PausedQuizState;
+    },
+  });
+
+  const deletePausedQuiz = useMutation({
+    mutationFn: async ({ chapterId, exerciseType }: {
+      chapterId: number;
+      exerciseType: string;
+    }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('paused_quizzes')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('chapter_id', chapterId)
+        .eq('exercise_type', exerciseType);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pausedQuizzes'] });
+    },
+  });
+
+  return {
+    pauseQuiz: pauseQuiz.mutateAsync,
+    resumeQuiz: resumeQuiz.mutateAsync,
+    deletePausedQuiz: deletePausedQuiz.mutateAsync,
+  };
+}
+
+// Query for paused quiz by chapter
+export function usePausedQuiz(chapterId: number, exerciseType: string) {
+  return useQuery({
+    queryKey: ['pausedQuizzes', chapterId, exerciseType],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+
+      const { data, error } = await supabase
+        .from('paused_quizzes')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('chapter_id', chapterId)
+        .eq('exercise_type', exerciseType)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error; // Ignore "no rows" error
+      return data;
+    },
+  });
+}
+```
+
+**Quiz Screen Resume Logic:**
+
+```typescript
+// app/quiz/[chapterId].tsx
+import { useEffect } from 'react';
+import { usePausedQuiz, usePauseQuiz } from '../hooks/usePauseQuiz';
+
+export default function QuizScreen() {
+  const { chapterId, exerciseType } = useLocalSearchParams();
+  const { data: pausedQuiz } = usePausedQuiz(Number(chapterId), exerciseType);
+  const { resumeQuiz, deletePausedQuiz } = usePauseQuiz();
+  const quizStore = useQuizStore();
+
+  useEffect(() => {
+    // If there's a paused quiz, restore state
+    if (pausedQuiz) {
+      const state = pausedQuiz.quiz_state as PausedQuizState;
+      quizStore.restoreState(state);
+      
+      // Delete paused quiz record (it's now active)
+      deletePausedQuiz({ chapterId: Number(chapterId), exerciseType });
+    }
+  }, [pausedQuiz]);
+
+  // ... rest of quiz screen
+}
+```
+
+#### State Management Updates
+
+**Zustand Store Additions:**
+
+```typescript
+// stores/useQuizStore.ts
+interface QuizState {
+  // ... existing fields ...
+  
+  // NEW: State restoration
+  restoreState: (state: PausedQuizState) => void;
+  
+  // NEW: Pause metadata
+  startedAt: string | null;
+  timeElapsed: number;
+}
+
+export const useQuizStore = create<QuizState>((set) => ({
+  // ... existing state ...
+  
+  startedAt: null,
+  timeElapsed: 0,
+  
+  restoreState: (state: PausedQuizState) =>
+    set({
+      questions: state.questions,
+      currentQuestionIndex: state.currentQuestionIndex,
+      answers: state.answers,
+      startedAt: state.startedAt,
+      timeElapsed: state.timeElapsed,
+      chapterId: state.chapterId,
+      bookId: state.bookId,
+      exerciseType: state.exerciseType,
+    }),
+  
+  // ... existing actions ...
+}));
+```
+
+#### UX Indicators
+
+**Paused Quiz Indicators:**
+
+1. **Dashboard Continue Card**:
+   - If paused quiz exists: "Resume Vocabulary Quiz - Chapter 5" (with pause icon)
+   - If no paused quiz: "Continue Learning - Chapter 5" (normal)
+
+2. **Exercise Type Selection Screen**:
+   - Banner at top: "⏸️ You have a paused Matching quiz. Tap to resume or start a new one."
+   - Tapping banner navigates to quiz screen with paused state restored
+
+3. **Chapter List**:
+   - Small pause icon badge on chapters with paused quizzes
+
+**Visual Design:**
+
+```tsx
+// components/dashboard/ContinueCard.tsx
+export function ContinueCard() {
+  const { data: pausedQuizzes } = useQuery({
+    queryKey: ['pausedQuizzes'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('paused_quizzes')
+        .select('*')
+        .order('paused_at', { ascending: false })
+        .limit(1);
+      return data;
+    },
+  });
+
+  const latestPaused = pausedQuizzes?.[0];
+
+  if (latestPaused) {
+    return (
+      <Card onPress={() => router.push(`/quiz/${latestPaused.chapter_id}`)}>
+        <XStack gap="$3" alignItems="center">
+          <Pause size={24} color="$primary" />
+          <YStack flex={1}>
+            <Text fontWeight="600">Resume {latestPaused.exercise_type}</Text>
+            <Text color="$colorSubtle" fontSize={14}>
+              Chapter {latestPaused.chapter_id} • {formatDistanceToNow(new Date(latestPaused.paused_at))} ago
+            </Text>
+          </YStack>
+        </XStack>
+      </Card>
+    );
+  }
+
+  // ... normal continue card
+}
+```
+
+#### Cleanup & Maintenance
+
+**Automatic Expiration:**
+
+Paused quizzes automatically expire after 7 days (enforced by `expires_at` timestamp). A scheduled Supabase Edge Function or cron job deletes expired records:
+
+```sql
+-- Cleanup query (run daily via cron)
+DELETE FROM paused_quizzes
+WHERE expires_at < NOW();
+```
+
+**Manual Deletion:**
+
+Users can manually delete paused quizzes:
+- Swipe-to-delete on dashboard paused quiz card
+- "Discard Paused Quiz" button on exercise type selection screen banner
+
+#### Cost & Performance Impact
+
+| Metric | Value | Notes |
+|--------|-------|-------|
+| **Database Storage** | ~2-5 KB per paused quiz | JSONB quiz state with 10 questions |
+| **Expected Paused Quizzes** | ~10-20 per 100 users | Most users pause occasionally |
+| **Storage Cost** | ~$0.01/month | Negligible with 7-day expiration |
+| **Query Performance** | <50ms | Indexed on `user_id`, single-row lookup |
+| **UX Improvement** | High | Prevents accidental progress loss, reduces friction |
+
+#### Enforcement Guidelines
+
+**All AI Agents implementing quiz screens MUST:**
+1. Add `beforeRemove` listener to intercept back button navigation
+2. Show exit confirmation modal with **three** options: Stay, Pause, Cancel
+3. Use `usePauseQuiz` hook to save/restore/delete paused quiz state
+4. Restore paused quiz state on quiz screen mount (if exists)
+5. Delete paused quiz record when user resumes (it's now active)
+6. Delete paused quiz record when user completes the quiz
+7. Show paused quiz indicators on dashboard and chapter screens
+8. Never allow more than one paused quiz per chapter per user (upsert behavior)
+9. Enforce 7-day expiration on `paused_quizzes` records
+
+**Testing pause/resume behavior:**
+```bash
+# 1. Start a quiz, answer 3 questions
+# 2. Press back button → Exit modal appears
+# 3. Select "Pause Quiz"
+# 4. Verify paused_quizzes record exists in Supabase
+# 5. Navigate back to quiz screen
+# 6. Verify quiz state restored (currentQuestionIndex = 3, answers populated)
+# 7. Complete quiz
+# 8. Verify paused_quizzes record deleted
 ```
 
 ### Quiz Generation Quality: Evaluator-Optimizer Pattern
