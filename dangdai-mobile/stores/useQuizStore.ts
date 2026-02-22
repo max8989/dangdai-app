@@ -130,6 +130,10 @@ interface QuizState {
   placeTile: (tileId: string) => void
   removeTile: (tileId: string) => void
   clearTiles: () => void
+  /** Replace the entire placedTileIds array (used by drag-and-drop reorder) */
+  setPlacedTileIds: (ids: string[]) => void
+  /** Move a tile from one index to another within placedTileIds */
+  reorderTiles: (fromIndex: number, toIndex: number) => void
 
   // Feedback overlay actions (Story 4.9)
   triggerShowFeedback: (isCorrect: boolean) => void
@@ -387,6 +391,26 @@ export const useQuizStore = create<QuizState>()(
         })),
 
       clearTiles: () => set({ placedTileIds: [] }),
+
+      setPlacedTileIds: (ids) => set({ placedTileIds: ids }),
+
+      reorderTiles: (fromIndex, toIndex) =>
+        set((state) => {
+          const { placedTileIds } = state
+          if (
+            fromIndex < 0 ||
+            fromIndex >= placedTileIds.length ||
+            toIndex < 0 ||
+            toIndex >= placedTileIds.length ||
+            fromIndex === toIndex
+          ) {
+            return state
+          }
+          const newIds = [...placedTileIds]
+          const [moved] = newIds.splice(fromIndex, 1)
+          newIds.splice(toIndex, 0, moved)
+          return { placedTileIds: newIds }
+        }),
 
       // Feedback overlay actions (Story 4.9)
       triggerShowFeedback: (isCorrect: boolean) =>

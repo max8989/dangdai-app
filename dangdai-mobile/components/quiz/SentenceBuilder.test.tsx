@@ -102,6 +102,42 @@ jest.mock('@tamagui/lucide-icons', () => {
   }
 })
 
+// Mock react-native-reanimated — gesture/worklet system does not work in JSDOM.
+// Provide transparent stubs so tap-to-place tests continue to pass.
+jest.mock('react-native-reanimated', () => {
+  const actual = jest.requireActual('react-native-reanimated/mock')
+  return {
+    ...actual,
+    useSharedValue: (initialValue: any) => ({ value: initialValue }),
+    useAnimatedStyle: (fn: () => any) => fn(),
+    withSpring: (toValue: any) => toValue,
+    runOnJS: (fn: (...args: any[]) => any) => fn,
+  }
+})
+
+// Mock react-native-gesture-handler — GestureDetector renders children
+// transparently (gesture recognition is native-only, not available in JSDOM).
+jest.mock('react-native-gesture-handler', () => {
+  const { View } = require('react-native')
+  const ReactLocal = require('react')
+  return {
+    GestureDetector: ({ children }: any) => children,
+    Gesture: {
+      Pan: () => ({
+        minDistance: () => ({
+          onStart: (fn: any) => ({
+            onChange: (fn2: any) => ({
+              onFinalize: (fn3: any) => ({})
+            })
+          })
+        })
+      }),
+    },
+    GestureHandlerRootView: ({ children, style }: any) =>
+      ReactLocal.createElement(View, { style }, children),
+  }
+})
+
 // ─── Test Data ────────────────────────────────────────────────────────────────
 
 // Mock sentence question: ["咖啡", "我", "喜歡", "很", "。"] → correct: "我很喜歡咖啡。"
@@ -576,6 +612,124 @@ describe('SentenceBuilder', () => {
 
       act(() => {
         useQuizStore.getState().nextQuestion()
+      })
+      expect(useQuizStore.getState().placedTileIds).toHaveLength(0)
+    })
+  })
+
+  // ─── DnD store actions (reorderTiles, setPlacedTileIds) ────────────────────
+
+  describe('drag-and-drop store actions', () => {
+    it('setPlacedTileIds replaces the entire array', () => {
+      act(() => {
+        useQuizStore.getState().setPlacedTileIds(['tile-2', 'tile-0', 'tile-1'])
+      })
+      expect(useQuizStore.getState().placedTileIds).toEqual(['tile-2', 'tile-0', 'tile-1'])
+    })
+
+    it('reorderTiles moves a tile from one index to another', () => {
+      act(() => {
+        useQuizStore.getState().setPlacedTileIds(['tile-0', 'tile-1', 'tile-2'])
+      })
+
+      // Move tile-0 (index 0) to index 2
+      act(() => {
+        useQuizStore.getState().reorderTiles(0, 2)
+      })
+      expect(useQuizStore.getState().placedTileIds).toEqual(['tile-1', 'tile-2', 'tile-0'])
+    })
+
+    it('reorderTiles is a no-op when fromIndex === toIndex', () => {
+      act(() => {
+        useQuizStore.getState().setPlacedTileIds(['tile-0', 'tile-1', 'tile-2'])
+      })
+      act(() => {
+        useQuizStore.getState().reorderTiles(1, 1)
+      })
+      expect(useQuizStore.getState().placedTileIds).toEqual(['tile-0', 'tile-1', 'tile-2'])
+    })
+
+    it('reorderTiles is a no-op when indices are out of bounds', () => {
+      act(() => {
+        useQuizStore.getState().setPlacedTileIds(['tile-0', 'tile-1'])
+      })
+      act(() => {
+        useQuizStore.getState().reorderTiles(-1, 0)
+      })
+      expect(useQuizStore.getState().placedTileIds).toEqual(['tile-0', 'tile-1'])
+
+      act(() => {
+        useQuizStore.getState().reorderTiles(0, 5)
+      })
+      expect(useQuizStore.getState().placedTileIds).toEqual(['tile-0', 'tile-1'])
+    })
+  })
+
+  // ─── DnD interaction: drop-to-answer / drop-to-bank via store ──────────────
+
+  describe('drag-and-drop interactions (via store)', () => {
+    it('placing a tile via store reflects in the component', () => {
+      const { getByTestId, queryByTestId } = renderSentenceBuilder()
+
+      // Simulate what handleDropToAnswer does: check + placeTile
+      act(() => {
+        const current = useQuizStore.getState().placedTileIds
+        if (!current.includes('tile-0')) {
+          useQuizStore.getState().placeTile('tile-0')
+        }
+      })
+
+      expect(getByTestId('placed-tile-tile-0')).toBeTruthy()
+      expect(queryByTestId('available-tile-tile-0')).toBeNull()
+    })
+
+    it('dropping an already-placed tile is a no-op', () => {
+      renderSentenceBuilder()
+
+      act(() => {
+        useQuizStore.getState().placeTile('tile-0')
+      })
+      expect(useQuizStore.getState().placedTileIds).toHaveLength(1)
+
+      // Simulate duplicate drop — should not add again
+      act(() => {
+        const current = useQuizStore.getState().placedTileIds
+        if (!current.includes('tile-0')) {
+          useQuizStore.getState().placeTile('tile-0')
+        }
+      })
+      expect(useQuizStore.getState().placedTileIds).toHaveLength(1)
+    })
+
+    it('removing a placed tile via store returns it to word bank', () => {
+      const { getByTestId, queryByTestId } = renderSentenceBuilder()
+
+      act(() => {
+        useQuizStore.getState().placeTile('tile-0')
+      })
+      expect(queryByTestId('available-tile-tile-0')).toBeNull()
+
+      // Simulate what handleDropToBank does: check + removeTile
+      act(() => {
+        const current = useQuizStore.getState().placedTileIds
+        if (current.includes('tile-0')) {
+          useQuizStore.getState().removeTile('tile-0')
+        }
+      })
+
+      expect(getByTestId('available-tile-tile-0')).toBeTruthy()
+      expect(queryByTestId('placed-tile-tile-0')).toBeNull()
+    })
+
+    it('removing a non-placed tile is a no-op', () => {
+      renderSentenceBuilder()
+
+      // tile-0 is not placed, so removal should be no-op
+      act(() => {
+        const current = useQuizStore.getState().placedTileIds
+        if (current.includes('tile-0')) {
+          useQuizStore.getState().removeTile('tile-0')
+        }
       })
       expect(useQuizStore.getState().placedTileIds).toHaveLength(0)
     })

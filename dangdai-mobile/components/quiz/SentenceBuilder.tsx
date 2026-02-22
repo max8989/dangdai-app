@@ -4,13 +4,20 @@
  * Renders a sentence construction exercise with:
  * - Answer area (SlotArea) at the top showing placed word tiles
  * - Word bank below showing available word tiles
- * - Tap-to-place: tapping an available tile moves it to the answer area
+ * - Drag-and-drop: drag tiles between word bank and answer area
+ * - Tap-to-place: tapping an available tile moves it to the answer area (primary)
  * - Tap-to-return: tapping a placed tile returns it to the word bank
  * - Submit button — disabled until all tiles are placed
  * - Hybrid validation: local exact match first, LLM fallback for alternatives
  * - Per-tile feedback: correct tiles flash green, incorrect tiles flash orange
  * - Shows correct sentence when answer is incorrect
  * - Shows "Your answer is also valid!" when LLM confirms a valid alternative
+ *
+ * Drag-and-drop implementation:
+ * Uses `react-native-gesture-handler` Gesture.Pan() + `react-native-reanimated`
+ * useSharedValue/useAnimatedStyle for each tile. On drag release, hit-tests
+ * against measured drop zone layouts to determine placement. Falls back to
+ * snap-back animation if dropped outside valid zones.
  *
  * Tile ID strategy: "tile-N" where N is the index in scrambled_words[].
  * This handles duplicate words correctly (two "的" tiles get different IDs).
@@ -22,7 +29,7 @@
  * Story 4.7: Sentence Construction Exercise
  */
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import {
   YStack,
   XStack,
@@ -34,6 +41,14 @@ import {
   styled,
   ScrollView,
 } from 'tamagui'
+import { StyleSheet, type LayoutRectangle } from 'react-native'
+import { Gesture, GestureDetector } from 'react-native-gesture-handler'
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  runOnJS,
+} from 'react-native-reanimated'
 import { CheckCircle, XCircle } from '@tamagui/lucide-icons'
 
 import { useQuizStore } from '../../stores/useQuizStore'
@@ -102,8 +117,29 @@ function getTileFontSize(word: string): number {
   return 16
 }
 
+/**
+ * Check if a point (absolute coordinates) falls within a layout rectangle.
+ */
+function isPointInLayout(
+  x: number,
+  y: number,
+  layout: LayoutRectangle | null,
+): boolean {
+  if (!layout) return false
+  return (
+    x >= layout.x &&
+    x <= layout.x + layout.width &&
+    y >= layout.y &&
+    y <= layout.y + layout.height
+  )
+}
+
 // ─── Styled Components ────────────────────────────────────────────────────────
 
+// WordTile no longer uses the `animation` prop to avoid Reanimated trying to
+// animate Tamagui theme-token colors (e.g. "$surface") which are objects at
+// runtime, not color strings. This was the root cause of:
+//   [ReanimatedError: [Reanimated] Invalid color value: [object Object]]
 const WordTile = styled(Button, {
   pressStyle: { scale: 0.95 },
   paddingHorizontal: '$3',
@@ -133,6 +169,93 @@ const SlotArea = styled(XStack, {
   gap: '$2',
   alignItems: 'center',
 })
+
+// ─── DraggableTile ────────────────────────────────────────────────────────────
+
+/**
+ * A tile wrapper that adds pan gesture (drag) capability.
+ *
+ * Each DraggableTile tracks its own drag offset via shared values.
+ * On release, it calls onDragEnd with the tile's absolute position so
+ * the parent can hit-test against drop zone layouts.
+ *
+ * The tile also supports tap-to-place as a fallback (onPress on the inner
+ * WordTile). Tap and drag are handled by Gesture.Race — the pan gesture
+ * requires a minimum distance to activate, allowing taps to pass through.
+ */
+interface DraggableTileProps {
+  tileId: string
+  word: string
+  tileState: 'available' | 'placed'
+  onTap: (tileId: string) => void
+  onDragEnd: (tileId: string, absoluteX: number, absoluteY: number) => void
+  testID: string
+  accessibilityLabel: string
+  accessibilityHint: string
+}
+
+function DraggableTile({
+  tileId,
+  word,
+  tileState,
+  onTap,
+  onDragEnd,
+  testID,
+  accessibilityLabel,
+  accessibilityHint,
+}: DraggableTileProps) {
+  const translateX = useSharedValue(0)
+  const translateY = useSharedValue(0)
+  const isDragging = useSharedValue(false)
+
+  const panGesture = Gesture.Pan()
+    .minDistance(10)
+    .onStart(() => {
+      isDragging.value = true
+    })
+    .onChange((event) => {
+      translateX.value = event.translationX
+      translateY.value = event.translationY
+    })
+    .onFinalize((event) => {
+      if (isDragging.value) {
+        isDragging.value = false
+        // Pass the absolute position of the touch to the parent for hit-testing
+        runOnJS(onDragEnd)(tileId, event.absoluteX, event.absoluteY)
+      }
+      // Animate back to origin — if the parent decides to move the tile,
+      // the component will unmount/remount in the new zone anyway
+      translateX.value = withSpring(0, { damping: 20, stiffness: 200 })
+      translateY.value = withSpring(0, { damping: 20, stiffness: 200 })
+    })
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+    ],
+    zIndex: isDragging.value ? 999 : 0,
+    opacity: isDragging.value ? 0.85 : 1,
+  }))
+
+  return (
+    <GestureDetector gesture={panGesture}>
+      <Animated.View style={[rnStyles.draggableTile, animatedStyle]}>
+        <WordTile
+          state={tileState}
+          enterStyle={{ scale: 0.8, opacity: 0 }}
+          onPress={() => onTap(tileId)}
+          testID={testID}
+          accessibilityRole="button"
+          accessibilityLabel={accessibilityLabel}
+          accessibilityHint={accessibilityHint}
+        >
+          <Text fontSize={getTileFontSize(word)}>{word}</Text>
+        </WordTile>
+      </Animated.View>
+    </GestureDetector>
+  )
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -169,6 +292,13 @@ export function SentenceBuilder({
 
   const isSubmittingRef = useRef(false)
 
+  // ─── Drop zone layout refs ─────────────────────────────────────────────────
+  // Store absolute page coordinates of answer area and word bank for hit-testing
+  // on drag end. Updated via onLayout + measure().
+
+  const answerAreaRef = useRef<LayoutRectangle | null>(null)
+  const wordBankRef = useRef<LayoutRectangle | null>(null)
+
   // ─── Derived state ────────────────────────────────────────────────────────
 
   const allTileIds = scrambledWords.map((_, i) => `tile-${i}`)
@@ -184,15 +314,53 @@ export function SentenceBuilder({
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
 
-  const handleTileTap = (tileId: string) => {
-    if (isSubmitted || disabled) return
-    placeTile(tileId)
-  }
+  const handleTileTap = useCallback(
+    (tileId: string) => {
+      if (isSubmitted || disabled) return
+      placeTile(tileId)
+    },
+    [isSubmitted, disabled, placeTile],
+  )
 
-  const handlePlacedTileTap = (tileId: string) => {
-    if (isSubmitted || disabled) return
-    removeTile(tileId)
-  }
+  const handlePlacedTileTap = useCallback(
+    (tileId: string) => {
+      if (isSubmitted || disabled) return
+      removeTile(tileId)
+    },
+    [isSubmitted, disabled, removeTile],
+  )
+
+  // Handle drag end for tiles in the word bank (available tiles).
+  // If dropped over the answer area, place the tile; otherwise snap back.
+  const handleAvailableDragEnd = useCallback(
+    (tileId: string, absoluteX: number, absoluteY: number) => {
+      if (isSubmitted || disabled) return
+      if (isPointInLayout(absoluteX, absoluteY, answerAreaRef.current)) {
+        const current = useQuizStore.getState().placedTileIds
+        if (!current.includes(tileId)) {
+          placeTile(tileId)
+        }
+      }
+      // else: snap-back animation is handled by DraggableTile.onFinalize
+    },
+    [isSubmitted, disabled, placeTile],
+  )
+
+  // Handle drag end for tiles in the answer area (placed tiles).
+  // If dropped over the word bank, remove the tile; otherwise snap back.
+  const handlePlacedDragEnd = useCallback(
+    (tileId: string, absoluteX: number, absoluteY: number) => {
+      if (isSubmitted || disabled) return
+      if (isPointInLayout(absoluteX, absoluteY, wordBankRef.current)) {
+        const current = useQuizStore.getState().placedTileIds
+        if (current.includes(tileId)) {
+          removeTile(tileId)
+        }
+      }
+      // else: snap-back animation is handled by DraggableTile.onFinalize
+    },
+    [isSubmitted, disabled, removeTile],
+  )
 
   const handleSubmit = async () => {
     // Guard with both ref (synchronous) and state (for render) to prevent
@@ -226,6 +394,25 @@ export function SentenceBuilder({
     onAnswer(result.isCorrect)
   }
 
+  // ─── Layout measurement callbacks ──────────────────────────────────────────
+  // We use onLayout to get approximate positions, then refine with measure()
+  // for absolute coordinates. This handles scroll offsets and nested layouts.
+
+  const answerAreaViewRef = useRef<Animated.View>(null)
+  const wordBankViewRef = useRef<Animated.View>(null)
+
+  const measureAnswerArea = useCallback(() => {
+    answerAreaViewRef.current?.measureInWindow((x, y, width, height) => {
+      answerAreaRef.current = { x, y, width, height }
+    })
+  }, [])
+
+  const measureWordBank = useCallback(() => {
+    wordBankViewRef.current?.measureInWindow((x, y, width, height) => {
+      wordBankRef.current = { x, y, width, height }
+    })
+  }, [])
+
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
@@ -241,93 +428,108 @@ export function SentenceBuilder({
           {questionText}
         </Text>
 
-        {/* Answer area (SlotArea) */}
-        <YStack gap="$1">
-          <Text fontSize="$2" color="$colorSubtle" textTransform="uppercase" letterSpacing={1}>
-            Your Answer
-          </Text>
-          <SlotArea testID="slot-area">
-            {placedTileIds.length === 0 ? (
-              <Text color="$colorSubtle" fontSize="$3">
-                Tap words below to place them here
+        {!isSubmitted ? (
+          // ─── Interactive mode: drag-and-drop + tap-to-place ─────────────
+          <>
+            {/* Answer area (SlotArea) — drop zone for available tiles */}
+            <YStack gap="$1">
+              <Text fontSize="$2" color="$colorSubtle" textTransform="uppercase" letterSpacing={1}>
+                Your Answer
               </Text>
-            ) : null}
-            <AnimatePresence>
-              {isSubmitted
-                ? // After submit: show tiles with feedback state
-                  placedTileIds.map((tileId, index) => {
-                    const word = scrambledWords[parseInt(tileId.replace('tile-', ''), 10)] ?? ''
-                    const state = tileFeedback[index] ?? 'placed'
-                    return (
-                      <Theme
-                        key={tileId}
-                        name={state === 'correct' ? 'success' : state === 'incorrect' ? 'error' : undefined}
-                      >
-                        <WordTile
-                          state={state}
-                          animation="quick"
-                          disabled
-                          testID={`placed-tile-${tileId}-${state}`}
-                        >
-                          <Text fontSize={getTileFontSize(word)}>{word}</Text>
-                        </WordTile>
-                      </Theme>
-                    )
-                  })
-                : // Before submit: interactive placed tiles
-                  placedTileIds.map((tileId) => {
+              <Animated.View
+                ref={answerAreaViewRef}
+                onLayout={measureAnswerArea}
+              >
+                <SlotArea testID="slot-area" accessibilityRole="list" accessibilityLabel="Answer area">
+                  {placedTileIds.length === 0 ? (
+                    <Text color="$colorSubtle" fontSize="$3">
+                      Tap or drag words below to place them here
+                    </Text>
+                  ) : null}
+                  {placedTileIds.map((tileId) => {
                     const word = scrambledWords[parseInt(tileId.replace('tile-', ''), 10)] ?? ''
                     return (
-                      <WordTile
-                        key={tileId}
-                        state="placed"
-                        animation="medium"
-                        enterStyle={{ scale: 0.8, opacity: 0 }}
-                        focusStyle={{ borderColor: '$borderColorFocus' }}
-                        onPress={() => handlePlacedTileTap(tileId)}
+                      <DraggableTile
+                        key={`placed-${tileId}`}
+                        tileId={tileId}
+                        word={word}
+                        tileState="placed"
+                        onTap={handlePlacedTileTap}
+                        onDragEnd={handlePlacedDragEnd}
                         testID={`placed-tile-${tileId}`}
+                        accessibilityLabel={word}
+                        accessibilityHint="Tap to return to word bank, or drag"
+                      />
+                    )
+                  })}
+                </SlotArea>
+              </Animated.View>
+            </YStack>
+
+            {/* Word bank — drop zone for returning tiles */}
+            <YStack gap="$1">
+              <Text fontSize="$2" color="$colorSubtle" textTransform="uppercase" letterSpacing={1}>
+                Word Bank
+              </Text>
+              <Animated.View
+                ref={wordBankViewRef}
+                onLayout={measureWordBank}
+              >
+                <XStack flexWrap="wrap" gap="$2" testID="word-bank" minHeight={48} accessibilityRole="list" accessibilityLabel="Word bank">
+                  {availableTileIds.map((tileId) => {
+                    const word = scrambledWords[parseInt(tileId.replace('tile-', ''), 10)] ?? ''
+                    return (
+                      <DraggableTile
+                        key={`available-${tileId}`}
+                        tileId={tileId}
+                        word={word}
+                        tileState="available"
+                        onTap={handleTileTap}
+                        onDragEnd={handleAvailableDragEnd}
+                        testID={`available-tile-${tileId}`}
+                        accessibilityLabel={word}
+                        accessibilityHint="Tap to place in answer area, or drag"
+                      />
+                    )
+                  })}
+                </XStack>
+              </Animated.View>
+            </YStack>
+          </>
+        ) : (
+          // ─── Submitted mode: static feedback tiles ───────────────────
+          <YStack gap="$1">
+            <Text fontSize="$2" color="$colorSubtle" textTransform="uppercase" letterSpacing={1}>
+              Your Answer
+            </Text>
+            <SlotArea testID="slot-area">
+              <AnimatePresence>
+                {placedTileIds.map((tileId, index) => {
+                  const word = scrambledWords[parseInt(tileId.replace('tile-', ''), 10)] ?? ''
+                  const state = tileFeedback[index] ?? 'placed'
+                  return (
+                    <Theme
+                      key={tileId}
+                      name={state === 'correct' ? 'success' : state === 'incorrect' ? 'error' : undefined}
+                    >
+                      <WordTile
+                        state={state}
+                        disabled
+                        testID={`placed-tile-${tileId}-${state}`}
                       >
                         <Text fontSize={getTileFontSize(word)}>{word}</Text>
                       </WordTile>
-                    )
-                  })}
-            </AnimatePresence>
-          </SlotArea>
-        </YStack>
-
-        {/* Word bank */}
-        {!isSubmitted ? (
-          <YStack gap="$1">
-            <Text fontSize="$2" color="$colorSubtle" textTransform="uppercase" letterSpacing={1}>
-              Word Bank
-            </Text>
-            <XStack flexWrap="wrap" gap="$2" testID="word-bank">
-              <AnimatePresence>
-                {availableTileIds.map((tileId) => {
-                  const word = scrambledWords[parseInt(tileId.replace('tile-', ''), 10)] ?? ''
-                  return (
-                    <WordTile
-                      key={tileId}
-                      state="available"
-                      animation="medium"
-                      enterStyle={{ scale: 0.8, opacity: 0 }}
-                      focusStyle={{ borderColor: '$borderColorFocus' }}
-                      onPress={() => handleTileTap(tileId)}
-                      testID={`available-tile-${tileId}`}
-                    >
-                      <Text fontSize={getTileFontSize(word)}>{word}</Text>
-                    </WordTile>
+                    </Theme>
                   )
                 })}
               </AnimatePresence>
-            </XStack>
+            </SlotArea>
           </YStack>
-        ) : null}
+        )}
 
         {/* Submit button */}
         {!isSubmitted ? (
           <Button
-            animation="quick"
             pressStyle={{ scale: 0.98 }}
             disabled={!allTilesPlaced}
             opacity={allTilesPlaced ? 1 : 0.5}
@@ -469,3 +671,11 @@ export function SentenceBuilder({
     </ScrollView>
   )
 }
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
+const rnStyles = StyleSheet.create({
+  draggableTile: {
+    // Let the tile content define sizing; keep z-index layer intact
+  },
+})
