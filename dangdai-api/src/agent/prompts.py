@@ -17,6 +17,8 @@ CRITICAL RULES:
 - All distractor options must be plausible but clearly incorrect
 - Explanations must cite the textbook source
 - Pinyin MUST use tone marks/diacritics (e.g., xué, xuéxí, nǐ, hǎo) - NEVER use tone numbers (e.g., xue2, ni3)
+- The "question_text" field MUST be written in English - NEVER write question_text in Chinese
+- Explanations MUST be written in English
 - Generate questions in the EXACT JSON format specified
 """
 
@@ -39,10 +41,11 @@ IMPORTANT:
 - Generate exactly {question_count} questions
 - Every question must have a unique question_id (q1, q2, q3, ...)
 - source_citation format: "Book {book_id}, Chapter {lesson} - <section name>"
-- explanations should be concise (1-2 sentences) and educational
+- explanations should be concise (1-2 sentences) and educational, written in English
 - All content must come from the provided chapter material
 - USE ONLY TRADITIONAL CHINESE CHARACTERS (繁體字) in all Chinese text - NEVER use Simplified Chinese
 - Pinyin MUST use tone marks (é, ǐ, ā, etc.) - NEVER use tone numbers (e2, i3, a1)
+- "question_text" MUST be in English (e.g., "Which character means 'to study'?") - NEVER write question_text in Chinese
 """
 
 # ---------------------------------------------------------------------------

@@ -1,7 +1,9 @@
 """Tests for quiz generation graph nodes with mocked dependencies."""
 
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from src.agent.nodes import (
     _format_chapter_content,
@@ -305,6 +307,7 @@ class TestRetrieveContentNode:
 class TestEvaluateContentNode:
     """Tests for the evaluate_content LLM-based content evaluator node."""
 
+    @pytest.mark.asyncio
     @patch("src.agent.nodes.get_llm_client")
     async def test_evaluate_content_passed(self, mock_llm_client):
         """Test evaluate_content when all questions pass all 5 rules."""
@@ -314,7 +317,7 @@ class TestEvaluateContentNode:
         mock_llm = MagicMock()
         mock_response = MagicMock()
         mock_response.content = '{"passed": true, "issues": []}'
-        mock_llm.ainvoke.return_value = mock_response
+        mock_llm.ainvoke = AsyncMock(return_value=mock_response)
         mock_llm_client.return_value = mock_llm
 
         state = {
@@ -339,6 +342,7 @@ class TestEvaluateContentNode:
         assert result["quiz_payload"]["questions"] == state["questions"]
         mock_llm.ainvoke.assert_called_once()
 
+    @pytest.mark.asyncio
     @patch("src.agent.nodes.get_llm_client")
     async def test_evaluate_content_failed_traditional_chinese(self, mock_llm_client):
         """Test evaluate_content detects Simplified Chinese violation."""
@@ -359,7 +363,7 @@ class TestEvaluateContentNode:
                 ],
             }
         )
-        mock_llm.ainvoke.return_value = mock_response
+        mock_llm.ainvoke = AsyncMock(return_value=mock_response)
         mock_llm_client.return_value = mock_llm
 
         state = {
@@ -381,6 +385,7 @@ class TestEvaluateContentNode:
         assert "traditional_chinese" in result["evaluator_feedback"]
         assert result["retry_count"] == 1
 
+    @pytest.mark.asyncio
     @patch("src.agent.nodes.get_llm_client")
     async def test_evaluate_content_failed_pinyin_diacritics(self, mock_llm_client):
         """Test evaluate_content detects pinyin tone number violation."""
@@ -400,7 +405,7 @@ class TestEvaluateContentNode:
                 ],
             }
         )
-        mock_llm.ainvoke.return_value = mock_response
+        mock_llm.ainvoke = AsyncMock(return_value=mock_response)
         mock_llm_client.return_value = mock_llm
 
         state = {
@@ -414,6 +419,7 @@ class TestEvaluateContentNode:
         assert len(result["validation_errors"]) == 1
         assert "pinyin_diacritics" in result["evaluator_feedback"]
 
+    @pytest.mark.asyncio
     @patch("src.agent.nodes.get_llm_client")
     async def test_evaluate_content_skipped_when_structural_errors(
         self, mock_llm_client
@@ -432,6 +438,7 @@ class TestEvaluateContentNode:
         assert result == {}
         mock_llm_client.assert_not_called()
 
+    @pytest.mark.asyncio
     @patch("src.agent.nodes.get_llm_client")
     async def test_evaluate_content_defaults_to_pass_on_llm_error(
         self, mock_llm_client
@@ -440,7 +447,7 @@ class TestEvaluateContentNode:
         from src.agent.nodes import evaluate_content
 
         mock_llm = MagicMock()
-        mock_llm.ainvoke.side_effect = Exception("OpenAI API timeout")
+        mock_llm.ainvoke = AsyncMock(side_effect=Exception("OpenAI API timeout"))
         mock_llm_client.return_value = mock_llm
 
         state = {

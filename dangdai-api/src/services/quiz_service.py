@@ -17,8 +17,10 @@ from src.api.schemas import QuizGenerateRequest, QuizGenerateResponse
 
 logger = logging.getLogger(__name__)
 
-# Maximum time for quiz generation (raised from 8s to accommodate LLM latency)
-GENERATION_TIMEOUT_SECONDS = 30
+# Maximum time for quiz generation.
+# Budget: ~17s generation + ~3.5s evaluation + ~17s retry = ~37.5s worst case.
+# With 2 retries: ~55s. Set to 60s to accommodate evaluator-optimizer loop.
+GENERATION_TIMEOUT_SECONDS = 60
 
 
 class QuizService:
