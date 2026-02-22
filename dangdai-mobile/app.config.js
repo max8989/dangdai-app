@@ -21,6 +21,9 @@ export default {
       supportsTablet: true,
       bundleIdentifier: 'com.maximegagne.maixin-chinese',
       usesAppleSignIn: true,
+      infoPlist: {
+        ITSAppUsesNonExemptEncryption: false,
+      },
     },
     android: {
       adaptiveIcon: {
