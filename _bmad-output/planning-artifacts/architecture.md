@@ -14,6 +14,8 @@ completedAt: '2026-02-14'
 updatedAt: '2026-02-21'
 updateHistory:
   - date: '2026-02-21'
+    changes: 'Added configurable LLM provider architecture with Azure OpenAI GPT-4o as default. Supports switching between Azure OpenAI, OpenAI, and other providers via environment configuration. Updated cost estimates for Azure pricing model.'
+  - date: '2026-02-21'
     changes: 'Added Evaluator-Optimizer validation pattern to quiz generation pipeline. LLM-based content evaluator node validates Traditional Chinese compliance, pinyin diacritics, question language, and curriculum alignment. Upgraded default LLM model from gpt-4o to gpt-4.1. Updated graph topology, state definitions, and file structure.'
   - date: '2026-02-20'
     changes: 'Added Tamagui Theme & Animation Architecture section to align with enriched UX Design Specification'
@@ -68,7 +70,7 @@ _This document builds collaboratively through step-by-step discovery. Sections a
 | Backend (Data) | Supabase (PostgreSQL + Auth) | User data, progress, auth |
 | Backend (AI) | Python (FastAPI + LangGraph) | RAG queries, quiz generation |
 | Vector Store | Supabase pgvector | Dangdai content embeddings |
-| LLM | External API - gpt-4.1 (via LangChain) | Quiz generation + content evaluation |
+| LLM | Azure OpenAI gpt-4o (configurable) | Quiz generation + content evaluation |
 | Min iOS | 13.0+ | - |
 | Min Android | API 21 (5.0)+ | - |
 | Connectivity | Online-only | MVP constraint |
@@ -82,7 +84,7 @@ Mobile App (Expo) ──┬──▶ Supabase (Auth, Progress, User Data, Perfor
                               │
                               ├──▶ Supabase pgvector (RAG retrieval by chapter + exercise type)
                               ├──▶ Supabase question_results (weakness profile query)
-                              ├──▶ LLM API - gpt-4.1 (quiz generation + complex answer validation)
+                              ├──▶ LLM API - Azure OpenAI gpt-4o (quiz generation + complex answer validation)
                               ├──▶ LangGraph Structure Validation Node (rule-based self-check)
                               └──▶ LangGraph Content Evaluator Node (LLM-based quality gate)
 ```
@@ -92,7 +94,7 @@ Mobile App (Expo) ──┬──▶ Supabase (Auth, Progress, User Data, Perfor
 1. Mobile: POST /api/quizzes { chapter_id, exercise_type, user_jwt }
 2. Agent: Verify JWT → Query weakness profile from question_results (aggregation)
 3. Agent: RAG retrieve from pgvector filtered by (book, lesson, exercise_type)
-4. Agent: LLM (gpt-4.1) generates quiz with pre-generated explanations, biased 30-50% toward weak areas
+4. Agent: LLM (Azure OpenAI gpt-4o) generates quiz with pre-generated explanations, biased 30-50% toward weak areas
 5. Agent: Structure validation node (rule-based: correct answers exist, options distinct, required fields)
 6. Agent: Content evaluator node (LLM-based: Traditional Chinese compliance, pinyin diacritics, 
           question text in UI language, curriculum alignment, pedagogical quality)
@@ -303,16 +305,27 @@ Every question in the quiz payload includes a `explanation` field and `source_ci
 
 **Azure Architecture:**
 ```
-Azure Container Apps
-├── dangdai-api (Python/LangGraph)
-│   ├── Scale: 0-10 instances
-│   ├── Memory: 1GB
-│   └── CPU: 0.5 vCPU
-└── Environment Variables
-    ├── SUPABASE_URL
-    ├── SUPABASE_SERVICE_KEY
-    ├── LLM_API_KEY
-    └── LANGSMITH_API_KEY (optional)
+Azure Resource Group
+├── Azure OpenAI Service
+│   ├── Resource: dangdai-openai (East US)
+│   ├── Deployment: gpt-4o
+│   ├── Token Limit: 30K TPM
+│   └── Cost: Pay-as-you-go (~$0.02-0.045 per quiz)
+│
+└── Azure Container Apps
+    ├── dangdai-api (Python/LangGraph)
+    │   ├── Scale: 0-10 instances
+    │   ├── Memory: 1GB
+    │   └── CPU: 0.5 vCPU
+    └── Environment Variables
+        ├── LLM_PROVIDER=azure_openai
+        ├── AZURE_OPENAI_API_KEY (from Key Vault)
+        ├── AZURE_OPENAI_ENDPOINT
+        ├── AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
+        ├── AZURE_OPENAI_MODEL=gpt-4o
+        ├── SUPABASE_URL
+        ├── SUPABASE_SERVICE_KEY (from Key Vault)
+        └── LANGSMITH_API_KEY (optional)
 ```
 
 ### Error Handling Strategy
@@ -457,9 +470,248 @@ Two new prompt constants in `src/agent/prompts.py`:
 **All AI Agents implementing quiz generation MUST:**
 1. Never remove or bypass the `evaluate_content` node
 2. Always pass evaluator feedback to the generator on retry
-3. Use `gpt-4.1` as the default model (configurable via `LLM_MODEL` env var)
+3. Use Azure OpenAI gpt-4o as the default model (configurable via environment variables)
 4. Ensure the evaluator prompt checks ALL five rules (Traditional Chinese, pinyin, question language, curriculum, pedagogy)
 5. Cap retries at 2 (existing `MAX_RETRIES`) -- after 2 failed evaluations, return the best attempt with a warning flag
+
+### LLM Provider Configuration Architecture
+
+This section defines the configurable LLM provider architecture that allows switching between Azure OpenAI, OpenAI, and other providers without code changes.
+
+#### Provider Strategy Pattern
+
+The backend uses a **provider abstraction layer** to support multiple LLM providers while maintaining consistent quiz generation logic.
+
+**Design Principle:** All LLM calls go through a factory that instantiates the correct provider based on environment configuration. The quiz generation graph is provider-agnostic.
+
+#### Supported Providers
+
+| Provider | Models Available | Primary Use Case |
+|----------|------------------|------------------|
+| **Azure OpenAI** (Default) | gpt-4o, gpt-4o-mini, gpt-4-turbo, gpt-4 | Production deployment with Azure credits. Best for Traditional Chinese + structured output. |
+| **OpenAI** | gpt-4o, gpt-4-turbo, gpt-4.1, gpt-4o-mini | Development/testing, fallback provider |
+| **Custom/Local** | Any LangChain-compatible model | Future extensibility (e.g., Azure AI Phi-4, local models) |
+
+#### Configuration Schema
+
+**Environment Variables (Python Backend):**
+
+```bash
+# Provider Selection
+LLM_PROVIDER=azure_openai          # Options: "azure_openai", "openai", "custom"
+
+# Azure OpenAI Configuration (when LLM_PROVIDER=azure_openai)
+AZURE_OPENAI_API_KEY=<your-key>
+AZURE_OPENAI_ENDPOINT=https://<your-resource>.openai.azure.com/
+AZURE_OPENAI_API_VERSION=2024-02-15-preview
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o   # Your deployment name in Azure
+AZURE_OPENAI_MODEL=gpt-4o             # Underlying model
+
+# OpenAI Configuration (when LLM_PROVIDER=openai)
+OPENAI_API_KEY=<your-key>
+OPENAI_MODEL=gpt-4o                   # Options: gpt-4o, gpt-4o-mini, gpt-4-turbo, gpt-4.1
+
+# Model Parameters (apply to all providers)
+LLM_TEMPERATURE=0.7
+LLM_MAX_TOKENS=2048
+LLM_TOP_P=1.0
+
+# Quiz Generation Settings
+MAX_RETRIES=2
+GENERATION_TIMEOUT_SECONDS=30
+```
+
+#### Default Configuration (Production)
+
+| Setting | Value | Rationale |
+|---------|-------|-----------|
+| **LLM_PROVIDER** | `azure_openai` | Leverages $200/month Azure credit |
+| **AZURE_OPENAI_MODEL** | `gpt-4o` | Best balance of cost, Traditional Chinese quality, structured output reliability |
+| **Temperature** | `0.7` | Balanced creativity for diverse questions while maintaining accuracy |
+| **Max Tokens** | `2048` | Sufficient for 10-question quiz + explanations + source citations |
+
+#### Cost Analysis by Provider/Model
+
+**Azure OpenAI Pricing (Pay-as-you-go):**
+
+| Model | Input ($/1K tokens) | Output ($/1K tokens) | Est. Cost per Quiz | Quizzes per $200 |
+|-------|---------------------|----------------------|--------------------|--------------------|
+| **gpt-4o** | $0.0025 | $0.01 | **$0.02-0.045** | ~4,400-10,000 |
+| gpt-4o-mini | $0.00015 | $0.0006 | $0.004-0.008 | ~25,000-50,000 |
+| gpt-4-turbo | $0.001 | $0.003 | $0.008-0.018 | ~11,000-25,000 |
+
+**OpenAI Pricing (Standard API):**
+
+| Model | Input ($/1K tokens) | Output ($/1K tokens) | Est. Cost per Quiz |
+|-------|---------------------|----------------------|--------------------|
+| gpt-4o | $0.0025 | $0.01 | $0.02-0.045 |
+| gpt-4.1 | $0.0025 | $0.01 | $0.02-0.045 |
+| gpt-4o-mini | $0.00015 | $0.0006 | $0.004-0.008 |
+
+**Cost Breakdown (gpt-4o, happy path with 1 retry):**
+- Quiz generation: ~800 tokens input (RAG context + weakness profile + prompt), ~1200 tokens output → ~$0.014
+- Content evaluator: ~1400 tokens input (questions JSON + rules), ~200 tokens output → ~$0.006
+- Retry generation (if needed): ~$0.014
+- Retry evaluator (if needed): ~$0.006
+- **Total (0 retries)**: ~$0.020
+- **Total (1 retry)**: ~$0.040
+- **Total (2 retries, max)**: ~$0.060
+
+#### Implementation Pattern (LangChain)
+
+**Factory Function (`src/utils/llm_factory.py`):**
+
+```python
+from langchain_openai import AzureChatOpenAI, ChatOpenAI
+from langchain_core.language_models import BaseChatModel
+import os
+
+def get_llm(temperature: float = 0.7, max_tokens: int = 2048) -> BaseChatModel:
+    """
+    Factory function to instantiate the correct LLM provider based on environment.
+    
+    Returns:
+        BaseChatModel: Configured LLM instance
+        
+    Raises:
+        ValueError: If LLM_PROVIDER is invalid or required env vars are missing
+    """
+    provider = os.getenv("LLM_PROVIDER", "azure_openai")
+    
+    if provider == "azure_openai":
+        # Azure OpenAI configuration
+        required_vars = [
+            "AZURE_OPENAI_API_KEY",
+            "AZURE_OPENAI_ENDPOINT",
+            "AZURE_OPENAI_DEPLOYMENT_NAME",
+        ]
+        missing = [var for var in required_vars if not os.getenv(var)]
+        if missing:
+            raise ValueError(f"Missing Azure OpenAI config: {missing}")
+        
+        return AzureChatOpenAI(
+            azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
+            api_version=os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview"),
+            temperature=temperature,
+            max_tokens=max_tokens,
+            model=os.getenv("AZURE_OPENAI_MODEL", "gpt-4o"),
+        )
+    
+    elif provider == "openai":
+        # OpenAI configuration
+        if not os.getenv("OPENAI_API_KEY"):
+            raise ValueError("Missing OPENAI_API_KEY")
+        
+        return ChatOpenAI(
+            model=os.getenv("OPENAI_MODEL", "gpt-4o"),
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+    
+    else:
+        raise ValueError(f"Unsupported LLM_PROVIDER: {provider}")
+```
+
+**Usage in Quiz Generation Graph (`src/agent/nodes.py`):**
+
+```python
+from src.utils.llm_factory import get_llm
+
+async def generate_quiz(state: QuizGenerationState) -> dict:
+    """Generate quiz questions using configured LLM provider."""
+    llm = get_llm(temperature=0.7, max_tokens=2048)
+    
+    # Use llm for generation (provider-agnostic)
+    structured_llm = llm.with_structured_output(QuizSchema)
+    result = await structured_llm.ainvoke(prompt)
+    
+    # ... rest of generation logic
+```
+
+#### Azure OpenAI Deployment Setup
+
+**Step 1: Create Azure OpenAI Resource**
+- Navigate to Azure Portal → Create Resource → Azure OpenAI
+- Region: East US (recommended for gpt-4o availability)
+- Pricing Tier: Standard
+
+**Step 2: Deploy Model**
+- In Azure OpenAI Studio → Deployments → Create New
+- Model: `gpt-4o` (latest version)
+- Deployment Name: `gpt-4o` (this becomes `AZURE_OPENAI_DEPLOYMENT_NAME`)
+- Tokens per Minute Rate Limit: 30K (adjust based on usage)
+
+**Step 3: Get Credentials**
+- Keys and Endpoint → Copy Key 1 → Set as `AZURE_OPENAI_API_KEY`
+- Copy Endpoint URL → Set as `AZURE_OPENAI_ENDPOINT`
+
+**Step 4: Test Connection**
+```bash
+curl https://<your-resource>.openai.azure.com/openai/deployments/gpt-4o/chat/completions?api-version=2024-02-15-preview \
+  -H "Content-Type: application/json" \
+  -H "api-key: $AZURE_OPENAI_API_KEY" \
+  -d '{"messages":[{"role":"user","content":"Hello"}]}'
+```
+
+#### Migration Path
+
+**From OpenAI to Azure OpenAI:**
+1. Deploy gpt-4o model in Azure OpenAI Studio
+2. Update environment variables (set `LLM_PROVIDER=azure_openai`, add Azure credentials)
+3. Restart backend service (zero code changes required)
+4. Monitor cost in Azure Cost Management (should see $0.02-0.045 per quiz)
+
+**Rollback to OpenAI:**
+1. Set `LLM_PROVIDER=openai`
+2. Ensure `OPENAI_API_KEY` is set
+3. Restart backend service
+
+#### Model Selection Guidelines
+
+**When to use gpt-4o (Azure OpenAI):**
+- ✅ Production deployment (default)
+- ✅ Traditional Chinese content generation
+- ✅ Structured output reliability required
+- ✅ Budget allows ~4,400+ quizzes/month
+
+**When to use gpt-4o-mini (Azure OpenAI):**
+- ✅ High-volume testing (25K+ quizzes/month)
+- ✅ Budget-constrained deployment
+- ⚠️ Accept higher retry rates (~15-20% vs ~5-10% for gpt-4o)
+- ⚠️ May need prompt tuning for Traditional Chinese reliability
+
+**When to use OpenAI (not Azure):**
+- ✅ Development/local testing
+- ✅ Azure OpenAI resource not available
+- ✅ Accessing gpt-4.1 (not yet in Azure)
+
+#### Monitoring & Observability
+
+**Cost Tracking:**
+- Azure Cost Management: Track daily spend by resource
+- LangSmith: Log all LLM calls with token counts (optional, requires `LANGSMITH_API_KEY`)
+- Custom metrics: Log quiz generation success rate, retry rate, average cost per quiz
+
+**Quality Metrics:**
+- Content evaluator pass rate (target: >90% on first attempt)
+- Retry rate (target: <10% require 1+ retries)
+- User-reported content issues (track via feedback form)
+
+**Alerts:**
+- Daily cost exceeds $10 (30% of monthly budget)
+- Content evaluator fail rate exceeds 20%
+- Quiz generation timeout rate exceeds 5%
+
+#### Enforcement Guidelines
+
+**All AI Agents implementing LLM integration MUST:**
+1. Always use `get_llm()` factory function, never instantiate providers directly
+2. Never hardcode provider-specific code in graph nodes
+3. Support switching providers via environment variables only
+4. Default to `azure_openai` provider in production `.env.example`
+5. Document all provider-specific environment variables in README
+6. Test quiz generation with both Azure OpenAI and OpenAI before deployment
+7. Log provider type and model name on each quiz generation for debugging
 
 ### Tamagui Theme & Animation Architecture
 
@@ -1143,7 +1395,7 @@ dangdai-api/
 │   └── utils/
 │       ├── __init__.py
 │       ├── supabase.py               # Supabase client (service key for agent DB access)
-│       ├── llm.py                    # LLM client configuration
+│       ├── llm_factory.py            # LLM provider factory (Azure OpenAI, OpenAI, custom)
 │       └── config.py                 # Environment configuration
 │
 └── tests/
@@ -1159,10 +1411,65 @@ dangdai-api/
 ```
 terraform/
 ├── main.tf                           # Azure provider, resource group
+├── openai.tf                         # Azure OpenAI resource provisioning
 ├── container_apps.tf                 # Azure Container Apps environment
+├── key_vault.tf                      # Azure Key Vault for secrets (API keys)
 ├── variables.tf                      # Input variables
-├── outputs.tf                        # Output values (URLs, etc.)
+├── outputs.tf                        # Output values (URLs, OpenAI endpoint, etc.)
 └── terraform.tfvars.example          # Example variable values
+```
+
+#### Environment Configuration Files
+
+**Python Backend `.env.example`:**
+
+```bash
+# === LLM Provider Configuration ===
+# Options: "azure_openai", "openai"
+LLM_PROVIDER=azure_openai
+
+# === Azure OpenAI (when LLM_PROVIDER=azure_openai) ===
+AZURE_OPENAI_API_KEY=your-azure-openai-api-key
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+AZURE_OPENAI_API_VERSION=2024-02-15-preview
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
+AZURE_OPENAI_MODEL=gpt-4o
+
+# === OpenAI (when LLM_PROVIDER=openai) ===
+OPENAI_API_KEY=your-openai-api-key
+OPENAI_MODEL=gpt-4o
+
+# === LLM Parameters ===
+LLM_TEMPERATURE=0.7
+LLM_MAX_TOKENS=2048
+LLM_TOP_P=1.0
+
+# === Quiz Generation ===
+MAX_RETRIES=2
+GENERATION_TIMEOUT_SECONDS=30
+
+# === Supabase ===
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_KEY=your-service-role-key
+
+# === Observability (Optional) ===
+LANGSMITH_API_KEY=your-langsmith-key
+LANGSMITH_PROJECT=dangdai-quiz-generation
+```
+
+**Mobile App `.env.local.example`:**
+
+```bash
+# Supabase
+EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+
+# Python Backend API
+EXPO_PUBLIC_API_URL=https://dangdai-api.azurecontainerapps.io
+
+# Features
+EXPO_PUBLIC_ENABLE_LLM_VALIDATION=true
+EXPO_PUBLIC_ENABLE_WEAKNESS_BIASING=true
 ```
 
 ### Architectural Boundaries
@@ -1174,7 +1481,7 @@ terraform/
 | Mobile → Supabase | HTTPS (Supabase JS) | Supabase Auth (JWT) |
 | Mobile → Python API | HTTPS REST | Supabase JWT in Authorization header |
 | Python API → Supabase | HTTPS (Supabase Python) | Service role key |
-| Python API → LLM | HTTPS | API key |
+| Python API → Azure OpenAI | HTTPS (LangChain AzureChatOpenAI) | Azure OpenAI API key |
 
 **Component Boundaries:**
 
