@@ -58,8 +58,18 @@ resource "azurerm_container_app" "api" {
       }
 
       env {
-        name  = "AZURE_OPENAI_MODEL"
+        name  = "LLM_MODEL"
         value = "gpt-4o"
+      }
+
+      env {
+        name  = "AZURE_OPENAI_API_VERSION"
+        value = var.azure_openai_api_version
+      }
+
+      env {
+        name        = "SUPABASE_JWT_SECRET"
+        secret_name = "supabase-jwt-secret"
       }
 
       # Legacy LLM_API_KEY (deprecated, kept for backward compatibility)
@@ -108,6 +118,11 @@ resource "azurerm_container_app" "api" {
   secret {
     name  = "azure-openai-api-key"
     value = azurerm_cognitive_account.openai.primary_access_key
+  }
+
+  secret {
+    name  = "supabase-jwt-secret"
+    value = var.supabase_jwt_secret
   }
 
   # Legacy LLM API key secret (deprecated, only if provided)

@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.api.main import app
-from src.api.schemas import ValidationResponse
+from src.api.schemas import QuizGenerateResponse, ValidationResponse
 
 # Shared test JWT secret
 TEST_JWT_SECRET = "test-secret-key-for-unit-tests"
@@ -60,13 +60,13 @@ class TestQuizGenerateEndpoint:
     def test_generate_quiz_success(self, mock_service, mock_settings, client):
         mock_settings.SUPABASE_JWT_SECRET = TEST_JWT_SECRET
         mock_service.generate_quiz = AsyncMock(
-            return_value={
-                "quiz_id": "test-quiz-id",
-                "chapter_id": 101,
-                "book_id": 1,
-                "exercise_type": "vocabulary",
-                "question_count": 1,
-                "questions": [
+            return_value=QuizGenerateResponse(
+                quiz_id="test-quiz-id",
+                chapter_id=101,
+                book_id=1,
+                exercise_type="vocabulary",
+                question_count=1,
+                questions=[
                     {
                         "question_id": "q1",
                         "exercise_type": "vocabulary",
@@ -81,7 +81,7 @@ class TestQuizGenerateEndpoint:
                         "options": ["to study", "to eat", "to go", "to read"],
                     }
                 ],
-            }
+            )
         )
 
         response = client.post(

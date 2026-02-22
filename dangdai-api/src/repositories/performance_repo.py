@@ -1,7 +1,7 @@
 """Performance repository.
 
-Query question_results for weakness aggregation. Handle gracefully when table
-does not exist yet (it will be created in a later epic).
+Query question_results for weakness aggregation to inform adaptive quiz
+generation (exercise type selection and content focus).
 """
 
 from __future__ import annotations
@@ -42,12 +42,12 @@ class PerformanceRepository:
         }
 
         try:
-            # Try querying question_results - may not exist yet
+            # Query incorrect answers from question_results
             response = (
                 self._client.table("question_results")
-                .select("exercise_type, is_correct, question_text")
+                .select("exercise_type, correct, vocabulary_item, grammar_pattern")
                 .eq("user_id", user_id)
-                .eq("is_correct", False)
+                .eq("correct", False)
                 .order("created_at", desc=True)
                 .limit(100)
                 .execute()
@@ -58,19 +58,40 @@ class PerformanceRepository:
 
             # Aggregate weak exercise types
             exercise_counts: dict[str, int] = {}
+            vocab_counts: dict[str, int] = {}
+            grammar_counts: dict[str, int] = {}
+
             for row in response.data:
                 et = row.get("exercise_type", "unknown")
                 exercise_counts[et] = exercise_counts.get(et, 0) + 1
+
+                vocab = row.get("vocabulary_item")
+                if vocab:
+                    vocab_counts[vocab] = vocab_counts.get(vocab, 0) + 1
+
+                grammar = row.get("grammar_pattern")
+                if grammar:
+                    grammar_counts[grammar] = grammar_counts.get(grammar, 0) + 1
 
             weak_types = sorted(
                 exercise_counts.keys(),
                 key=lambda k: exercise_counts[k],
                 reverse=True,
             )
+            weak_vocab = sorted(
+                vocab_counts.keys(),
+                key=lambda k: vocab_counts[k],
+                reverse=True,
+            )
+            weak_grammar = sorted(
+                grammar_counts.keys(),
+                key=lambda k: grammar_counts[k],
+                reverse=True,
+            )
 
             return {
-                "weak_vocab": [],  # Will be populated when schema supports it
-                "weak_grammar": [],  # Will be populated when schema supports it
+                "weak_vocab": weak_vocab[:10],
+                "weak_grammar": weak_grammar[:10],
                 "weak_exercise_types": weak_types[:3],
             }
 
