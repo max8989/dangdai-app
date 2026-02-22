@@ -300,3 +300,215 @@ class TestRetrieveContentNode:
 
         assert len(result["retrieved_content"]) == 1
         mock_rag.retrieve_mixed_content.assert_called_once()
+
+
+class TestEvaluateContentNode:
+    """Tests for the evaluate_content LLM-based content evaluator node."""
+
+    @patch("src.agent.nodes.get_llm_client")
+    async def test_evaluate_content_passed(self, mock_llm_client):
+        """Test evaluate_content when all questions pass all 5 rules."""
+        from src.agent.nodes import evaluate_content
+
+        # Mock LLM to return passed evaluation
+        mock_llm = MagicMock()
+        mock_response = MagicMock()
+        mock_response.content = '{"passed": true, "issues": []}'
+        mock_llm.ainvoke.return_value = mock_response
+        mock_llm_client.return_value = mock_llm
+
+        state = {
+            "questions": [
+                {
+                    "question_id": "q1",
+                    "question_text": "What does 學 mean?",
+                    "correct_answer": "to study",
+                    "exercise_type": "vocabulary",
+                    "explanation": "學 means to study",
+                }
+            ],
+            "retry_count": 0,
+            "validation_errors": [],
+        }
+
+        result = await evaluate_content(state)
+
+        assert result["validation_errors"] == []
+        assert result["evaluator_feedback"] == ""
+        assert "quiz_payload" in result
+        assert result["quiz_payload"]["questions"] == state["questions"]
+        mock_llm.ainvoke.assert_called_once()
+
+    @patch("src.agent.nodes.get_llm_client")
+    async def test_evaluate_content_failed_traditional_chinese(self, mock_llm_client):
+        """Test evaluate_content detects Simplified Chinese violation."""
+        from src.agent.nodes import evaluate_content
+
+        # Mock LLM to return failed evaluation with Simplified Chinese issue
+        mock_llm = MagicMock()
+        mock_response = MagicMock()
+        mock_response.content = json.dumps(
+            {
+                "passed": False,
+                "issues": [
+                    {
+                        "question_id": "q1",
+                        "rule": "traditional_chinese",
+                        "detail": "Field 'character' contains Simplified '学' — should be '學'",
+                    }
+                ],
+            }
+        )
+        mock_llm.ainvoke.return_value = mock_response
+        mock_llm_client.return_value = mock_llm
+
+        state = {
+            "questions": [
+                {
+                    "question_id": "q1",
+                    "character": "学",  # Simplified
+                    "question_text": "Test",
+                }
+            ],
+            "retry_count": 0,
+            "validation_errors": [],
+        }
+
+        result = await evaluate_content(state)
+
+        assert len(result["validation_errors"]) == 1
+        assert "Content evaluation failed" in result["validation_errors"][0]
+        assert "traditional_chinese" in result["evaluator_feedback"]
+        assert result["retry_count"] == 1
+
+    @patch("src.agent.nodes.get_llm_client")
+    async def test_evaluate_content_failed_pinyin_diacritics(self, mock_llm_client):
+        """Test evaluate_content detects pinyin tone number violation."""
+        from src.agent.nodes import evaluate_content
+
+        mock_llm = MagicMock()
+        mock_response = MagicMock()
+        mock_response.content = json.dumps(
+            {
+                "passed": False,
+                "issues": [
+                    {
+                        "question_id": "q2",
+                        "rule": "pinyin_diacritics",
+                        "detail": "Pinyin uses tone numbers 'ni3' — should be 'nǐ'",
+                    }
+                ],
+            }
+        )
+        mock_llm.ainvoke.return_value = mock_response
+        mock_llm_client.return_value = mock_llm
+
+        state = {
+            "questions": [{"question_id": "q2", "pinyin": "ni3 hao3"}],
+            "retry_count": 0,
+            "validation_errors": [],
+        }
+
+        result = await evaluate_content(state)
+
+        assert len(result["validation_errors"]) == 1
+        assert "pinyin_diacritics" in result["evaluator_feedback"]
+
+    @patch("src.agent.nodes.get_llm_client")
+    async def test_evaluate_content_skipped_when_structural_errors(
+        self, mock_llm_client
+    ):
+        """Test evaluate_content is skipped if structural validation failed."""
+        from src.agent.nodes import evaluate_content
+
+        state = {
+            "questions": [{"question_id": "q1"}],
+            "retry_count": 0,
+            "validation_errors": ["Missing required field 'question_text'"],
+        }
+
+        result = await evaluate_content(state)
+
+        assert result == {}
+        mock_llm_client.assert_not_called()
+
+    @patch("src.agent.nodes.get_llm_client")
+    async def test_evaluate_content_defaults_to_pass_on_llm_error(
+        self, mock_llm_client
+    ):
+        """Test evaluate_content defaults to PASS if evaluator LLM fails."""
+        from src.agent.nodes import evaluate_content
+
+        mock_llm = MagicMock()
+        mock_llm.ainvoke.side_effect = Exception("OpenAI API timeout")
+        mock_llm_client.return_value = mock_llm
+
+        state = {
+            "questions": [{"question_id": "q1", "question_text": "Test"}],
+            "retry_count": 0,
+            "validation_errors": [],
+        }
+
+        result = await evaluate_content(state)
+
+        assert result["validation_errors"] == []
+        assert result["evaluator_feedback"] == ""
+        assert "quiz_payload" in result
+
+
+class TestGraphRoutingFunctions:
+    """Tests for graph conditional edge routing functions."""
+
+    def test_after_structure_validation_no_errors_routes_to_evaluator(self):
+        """Test routing to evaluate_content when structural validation passes."""
+        from src.agent.graph import _after_structure_validation
+
+        state = {"validation_errors": [], "retry_count": 0}
+        result = _after_structure_validation(state)
+        assert result == "evaluate_content"
+
+    def test_after_structure_validation_errors_routes_to_retry(self):
+        """Test routing to generate_quiz when structural errors exist and retries remain."""
+        from src.agent.graph import _after_structure_validation
+
+        state = {
+            "validation_errors": ["Missing field 'question_text'"],
+            "retry_count": 0,
+        }
+        result = _after_structure_validation(state)
+        assert result == "generate_quiz"
+
+    def test_after_structure_validation_max_retries_routes_to_end(self):
+        """Test routing to END when max retries reached."""
+        from src.agent.graph import _after_structure_validation
+
+        state = {"validation_errors": ["Error"], "retry_count": 3}
+        result = _after_structure_validation(state)
+        assert result == "__end__"
+
+    def test_after_content_evaluation_no_errors_routes_to_end(self):
+        """Test routing to END when content evaluation passes."""
+        from src.agent.graph import _after_content_evaluation
+
+        state = {"validation_errors": [], "retry_count": 0}
+        result = _after_content_evaluation(state)
+        assert result == "__end__"
+
+    def test_after_content_evaluation_errors_routes_to_retry(self):
+        """Test routing to generate_quiz when content evaluation fails and retries remain."""
+        from src.agent.graph import _after_content_evaluation
+
+        state = {
+            "validation_errors": ["Content evaluation failed"],
+            "retry_count": 1,
+        }
+        result = _after_content_evaluation(state)
+        assert result == "generate_quiz"
+
+    def test_after_content_evaluation_max_retries_routes_to_end(self):
+        """Test routing to END when max retries reached after content evaluation."""
+        from src.agent.graph import _after_content_evaluation
+
+        state = {"validation_errors": ["Error"], "retry_count": 3}
+        result = _after_content_evaluation(state)
+        assert result == "__end__"

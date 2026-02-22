@@ -339,6 +339,12 @@ async def evaluate_content(state: QuizGenerationState) -> dict[str, Any]:
     On failure, sets evaluator_feedback for the generator to self-correct.
     If the evaluator LLM itself fails, defaults to pass (don't block the quiz).
 
+    Performance Budget:
+    - Latency: ~1-2 seconds per evaluation (LLM call)
+    - Cost: ~$0.005 per evaluation (varies by LLM model)
+    - Happy path: 0 retries (4-7s total quiz generation)
+    - With 1 retry: ~8-12s total (within 30s service timeout)
+
     Args:
         state: Current graph state with questions from generate_quiz.
 
@@ -432,6 +438,8 @@ async def evaluate_content(state: QuizGenerationState) -> dict[str, Any]:
 
     except Exception as e:
         # If the evaluator itself fails, don't block the quiz
+        # This is a safety mechanism to ensure quizzes are delivered even if
+        # the evaluator LLM has issues (cost: potential quality degradation)
         elapsed = (time.perf_counter() - start) * 1000
         logger.error(
             "[Node:evaluate_content] EVALUATOR ERROR after %.0fms: %s: %s "
@@ -439,6 +447,12 @@ async def evaluate_content(state: QuizGenerationState) -> dict[str, Any]:
             elapsed,
             type(e).__name__,
             e,
+        )
+        logger.warning(
+            "[Node:evaluate_content] Auto-passed %d questions without content validation. "
+            "Questions: %s",
+            len(questions),
+            [q.get("question_id", "unknown") for q in questions],
         )
         return {
             "validation_errors": [],
