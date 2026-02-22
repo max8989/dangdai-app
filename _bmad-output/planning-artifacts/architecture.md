@@ -11,8 +11,10 @@ date: 'Sat Feb 14 2026'
 lastStep: 8
 status: 'complete'
 completedAt: '2026-02-14'
-updatedAt: '2026-02-20'
+updatedAt: '2026-02-21'
 updateHistory:
+  - date: '2026-02-21'
+    changes: 'Added Evaluator-Optimizer validation pattern to quiz generation pipeline. LLM-based content evaluator node validates Traditional Chinese compliance, pinyin diacritics, question language, and curriculum alignment. Upgraded default LLM model from gpt-4o to gpt-4.1. Updated graph topology, state definitions, and file structure.'
   - date: '2026-02-20'
     changes: 'Added Tamagui Theme & Animation Architecture section to align with enriched UX Design Specification'
   - date: '2026-02-20'
@@ -66,7 +68,7 @@ _This document builds collaboratively through step-by-step discovery. Sections a
 | Backend (Data) | Supabase (PostgreSQL + Auth) | User data, progress, auth |
 | Backend (AI) | Python (FastAPI + LangGraph) | RAG queries, quiz generation |
 | Vector Store | Supabase pgvector | Dangdai content embeddings |
-| LLM | External API (via LangChain) | Quiz question generation |
+| LLM | External API - gpt-4.1 (via LangChain) | Quiz generation + content evaluation |
 | Min iOS | 13.0+ | - |
 | Min Android | API 21 (5.0)+ | - |
 | Connectivity | Online-only | MVP constraint |
@@ -80,21 +82,26 @@ Mobile App (Expo) ──┬──▶ Supabase (Auth, Progress, User Data, Perfor
                               │
                               ├──▶ Supabase pgvector (RAG retrieval by chapter + exercise type)
                               ├──▶ Supabase question_results (weakness profile query)
-                              ├──▶ LLM API (quiz generation + complex answer validation)
-                              └──▶ LangGraph Validation Node (self-check before response)
+                              ├──▶ LLM API - gpt-4.1 (quiz generation + complex answer validation)
+                              ├──▶ LangGraph Structure Validation Node (rule-based self-check)
+                              └──▶ LangGraph Content Evaluator Node (LLM-based quality gate)
 ```
 
-**Quiz Generation Flow (Detailed):**
+**Quiz Generation Flow (Detailed) -- Evaluator-Optimizer Pattern:**
 ```
 1. Mobile: POST /api/quizzes { chapter_id, exercise_type, user_jwt }
 2. Agent: Verify JWT → Query weakness profile from question_results (aggregation)
 3. Agent: RAG retrieve from pgvector filtered by (book, lesson, exercise_type)
-4. Agent: LLM generates quiz with pre-generated explanations, biased 30-50% toward weak areas
-5. Agent: Self-check validation node (correct answers exist, options distinct, curriculum-aligned)
-6. Agent: Return structured quiz payload with answer keys + explanations + source citations
-7. Mobile: Local validation for simple types (Vocabulary, Grammar, Matching, Fill-in-Blank, Reading)
-8. Mobile: LLM call via agent for complex types (Sentence Construction, Dialogue Completion) when answer differs from key
-9. Mobile: Save per-question results to question_results + update exercise_type_progress
+4. Agent: LLM (gpt-4.1) generates quiz with pre-generated explanations, biased 30-50% toward weak areas
+5. Agent: Structure validation node (rule-based: correct answers exist, options distinct, required fields)
+6. Agent: Content evaluator node (LLM-based: Traditional Chinese compliance, pinyin diacritics, 
+          question text in UI language, curriculum alignment, pedagogical quality)
+   - If evaluator fails: structured feedback → retry generate_quiz (max 2 retries)
+   - Generator receives evaluator feedback to self-correct specific issues
+7. Agent: Return structured quiz payload with answer keys + explanations + source citations
+8. Mobile: Local validation for simple types (Vocabulary, Grammar, Matching, Fill-in-Blank, Reading)
+9. Mobile: LLM call via agent for complex types (Sentence Construction, Dialogue Completion) when answer differs from key
+10. Mobile: Save per-question results to question_results + update exercise_type_progress
 ```
 
 ### Cross-Cutting Concerns Identified
@@ -325,6 +332,134 @@ Azure Container Apps
 - Custom error boundary for React components
 - Toast notifications for recoverable errors
 - Progressive quiz loading: show first question ASAP while remaining generate in background
+
+### Quiz Generation Quality: Evaluator-Optimizer Pattern
+
+This section defines the LLM-based content evaluation architecture that ensures quiz quality beyond structural validation. The pattern follows the standard LangGraph evaluator-optimizer loop where a dedicated evaluator node acts as a quality gate, providing structured feedback to the generator for self-correction on failure.
+
+#### Problem Statement
+
+The quiz generator LLM (even with explicit prompt rules) occasionally:
+- Uses Simplified Chinese characters instead of Traditional (繁體字)
+- Outputs pinyin with tone numbers (e.g., `ni3 hao3`) instead of diacritics (e.g., `nǐ hǎo`)
+- Writes question text in Chinese instead of the expected UI language (English, French, etc.)
+- Generates content not aligned with the specified chapter
+
+The existing rule-based `validate_quiz` node only catches **structural** issues (missing fields, duplicate options, correct answer not in options). It cannot detect **linguistic** or **pedagogical** violations.
+
+#### Architecture: Two-Phase Validation
+
+**Phase 1: Structure Validation (rule-based, free, <10ms)**
+
+The existing `validate_structure` node performs:
+- Required field checks (`question_text`, `correct_answer`, `exercise_type`)
+- Duplicate question detection
+- Options distinctness verification
+- Correct answer in options (for MC types)
+- Explanation presence
+
+**Phase 2: Content Evaluation (LLM-based, ~$0.005, ~1-2s)**
+
+A new `evaluate_content` async node that invokes the LLM as an evaluator/judge:
+
+| Rule | What It Checks | Example Violation |
+|------|----------------|-------------------|
+| **Traditional Chinese Only** | All Chinese text uses Traditional characters (繁體字), zero Simplified characters (简体字) | `学习` instead of `學習` |
+| **Pinyin Diacritics** | All pinyin uses tone marks, never tone numbers or bare Latin | `xue2xi2` instead of `xuéxí` |
+| **Question Text Language** | `question_text` field is in the expected UI language (English by default), not in Chinese | `"哪個字對應拼音...?"` instead of `"Which character corresponds to the pinyin...?"` |
+| **Curriculum Alignment** | Content comes from the specified book/chapter, not hallucinated vocabulary | Testing `電腦` when it's not in Book 1 Ch 3 |
+| **Pedagogical Quality** | Distractors are plausible, explanations are educational, difficulty is appropriate | All distractors are obviously wrong or from unrelated topics |
+
+**Evaluator Output Schema:**
+
+```python
+class ContentEvaluation(BaseModel):
+    """Structured output from the content evaluator node."""
+    passed: bool
+    issues: list[ContentIssue]
+
+class ContentIssue(BaseModel):
+    """Individual issue found by the evaluator."""
+    question_id: str
+    rule: Literal[
+        "traditional_chinese",
+        "pinyin_diacritics",
+        "question_language",
+        "curriculum_alignment",
+        "pedagogical_quality",
+    ]
+    detail: str  # Human-readable description of the violation
+```
+
+#### Updated Graph Topology
+
+```
+START → retrieve_content → query_weakness → generate_quiz → validate_structure → evaluate_content → END
+                                                ↑                                       |
+                                                └──── (if fails & retries ≤ 2) ────────┘
+```
+
+**Retry flow:** When `evaluate_content` finds issues, it:
+1. Sets `validation_errors` with the evaluator's structured feedback
+2. Sets `evaluator_feedback` with a formatted string of all issues
+3. Increments `retry_count`
+4. Routes back to `generate_quiz` via conditional edge
+
+The `generate_quiz` node, on retry, appends the evaluator feedback to the LLM prompt:
+```
+## Previous Attempt Failed Evaluation
+The following issues were found in your previous generation:
+{evaluator_feedback}
+
+Please regenerate the quiz fixing ALL of the above issues.
+```
+
+This self-correction mechanism means the generator gets **specific, actionable feedback** rather than blindly retrying.
+
+#### Updated State Definition
+
+```python
+class QuizGenerationState(TypedDict, total=False):
+    # ... existing fields ...
+    
+    # NEW: Evaluator feedback for self-correction (set by evaluate_content)
+    evaluator_feedback: str
+```
+
+#### LLM Model Upgrade
+
+| Setting | Previous | Updated | Rationale |
+|---------|----------|---------|-----------|
+| Default OpenAI model | `gpt-4o` | `gpt-4.1` | Better instruction-following reduces baseline rule violations, fewer retry loops needed |
+
+Both the generator and evaluator use the same `gpt-4.1` model. The evaluator call is typically smaller (it receives the generated questions, not the full RAG context) so its cost is lower.
+
+#### Cost & Latency Impact
+
+| Metric | Before | After (happy path) | After (1 retry) |
+|--------|--------|---------------------|------------------|
+| LLM calls per quiz | 1 | 2 | 4 |
+| Generation latency | ~3-5s | ~4-7s | ~8-12s |
+| Cost per quiz | ~$0.02 | ~$0.025 | ~$0.045 |
+| Quality assurance | Structural only | Structural + linguistic + pedagogical | Same with self-correction |
+
+The 8s timeout budget (NFR) still holds for the happy path. For retries, the timeout is extended to 30s at the service level (existing `GENERATION_TIMEOUT_SECONDS`).
+
+#### New Prompts
+
+Two new prompt constants in `src/agent/prompts.py`:
+
+- **`CONTENT_EVALUATION_SYSTEM_PROMPT`**: Sets the LLM as a strict quality evaluator for Chinese language quizzes, with explicit rules for each validation dimension.
+- **`CONTENT_EVALUATION_PROMPT`**: Template that receives the generated questions JSON and the evaluation rules, returns the `ContentEvaluation` structured output.
+
+#### Enforcement Guidelines (Updated)
+
+**All AI Agents implementing quiz generation MUST:**
+1. Never remove or bypass the `evaluate_content` node
+2. Always pass evaluator feedback to the generator on retry
+3. Use `gpt-4.1` as the default model (configurable via `LLM_MODEL` env var)
+4. Ensure the evaluator prompt checks ALL five rules (Traditional Chinese, pinyin, question language, curriculum, pedagogy)
+5. Cap retries at 2 (existing `MAX_RETRIES`) -- after 2 failed evaluations, return the best attempt with a warning flag
 
 ### Tamagui Theme & Animation Architecture
 
@@ -975,10 +1110,10 @@ dangdai-api/
 │   │
 │   ├── agent/                        # LangGraph quiz generation
 │   │   ├── __init__.py
-│   │   ├── graph.py                  # Main quiz generation graph (retrieve → generate → validate → respond)
-│   │   ├── nodes.py                  # Graph nodes (retrieve_content, query_weakness, generate_quiz, validate_quiz, validate_answer)
-│   │   ├── prompts.py                # LLM prompt templates (per exercise type + validation + explanation generation)
-│   │   └── state.py                  # Graph state definitions (includes weakness profile, exercise type)
+│   │   ├── graph.py                  # Main quiz generation graph (retrieve → generate → validate_structure → evaluate_content → respond)
+│   │   ├── nodes.py                  # Graph nodes (retrieve_content, query_weakness, generate_quiz, validate_structure, evaluate_content)
+│   │   ├── prompts.py                # LLM prompt templates (per exercise type + content evaluation + answer validation)
+│   │   └── state.py                  # Graph state definitions (includes weakness profile, exercise type, evaluator_feedback)
 │   │
 │   ├── api/                          # FastAPI routes
 │   │   ├── __init__.py
@@ -1136,37 +1271,40 @@ terraform/
 6. RAG Service retrieves Chapter 12 content from pgvector
    │  FILTERED by: book=2, lesson=12, exercise_type="matching"
    │
-7. LangGraph generates quiz biased toward weak areas (30-50% of questions)
+7. LangGraph generates quiz (gpt-4.1) biased toward weak areas (30-50% of questions)
    │  Each question includes: answer_key, explanation, source_citation
    │
-8. Validation Node self-checks: correct answers exist, options distinct,
-   │  vocabulary/grammar items from chapter, no duplicates
-   │  Bad questions → regenerated individually
+8. Structure Validation Node (rule-based): correct answers exist, options distinct,
+   │  required fields present, no duplicates
    │
-9. API returns { quiz_id, exercise_type, questions: [{
-   │    question, options, correct_answer, explanation, source_citation, ...
-   │  }] }
+9. Content Evaluator Node (LLM-based): Traditional Chinese compliance, pinyin diacritics,
+   │  question text in UI language, curriculum alignment, pedagogical quality
+   │  If evaluation fails → structured feedback → retry generate_quiz (max 2 retries)
    │
-10. Mobile stores quiz in useQuizStore, renders MatchingExercise component
+10. API returns { quiz_id, exercise_type, questions: [{
+    │    question, options, correct_answer, explanation, source_citation, ...
+    │  }] }
     │
-11. User answers each question:
+11. Mobile stores quiz in useQuizStore, renders MatchingExercise component
+    │
+12. User answers each question:
     │  - Matching/Vocabulary/Grammar/Fill-in-Blank/Reading: LOCAL validation
     │    (compare against answer_key in payload, instant feedback with explanation)
     │  - Sentence Construction/Dialogue Completion: LOCAL check first,
     │    then LLM call via POST /api/quizzes/validate-answer if answer differs from key
     │
-12. Per-question: Mobile saves result to question_results via Supabase
+13. Per-question: Mobile saves result to question_results via Supabase
     │  { user_id, chapter_id, exercise_type, vocabulary_item, correct, time_spent_ms }
     │
-13. On quiz completion, Mobile saves to Supabase:
+14. On quiz completion, Mobile saves to Supabase:
     │  - quiz_attempts record (with JSONB answers for replay)
     │  - exercise_type_progress update (best_score, attempts_count, mastered_at)
     │  - chapter_progress update (recalculated from exercise_type_progress)
     │  - user aggregates update (points, streak)
     │
-14. CompletionScreen shows: score, per-exercise-type breakdown, weakness update
+15. CompletionScreen shows: score, per-exercise-type breakdown, weakness update
     │
-15. TanStack Query invalidates: progress, exercise type progress, weakness profile
+16. TanStack Query invalidates: progress, exercise type progress, weakness profile
 ```
 
 ### Development Workflow Integration
@@ -1262,7 +1400,7 @@ All 31 NFRs addressed architecturally:
 - Integration: RAG fallback to broader content (NFR17), LLM validation timeout fallback
 - Scalability: Azure Container Apps auto-scaling, ~100 question_results rows/user/week
 - Localization: i18n folder with 4 language files
-- AI & RAG Quality: Self-check validation node, exercise-type-specific prompts, workbook format compliance
+- AI & RAG Quality: Two-phase validation (rule-based structure + LLM-based content evaluation), evaluator-optimizer retry loop, exercise-type-specific prompts, Traditional Chinese & pinyin enforcement, workbook format compliance
 
 ### Implementation Readiness Validation
 
@@ -1292,6 +1430,7 @@ All 31 NFRs addressed architecturally:
 |-----|------------|
 | Database schema details | First migration will define 6 tables (users, quiz_attempts, question_results, exercise_type_progress, chapter_progress, daily_activity) |
 | LLM prompt templates per exercise type | 7 distinct prompt templates needed (one per exercise type). Iterate during quiz generation development |
+| Content evaluator prompts | `CONTENT_EVALUATION_SYSTEM_PROMPT` and `CONTENT_EVALUATION_PROMPT` need implementation matching the 5-rule evaluation schema |
 | LLM validation prompts | Prompts for Sentence Construction and Dialogue Completion answer evaluation |
 | Sound asset files | Use placeholder sounds, replace with final |
 | Weakness profile query optimization | Start with simple aggregation; add indexes if slow at scale |
@@ -1315,7 +1454,7 @@ All 31 NFRs addressed architecturally:
 - [x] Critical decisions documented with versions
 - [x] Technology stack fully specified
 - [x] Integration patterns defined (REST, Supabase JS)
-- [x] Performance considerations addressed (5s quiz gen, retry patterns)
+- [x] Performance considerations addressed (4-7s quiz gen happy path, evaluator-optimizer retry patterns, 30s timeout budget)
 
 **Implementation Patterns**
 - [x] Naming conventions established (snake_case DB, PascalCase components)
@@ -1343,6 +1482,7 @@ All 31 NFRs addressed architecturally:
 5. Well-defined integration boundaries
 6. Hybrid answer validation strategy balances UX quality with cost
 7. Adaptive learning pipeline fully specified (weakness profile → quiz biasing → performance tracking → profile update)
+8. Evaluator-optimizer pattern ensures quiz content quality (Traditional Chinese, pinyin diacritics, question language, curriculum alignment) with self-correcting retry loop
 
 **Areas for Future Enhancement:**
 1. Database schema refinement based on usage patterns
