@@ -5,6 +5,7 @@
 
 import React from 'react'
 import { render, fireEvent } from '@testing-library/react-native'
+import { Keyboard } from 'react-native'
 import { TamaguiProvider } from 'tamagui'
 import { TextInputAnswer } from './TextInputAnswer'
 import config from '../../tamagui.config'
@@ -16,9 +17,16 @@ const wrapper = ({ children }: { children: React.ReactNode }) => (
 
 describe('TextInputAnswer', () => {
   const mockOnSubmit = jest.fn()
+  let dismissSpy: jest.SpyInstance
 
   beforeEach(() => {
     jest.clearAllMocks()
+    // Spy on Keyboard.dismiss
+    dismissSpy = jest.spyOn(Keyboard, 'dismiss').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    dismissSpy.mockRestore()
   })
 
   it('renders input with placeholder text', () => {
@@ -227,6 +235,21 @@ describe('TextInputAnswer', () => {
     expect(input.props.autoCorrect).toBe(false)
   })
 
+  it('has spellCheck={false}', () => {
+    const { getByPlaceholderText } = render(
+      <TextInputAnswer
+        placeholder="Type the pinyin..."
+        correctAnswer="xué"
+        questionType="pinyin"
+        onSubmit={mockOnSubmit}
+      />,
+      { wrapper }
+    )
+
+    const input = getByPlaceholderText('Type the pinyin...')
+    expect(input.props.spellCheck).toBe(false)
+  })
+
   it('validates meaning type answers correctly', () => {
     const { getByPlaceholderText, getByText } = render(
       <TextInputAnswer
@@ -267,5 +290,45 @@ describe('TextInputAnswer', () => {
     const submitButton = getByText('Submit')
     fireEvent.press(submitButton)
     expect(mockOnSubmit).not.toHaveBeenCalled()
+  })
+
+  it('dismisses keyboard on submit (button press)', () => {
+    const { getByPlaceholderText, getByText } = render(
+      <TextInputAnswer
+        placeholder="Type the pinyin..."
+        correctAnswer="xué"
+        questionType="pinyin"
+        onSubmit={mockOnSubmit}
+      />,
+      { wrapper }
+    )
+
+    const input = getByPlaceholderText('Type the pinyin...')
+    fireEvent.changeText(input, 'xue2')
+
+    const submitButton = getByText('Submit')
+    fireEvent.press(submitButton)
+
+    // Keyboard.dismiss should have been called
+    expect(dismissSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('dismisses keyboard on Enter key (onSubmitEditing)', () => {
+    const { getByPlaceholderText } = render(
+      <TextInputAnswer
+        placeholder="Type the pinyin..."
+        correctAnswer="xué"
+        questionType="pinyin"
+        onSubmit={mockOnSubmit}
+      />,
+      { wrapper }
+    )
+
+    const input = getByPlaceholderText('Type the pinyin...')
+    fireEvent.changeText(input, 'xue2')
+    fireEvent(input, 'submitEditing')
+
+    // Keyboard.dismiss should have been called
+    expect(dismissSpy).toHaveBeenCalledTimes(1)
   })
 })

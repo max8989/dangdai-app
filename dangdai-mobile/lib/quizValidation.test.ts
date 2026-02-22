@@ -47,7 +47,7 @@ describe('validateTextAnswer', () => {
     it('matches tone marks to tone numbers', () => {
       expect(validateTextAnswer('xué', 'xue2', 'pinyin')).toBe(true)
       expect(validateTextAnswer('nǐ', 'ni3', 'pinyin')).toBe(true)
-      expect(validateTextAnswer('hǎo', 'ha3o', 'pinyin')).toBe(true)
+      expect(validateTextAnswer('hǎo', 'hao3', 'pinyin')).toBe(true)
     })
 
     it('matches tone numbers to tone marks', () => {
@@ -58,11 +58,13 @@ describe('validateTextAnswer', () => {
     it('matches identical tone marks', () => {
       expect(validateTextAnswer('xué', 'xué', 'pinyin')).toBe(true)
       expect(validateTextAnswer('nǐ hǎo', 'nǐ hǎo', 'pinyin')).toBe(true)
+      expect(validateTextAnswer('hǎo', 'hǎo', 'pinyin')).toBe(true)
     })
 
     it('matches identical tone numbers', () => {
       expect(validateTextAnswer('xue2', 'xue2', 'pinyin')).toBe(true)
-      expect(validateTextAnswer('ni3 ha3o', 'ni3 ha3o', 'pinyin')).toBe(true)
+      expect(validateTextAnswer('ni3 hao3', 'ni3 hao3', 'pinyin')).toBe(true)
+      expect(validateTextAnswer('hao3', 'hao3', 'pinyin')).toBe(true)
     })
 
     it('matches ü and v equivalence', () => {
@@ -80,7 +82,7 @@ describe('validateTextAnswer', () => {
 
     it('handles whitespace correctly', () => {
       expect(validateTextAnswer('  xué  ', 'xue2', 'pinyin')).toBe(true)
-      expect(validateTextAnswer('nǐ  hǎo', 'ni3 ha3o', 'pinyin')).toBe(true)
+      expect(validateTextAnswer('nǐ  hǎo', 'ni3 hao3', 'pinyin')).toBe(true)
     })
 
     it('rejects wrong pinyin', () => {
@@ -99,8 +101,9 @@ describe('validateTextAnswer', () => {
     })
 
     it('handles multi-syllable pinyin', () => {
-      expect(validateTextAnswer('nǐ hǎo', 'ni3 ha3o', 'pinyin')).toBe(true)
+      expect(validateTextAnswer('nǐ hǎo', 'ni3 hao3', 'pinyin')).toBe(true)
       expect(validateTextAnswer('xué sheng', 'xue2 sheng', 'pinyin')).toBe(true)
+      expect(validateTextAnswer('ni3 hao3', 'nǐ hǎo', 'pinyin')).toBe(true)
     })
   })
 

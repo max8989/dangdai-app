@@ -63,10 +63,22 @@ export function normalizePinyin(input: string): string {
   // Replace ü with v (standard pinyin input convention)
   result = result.replace(/ü/g, 'v')
 
-  // Replace tone-marked vowels with base vowel + tone number
-  for (const [marked, numbered] of Object.entries(TONE_MARK_TO_NUMBER)) {
-    result = result.replace(new RegExp(marked, 'g'), numbered)
-  }
+  // Process each syllable: find tone-marked vowels and move tone number to end
+  // This ensures "hǎo" becomes "hao3" not "ha3o"
+  result = result.replace(/\S+/g, (syllable) => {
+    // Check if syllable contains a tone-marked vowel
+    for (const [marked, numbered] of Object.entries(TONE_MARK_TO_NUMBER)) {
+      if (syllable.includes(marked)) {
+        // Extract base vowel and tone number (e.g., "a3" → base="a", tone="3")
+        const baseVowel = numbered.slice(0, -1)
+        const toneNumber = numbered.slice(-1)
+        // Replace tone-marked vowel with base vowel, then append tone at syllable end
+        return syllable.replace(marked, baseVowel) + toneNumber
+      }
+    }
+    // No tone mark found — return syllable unchanged (already has tone number or is neutral tone)
+    return syllable
+  })
 
   // Collapse multiple whitespace characters to single space
   result = result.replace(/\s+/g, ' ')

@@ -1111,7 +1111,12 @@ export default function QuizPlayScreen() {
 
                 {/* Text input answer */}
                 <TextInputAnswer
-                  placeholder={currentQuestion.input_placeholder ?? 'Type your answer...'}
+                  placeholder={
+                    currentQuestion.input_placeholder ?? 
+                    (getTextInputQuestionType(currentQuestion) === 'pinyin' 
+                      ? 'Type the pinyin...' 
+                      : 'Type the meaning...')
+                  }
                   correctAnswer={currentQuestion.correct_answer}
                   questionType={getTextInputQuestionType(currentQuestion)}
                   onSubmit={handleTextInputAnswer}

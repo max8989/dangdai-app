@@ -1,6 +1,6 @@
 # Story 4.12: Text Input Answer Type
 
-Status: review
+Status: done
 
 ## Story
 
@@ -103,7 +103,8 @@ So that I can practice recall without multiple choice hints.
 |------|---------|
 | `types/quiz.ts` | Add `input_type` and `input_placeholder` fields to `QuizQuestion` |
 | `app/quiz/play.tsx` | Add text input rendering branch alongside existing multiple choice |
-| `lib/quizValidation.ts` | Add text answer validation (may already exist from Story 4.3 with `validateAnswer`) |
+
+**Note:** `lib/quizValidation.ts` is created NEW in this story. Story 4.3 uses an inline `validateAnswer()` function in `play.tsx` for multiple-choice validation, not a separate validation module. Story 4.12 creates `lib/quizValidation.ts` to house the new `validateTextAnswer()` function for pinyin/meaning text input validation.
 
 ### TextInputAnswer Component Spec
 
@@ -770,15 +771,19 @@ N/A - Implementation completed without debugging issues.
 - ✅ Added `input_type` and `input_placeholder` fields to `QuizQuestion` interface in `types/quiz.ts`
 - ✅ Created comprehensive pinyin normalization utility (`lib/pinyinNormalize.ts`) with 28 passing tests
   - Handles tone mark ↔ tone number conversion (ā ↔ a1, é ↔ e2, etc.)
+  - **[Code Review Fix]** Corrected normalization to place tone numbers at syllable END (hǎo → hao3, not ha3o) per standard pinyin conventions
   - Normalizes ü/v equivalence (lǜ == lv4)
   - Case-insensitive with whitespace handling
 - ✅ Created text answer validation utility (`lib/quizValidation.ts`) with 21 passing tests
   - Pinyin validation uses normalization for flexible matching
   - Meaning validation uses case-insensitive exact match
-- ✅ Created `TextInputAnswer` component with full Tamagui integration and 13 passing tests
+  - **[Code Review Fix]** Updated test expectations to match corrected normalization (ni3 hao3, not ni3 ha3o)
+- ✅ Created `TextInputAnswer` component with full Tamagui integration and 16 passing tests (was 13, added 3 in code review)
   - Uses Tamagui `Input` with `animation="quick"` and `focusStyle`
   - Submit button disabled when empty, Enter key submission supported
   - Keyboard dismissal on submit via `Keyboard.dismiss()`
+  - **[Code Review Fix]** Added test coverage for `spellCheck={false}` prop verification
+  - **[Code Review Fix]** Added test coverage for `Keyboard.dismiss()` call on submit (button + Enter key)
   - Feedback states via `<Theme name="success">` / `<Theme name="error">` wrapping
   - Correct answer reveal with `AnimatePresence` animation (incorrect only)
   - Input becomes read-only after submission (user can compare their answer)
@@ -786,11 +791,22 @@ N/A - Implementation completed without debugging issues.
   - Added `isTextInput` flag with fallback logic (checks `input_type` or absence of options)
   - Added `handleTextInputAnswer` callback with timer integration and Supabase persistence
   - Added `getTextInputQuestionType` helper to infer pinyin vs meaning questions
+  - **[Code Review Fix]** Improved `input_placeholder` fallback to use context-aware defaults ("Type the pinyin..." vs "Type the meaning...") instead of generic "Type your answer..."
   - Renders `TextInputAnswer` in dedicated layout branch with `AnimatePresence`
   - Reuses existing `FeedbackOverlay` and `useSound` for consistent UX
-- ✅ All tests passing: 62 new tests added, 0 regressions introduced (698 existing tests pass)
+- ✅ All tests passing: 65 new tests added (was 62, added 3 in code review), 0 regressions introduced
 - ✅ Type checking passes with no errors
 - ✅ ESLint passes with no warnings
+
+### Code Review Fixes Applied (2026-02-21)
+
+**CRITICAL FIXES:**
+1. **Pinyin normalization bug**: Fixed tone number placement to comply with standard pinyin conventions (syllable-end placement: hǎo → hao3, not mid-syllable: ha3o). This was a critical validation bug that would cause user-entered "hao3" to fail matching against correct answer "hǎo".
+2. **Test coverage gaps**: Added missing test coverage for `spellCheck={false}` prop and `Keyboard.dismiss()` call verification, ensuring AC#1 and AC#2 requirements are fully validated.
+3. **Documentation accuracy**: Clarified that `lib/quizValidation.ts` was created NEW in Story 4.12, not extended from Story 4.3 (which uses inline validation).
+
+**UX IMPROVEMENTS:**
+4. **Placeholder fallback logic**: Changed generic "Type your answer..." fallback to context-aware "Type the pinyin..." / "Type the meaning..." based on inferred question type for better UX when backend omits `input_placeholder`.
 
 ### File List
 

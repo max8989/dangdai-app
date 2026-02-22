@@ -70,7 +70,7 @@ describe('normalizePinyin', () => {
       expect(normalizePinyin('xue2')).toBe('xue2')
     })
     it('normalizes nǐ hǎo', () => {
-      expect(normalizePinyin('nǐ hǎo')).toBe('ni3 ha3o')
+      expect(normalizePinyin('nǐ hǎo')).toBe('ni3 hao3')
     })
   })
 
@@ -97,7 +97,7 @@ describe('normalizePinyin', () => {
       expect(normalizePinyin('XUE2')).toBe('xue2')
     })
     it('lowercases mixed case with tone marks', () => {
-      expect(normalizePinyin('NǏ HǍO')).toBe('ni3 ha3o')
+      expect(normalizePinyin('NǏ HǍO')).toBe('ni3 hao3')
     })
   })
 
@@ -106,10 +106,10 @@ describe('normalizePinyin', () => {
       expect(normalizePinyin('  xué  ')).toBe('xue2')
     })
     it('collapses multiple spaces', () => {
-      expect(normalizePinyin('nǐ  hǎo')).toBe('ni3 ha3o')
+      expect(normalizePinyin('nǐ  hǎo')).toBe('ni3 hao3')
     })
     it('handles tabs and mixed whitespace', () => {
-      expect(normalizePinyin('nǐ\t\thǎo')).toBe('ni3 ha3o')
+      expect(normalizePinyin('nǐ\t\thǎo')).toBe('ni3 hao3')
     })
   })
 
