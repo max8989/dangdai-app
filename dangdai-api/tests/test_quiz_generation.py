@@ -156,7 +156,11 @@ class TestValidateStructure:
             "retry_count": 0,
         }
         result = validate_structure(state)
-        assert any("duplicate" in e for e in result["validation_errors"])
+        # Duplicate question is dropped, valid one kept
+        assert len(result["questions"]) == 1
+        assert result["questions"][0]["question_id"] == "q1"
+        # No validation_errors since we still have valid questions
+        assert result["validation_errors"] == []
 
     def test_validates_duplicate_options(self):
         state = {
@@ -173,6 +177,8 @@ class TestValidateStructure:
             "retry_count": 0,
         }
         result = validate_structure(state)
+        # Only question was invalid and dropped — triggers retry
+        assert len(result["questions"]) == 0
         assert any("duplicate options" in e for e in result["validation_errors"])
 
     def test_validates_correct_answer_not_in_options(self):

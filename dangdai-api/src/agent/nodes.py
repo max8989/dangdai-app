@@ -261,6 +261,9 @@ def validate_structure(state: QuizGenerationState) -> dict[str, Any]:
     - No duplicate questions
     - Required fields present
 
+    Questions that fail validation are dropped rather than failing the entire
+    quiz. Only triggers a retry if zero valid questions remain.
+
     Content quality checks (Traditional Chinese, pinyin, etc.) are handled
     by the evaluate_content node downstream.
 
@@ -268,11 +271,12 @@ def validate_structure(state: QuizGenerationState) -> dict[str, Any]:
         state: Current graph state with questions.
 
     Returns:
-        State update with validation_errors and retry_count.
+        State update with valid questions, validation_errors, and retry_count.
     """
     questions = state.get("questions", [])
     retry_count = state.get("retry_count", 0)
     errors: list[str] = []
+    valid_questions: list[dict[str, Any]] = []
 
     logger.info(
         "[Node:validate_structure] START questions=%d retry=%d",
@@ -292,36 +296,48 @@ def validate_structure(state: QuizGenerationState) -> dict[str, Any]:
 
     for i, q in enumerate(questions):
         qid = q.get("question_id", f"q{i + 1}")
+        question_errors: list[str] = []
 
         # Check required base fields
         for field in ["question_text", "correct_answer", "exercise_type"]:
             if not q.get(field):
-                errors.append(f"{qid}: missing required field '{field}'")
+                question_errors.append(f"{qid}: missing required field '{field}'")
 
         # Check for duplicate question text
         qtext = q.get("question_text", "")
         if qtext in seen_texts:
-            errors.append(f"{qid}: duplicate question text")
+            question_errors.append(f"{qid}: duplicate question text")
         seen_texts.add(qtext)
 
         # Check options are distinct (for types that have options)
         options = q.get("options", [])
         if options and len(options) != len(set(options)):
-            errors.append(f"{qid}: duplicate options found")
+            question_errors.append(f"{qid}: duplicate options found")
 
         # Check correct answer is in options (for MC types)
         correct = q.get("correct_answer", "")
         if options and correct and correct not in options:
-            errors.append(f"{qid}: correct_answer not in options")
+            question_errors.append(f"{qid}: correct_answer not in options")
 
         # Check explanation exists
         if not q.get("explanation"):
-            errors.append(f"{qid}: missing explanation")
+            question_errors.append(f"{qid}: missing explanation")
 
-    if errors:
+        if question_errors:
+            errors.extend(question_errors)
+            logger.warning(
+                "[Node:validate_structure] Dropping %s: %s", qid, question_errors
+            )
+        else:
+            valid_questions.append(q)
+
+    dropped = len(questions) - len(valid_questions)
+    if dropped > 0:
         logger.warning(
-            "[Node:validate_structure] DONE with %d errors: %s",
-            len(errors),
+            "[Node:validate_structure] DONE — dropped %d/%d questions, %d valid: %s",
+            dropped,
+            len(questions),
+            len(valid_questions),
             errors,
         )
     else:
@@ -330,9 +346,13 @@ def validate_structure(state: QuizGenerationState) -> dict[str, Any]:
             len(questions),
         )
 
+    # Only trigger retry if no valid questions remain
+    needs_retry = len(valid_questions) == 0
+
     return {
-        "validation_errors": errors,
-        "retry_count": retry_count + (1 if errors else 0),
+        "questions": valid_questions,
+        "validation_errors": errors if needs_retry else [],
+        "retry_count": retry_count + (1 if needs_retry else 0),
     }
 
 
@@ -428,28 +448,61 @@ async def evaluate_content(state: QuizGenerationState) -> dict[str, Any]:
                 "quiz_payload": {"questions": questions},
             }
 
-        # Evaluation failed — format feedback for generator self-correction
+        # Evaluation found issues — drop failing questions, keep valid ones
         issues = evaluation.get("issues", [])
         feedback_lines: list[str] = []
+        failed_qids: set[str] = set()
         for issue in issues:
             qid = issue.get("question_id", "unknown")
             rule = issue.get("rule", "unknown")
             detail = issue.get("detail", "no detail")
             feedback_lines.append(f"- [{qid}] {rule}: {detail}")
+            failed_qids.add(qid)
 
         feedback = "\n".join(feedback_lines)
 
+        # Filter out questions with issues, keep the rest
+        valid_questions = [
+            q for q in questions if q.get("question_id", "") not in failed_qids
+        ]
+        dropped = len(questions) - len(valid_questions)
+
         elapsed = (time.perf_counter() - start) * 1000
+
+        # Minimum viable quiz: at least 3 questions
+        min_questions = 3
+        if len(valid_questions) >= min_questions:
+            logger.warning(
+                "[Node:evaluate_content] PARTIAL PASS in %.0fms — "
+                "dropped %d/%d questions with %d issues, %d valid:\n%s",
+                elapsed,
+                dropped,
+                len(questions),
+                len(issues),
+                len(valid_questions),
+                feedback,
+            )
+            return {
+                "validation_errors": [],
+                "evaluator_feedback": "",
+                "quiz_payload": {"questions": valid_questions},
+            }
+
+        # Too few valid questions — retry with full regeneration
         logger.warning(
-            "[Node:evaluate_content] FAILED in %.0fms with %d issues:\n%s",
+            "[Node:evaluate_content] FAILED in %.0fms — only %d valid "
+            "questions after dropping %d (min=%d), retrying:\n%s",
             elapsed,
-            len(issues),
+            len(valid_questions),
+            dropped,
+            min_questions,
             feedback,
         )
 
         return {
             "validation_errors": [
-                f"Content evaluation failed: {len(issues)} issues found"
+                f"Content evaluation failed: {len(issues)} issues, "
+                f"only {len(valid_questions)} valid (min={min_questions})"
             ],
             "evaluator_feedback": feedback,
             "retry_count": retry_count + 1,
