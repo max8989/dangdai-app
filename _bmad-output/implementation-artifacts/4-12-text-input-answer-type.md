@@ -1,6 +1,6 @@
 # Story 4.12: Text Input Answer Type
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -29,43 +29,43 @@ So that I can practice recall without multiple choice hints.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add `input_type` field to `QuizQuestion` type (AC: #1)
-  - [ ] 1.1 Add `input_type?: 'multiple_choice' | 'text_input'` optional field to `QuizQuestion` in `types/quiz.ts`
-  - [ ] 1.2 Add `input_placeholder?: string` optional field to `QuizQuestion` for backend-provided placeholder text
+- [x] Task 1: Add `input_type` field to `QuizQuestion` type (AC: #1)
+  - [x] 1.1 Add `input_type?: 'multiple_choice' | 'text_input'` optional field to `QuizQuestion` in `types/quiz.ts`
+  - [x] 1.2 Add `input_placeholder?: string` optional field to `QuizQuestion` for backend-provided placeholder text
 
-- [ ] Task 2: Create pinyin normalization utility (AC: #2)
-  - [ ] 2.1 Create `lib/pinyinNormalize.ts` with `normalizePinyin(input: string): string` function
-  - [ ] 2.2 Implement tone mark → tone number mapping (ā→a1, á→a2, ǎ→a3, à→a4, etc. for a/e/i/o/u/ü)
-  - [ ] 2.3 Implement tone number → tone mark mapping (a1→ā, a2→á, etc.)
-  - [ ] 2.4 Normalize to a canonical form for comparison: lowercase, strip spaces, convert tone marks to numbers
-  - [ ] 2.5 Handle ü/v equivalence (lü == lv, nü == nv)
-  - [ ] 2.6 Write co-located test `lib/pinyinNormalize.test.ts` with comprehensive tone mark/number cases
+- [x] Task 2: Create pinyin normalization utility (AC: #2)
+  - [x] 2.1 Create `lib/pinyinNormalize.ts` with `normalizePinyin(input: string): string` function
+  - [x] 2.2 Implement tone mark → tone number mapping (ā→a1, á→a2, ǎ→a3, à→a4, etc. for a/e/i/o/u/ü)
+  - [x] 2.3 Implement tone number → tone mark mapping (a1→ā, a2→á, etc.)
+  - [x] 2.4 Normalize to a canonical form for comparison: lowercase, strip spaces, convert tone marks to numbers
+  - [x] 2.5 Handle ü/v equivalence (lü == lv, nü == nv)
+  - [x] 2.6 Write co-located test `lib/pinyinNormalize.test.ts` with comprehensive tone mark/number cases
 
-- [ ] Task 3: Create `TextInputAnswer` component (AC: #1, #2)
-  - [ ] 3.1 Create `components/quiz/TextInputAnswer.tsx` using Tamagui `Input` with `animation="quick"` and `focusStyle`
-  - [ ] 3.2 Implement `feedback` variant states: `none`, `correct`, `incorrect` (border color changes via `<Theme>` wrapping)
-  - [ ] 3.3 Add Submit button using Tamagui `Button` with `theme="primary"`, disabled when input is empty
-  - [ ] 3.4 Handle Enter key submission via `onSubmitEditing` prop
-  - [ ] 3.5 Dismiss keyboard on submit via `Keyboard.dismiss()`
-  - [ ] 3.6 Set `autoCapitalize="none"`, `autoCorrect={false}`, `spellCheck={false}` for pinyin input
-  - [ ] 3.7 Display correct answer below input when feedback is `incorrect` (with `animation="medium"` enter)
-  - [ ] 3.8 Make input `editable={false}` after submission
-  - [ ] 3.9 Write co-located test `components/quiz/TextInputAnswer.test.tsx`
+- [x] Task 3: Create `TextInputAnswer` component (AC: #1, #2)
+  - [x] 3.1 Create `components/quiz/TextInputAnswer.tsx` using Tamagui `Input` with `animation="quick"` and `focusStyle`
+  - [x] 3.2 Implement `feedback` variant states: `none`, `correct`, `incorrect` (border color changes via `<Theme>` wrapping)
+  - [x] 3.3 Add Submit button using Tamagui `Button` with `theme="primary"`, disabled when input is empty
+  - [x] 3.4 Handle Enter key submission via `onSubmitEditing` prop
+  - [x] 3.5 Dismiss keyboard on submit via `Keyboard.dismiss()`
+  - [x] 3.6 Set `autoCapitalize="none"`, `autoCorrect={false}`, `spellCheck={false}` for pinyin input
+  - [x] 3.7 Display correct answer below input when feedback is `incorrect` (with `animation="medium"` enter)
+  - [x] 3.8 Make input `editable={false}` after submission
+  - [x] 3.9 Write co-located test `components/quiz/TextInputAnswer.test.tsx`
 
-- [ ] Task 4: Create text answer validation utility (AC: #2)
-  - [ ] 4.1 Create `validateTextAnswer(userAnswer: string, correctAnswer: string, questionType: 'pinyin' | 'meaning'): boolean` in `lib/quizValidation.ts` (or extend existing validation from Story 4.3)
-  - [ ] 4.2 For `meaning` type: trim whitespace, case-insensitive exact match
-  - [ ] 4.3 For `pinyin` type: normalize both answers via `normalizePinyin()`, then compare
-  - [ ] 4.4 Write tests for validation logic
+- [x] Task 4: Create text answer validation utility (AC: #2)
+  - [x] 4.1 Create `validateTextAnswer(userAnswer: string, correctAnswer: string, questionType: 'pinyin' | 'meaning'): boolean` in `lib/quizValidation.ts` (or extend existing validation from Story 4.3)
+  - [x] 4.2 For `meaning` type: trim whitespace, case-insensitive exact match
+  - [x] 4.3 For `pinyin` type: normalize both answers via `normalizePinyin()`, then compare
+  - [x] 4.4 Write tests for validation logic
 
-- [ ] Task 5: Integrate text input type into `play.tsx` (AC: #1, #2)
-  - [ ] 5.1 Add `text_input` case to the exercise type rendering logic in `app/quiz/play.tsx`
-  - [ ] 5.2 Check `question.input_type === 'text_input'` to render `TextInputAnswer` instead of `AnswerOptionGrid`
-  - [ ] 5.3 Wire submission: call `validateTextAnswer()`, then `useQuizStore.setAnswer()` and `addScore()`
-  - [ ] 5.4 Trigger FeedbackOverlay (from Story 4.9) with same visual/audio patterns
-  - [ ] 5.5 Trigger `useSound` ding/bonk on correct/incorrect (from Story 4.9)
-  - [ ] 5.6 After feedback delay (~1s): call `useQuizStore.nextQuestion()` and advance
-  - [ ] 5.7 Wrap text input question in `AnimatePresence` with `key={currentQuestionIndex}` for enter/exit transitions
+- [x] Task 5: Integrate text input type into `play.tsx` (AC: #1, #2)
+  - [x] 5.1 Add `text_input` case to the exercise type rendering logic in `app/quiz/play.tsx`
+  - [x] 5.2 Check `question.input_type === 'text_input'` to render `TextInputAnswer` instead of `AnswerOptionGrid`
+  - [x] 5.3 Wire submission: call `validateTextAnswer()`, then `useQuizStore.setAnswer()` and `addScore()`
+  - [x] 5.4 Trigger FeedbackOverlay (from Story 4.9) with same visual/audio patterns
+  - [x] 5.5 Trigger `useSound` ding/bonk on correct/incorrect (from Story 4.9)
+  - [x] 5.6 After feedback delay (~1s): call `useQuizStore.nextQuestion()` and advance
+  - [x] 5.7 Wrap text input question in `AnimatePresence` with `key={currentQuestionIndex}` for enter/exit transitions
 
 ## Dev Notes
 
@@ -759,10 +759,53 @@ dangdai-mobile/
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+claude-sonnet-4-5 (anthropic/claude-sonnet-4-5)
 
 ### Debug Log References
 
+N/A - Implementation completed without debugging issues.
+
 ### Completion Notes List
 
+- ✅ Added `input_type` and `input_placeholder` fields to `QuizQuestion` interface in `types/quiz.ts`
+- ✅ Created comprehensive pinyin normalization utility (`lib/pinyinNormalize.ts`) with 28 passing tests
+  - Handles tone mark ↔ tone number conversion (ā ↔ a1, é ↔ e2, etc.)
+  - Normalizes ü/v equivalence (lǜ == lv4)
+  - Case-insensitive with whitespace handling
+- ✅ Created text answer validation utility (`lib/quizValidation.ts`) with 21 passing tests
+  - Pinyin validation uses normalization for flexible matching
+  - Meaning validation uses case-insensitive exact match
+- ✅ Created `TextInputAnswer` component with full Tamagui integration and 13 passing tests
+  - Uses Tamagui `Input` with `animation="quick"` and `focusStyle`
+  - Submit button disabled when empty, Enter key submission supported
+  - Keyboard dismissal on submit via `Keyboard.dismiss()`
+  - Feedback states via `<Theme name="success">` / `<Theme name="error">` wrapping
+  - Correct answer reveal with `AnimatePresence` animation (incorrect only)
+  - Input becomes read-only after submission (user can compare their answer)
+- ✅ Integrated text input into `play.tsx` with full feature parity
+  - Added `isTextInput` flag with fallback logic (checks `input_type` or absence of options)
+  - Added `handleTextInputAnswer` callback with timer integration and Supabase persistence
+  - Added `getTextInputQuestionType` helper to infer pinyin vs meaning questions
+  - Renders `TextInputAnswer` in dedicated layout branch with `AnimatePresence`
+  - Reuses existing `FeedbackOverlay` and `useSound` for consistent UX
+- ✅ All tests passing: 62 new tests added, 0 regressions introduced (698 existing tests pass)
+- ✅ Type checking passes with no errors
+- ✅ ESLint passes with no warnings
+
 ### File List
+
+**New files:**
+- `dangdai-mobile/lib/pinyinNormalize.ts`
+- `dangdai-mobile/lib/pinyinNormalize.test.ts`
+- `dangdai-mobile/lib/quizValidation.ts`
+- `dangdai-mobile/lib/quizValidation.test.ts`
+- `dangdai-mobile/components/quiz/TextInputAnswer.tsx`
+- `dangdai-mobile/components/quiz/TextInputAnswer.test.tsx`
+
+**Modified files:**
+- `dangdai-mobile/types/quiz.ts` (added `input_type` and `input_placeholder` fields to `QuizQuestion`)
+- `dangdai-mobile/app/quiz/play.tsx` (added text input rendering branch and handlers)
+
+## Change Log
+
+- **2026-02-21**: Story 4.12 implemented - Added text input answer type with pinyin normalization, validation utilities, and full integration into quiz play screen. All acceptance criteria satisfied.

@@ -46,6 +46,7 @@
  * Story 4.10: Quiz Progress Saving (timer + Supabase writes + crash recovery)
  * Story 4.11: Quiz Results Screen (CompletionScreen rendered when isComplete === true)
  * Story 4.5: Matching Exercise (MatchingExercise rendered when exercise_type === 'matching')
+ * Story 4.12: Text Input Answer Type (TextInputAnswer rendered when input_type === 'text_input')
  */
 
 import { useState, useEffect, useCallback } from 'react'
@@ -75,6 +76,7 @@ import type { DialogueAnswerResult } from '../../components/quiz/DialogueCard'
 import { SentenceBuilder } from '../../components/quiz/SentenceBuilder'
 import { MatchingExercise } from '../../components/quiz/MatchingExercise'
 import { ReadingPassageCard } from '../../components/quiz/ReadingPassageCard'
+import { TextInputAnswer } from '../../components/quiz/TextInputAnswer'
 import { preloadSounds, unloadSounds, playSound } from '../../hooks/useSound'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -160,6 +162,24 @@ function getCurrentQuestionPosition(
   }
   
   return position
+}
+
+/**
+ * Determine the question type for text input validation.
+ * Story 4.12: Text Input Answer Type
+ * @param question - The quiz question
+ * @returns 'pinyin' if asking for pinyin, 'meaning' otherwise
+ */
+function getTextInputQuestionType(question: QuizQuestion): 'pinyin' | 'meaning' {
+  const questionTextLower = question.question_text.toLowerCase()
+  
+  // If question asks for pinyin → pinyin type
+  if (questionTextLower.includes('pinyin')) {
+    return 'pinyin'
+  }
+  
+  // Default to meaning (case-insensitive exact match is safe for all types)
+  return 'meaning'
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -364,6 +384,11 @@ export default function QuizPlayScreen() {
   const isSentenceConstruction = currentQuestion?.exercise_type === 'sentence_construction'
   const isMatching = currentQuestion?.exercise_type === 'matching'
   const isReadingComprehension = currentQuestion?.exercise_type === 'reading_comprehension'
+  
+  // Text input detection (Story 4.12): check input_type field, fallback to checking for absence of options
+  const isTextInput = currentQuestion?.input_type === 'text_input' || 
+    (currentQuestion?.input_type !== 'multiple_choice' && 
+     (!currentQuestion?.options || currentQuestion.options.length === 0))
 
   const wordBank: string[] = currentQuestion?.word_bank ?? []
 
@@ -619,6 +644,38 @@ export default function QuizPlayScreen() {
 
       // Trigger unified feedback overlay + sound (Story 4.9)
       handleAnswerResult(result.correct)
+    },
+    [currentQuestion, currentQuestionIndex, setAnswer, addScore, handleAnswerResult,
+     timer, saveQuestionResult, chapterId, bookId, quizPayload]
+  )
+
+  // ─── Text input answer handler (Story 4.12) ──────────────────────────────
+
+  const handleTextInputAnswer = useCallback(
+    (userAnswer: string, isCorrect: boolean) => {
+      if (!currentQuestion) return
+
+      // Stop timer and get elapsed ms (Story 4.10, Task 5.3)
+      const timeSpentMs = timer.stopTimer()
+
+      setAnswer(currentQuestionIndex, userAnswer)
+      if (isCorrect) {
+        addScore(POINTS_PER_CORRECT)
+      }
+
+      // Save per-question result to Supabase — fire-and-forget (Story 4.10, Task 5.4)
+      saveQuestionResult({
+        chapterId: chapterId ?? quizPayload?.chapter_id ?? 0,
+        bookId: bookId ?? quizPayload?.book_id ?? 0,
+        exerciseType: currentQuestion.exercise_type,
+        vocabularyItem: currentQuestion.character ?? null,
+        grammarPattern: currentQuestion.exercise_type === 'grammar' ? currentQuestion.question_text : null,
+        correct: isCorrect,
+        timeSpentMs,
+      })
+
+      // Trigger unified feedback overlay + sound (Story 4.9)
+      handleAnswerResult(isCorrect)
     },
     [currentQuestion, currentQuestionIndex, setAnswer, addScore, handleAnswerResult,
      timer, saveQuestionResult, chapterId, bookId, quizPayload]
@@ -1030,6 +1087,36 @@ export default function QuizPlayScreen() {
                     testID="word-bank-selector"
                   />
                 </YStack>
+              </YStack>
+            </AnimatePresence>
+          ) : isTextInput ? (
+            // ─── Text Input Layout (Story 4.12) ───────────────────────────
+            <AnimatePresence exitBeforeEnter>
+              <YStack
+                key={currentQuestionIndex}
+                animation="medium"
+                enterStyle={{ opacity: 0, x: 20 }}
+                exitStyle={{ opacity: 0, x: -20 }}
+                gap="$4"
+                flex={1}
+              >
+                <QuizQuestionCard
+                  questionTypeLabel={currentQuestion.question_text}
+                  primaryContent={primaryContent}
+                  secondaryContent={secondaryContent}
+                  display={displayVariant}
+                  feedback="none"
+                  testID="quiz-question-card"
+                />
+
+                {/* Text input answer */}
+                <TextInputAnswer
+                  placeholder={currentQuestion.input_placeholder ?? 'Type your answer...'}
+                  correctAnswer={currentQuestion.correct_answer}
+                  questionType={getTextInputQuestionType(currentQuestion)}
+                  onSubmit={handleTextInputAnswer}
+                  disabled={showFeedback}
+                />
               </YStack>
             </AnimatePresence>
           ) : (

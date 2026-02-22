@@ -90,6 +90,9 @@ export interface QuizQuestion {
   passage?: string
   passage_pinyin?: string
   comprehension_questions?: ComprehensionSubQuestion[]
+  // Text input fields (Story 4.12)
+  input_type?: 'multiple_choice' | 'text_input'
+  input_placeholder?: string
 }
 
 /**
