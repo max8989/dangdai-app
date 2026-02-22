@@ -127,11 +127,11 @@ class TestFillInBlankQuestion:
             correct_answer="學",
             explanation="學 fits here.",
             source_citation="Book 1, Chapter 1",
-            sentence_with_blank="我___中文",
+            sentence_with_blanks="我___中文",
             word_bank=["學", "吃", "看", "寫"],
             blank_positions=[1],
         )
-        assert q.sentence_with_blank == "我___中文"
+        assert q.sentence_with_blanks == "我___中文"
 
 
 class TestMatchingQuestion:

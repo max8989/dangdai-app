@@ -106,7 +106,9 @@ class FillInBlankQuestion(QuizQuestionBase):
     """Fill-in-the-blank exercise question."""
 
     exercise_type: Literal[ExerciseType.FILL_IN_BLANK] = ExerciseType.FILL_IN_BLANK
-    sentence_with_blank: str = Field(..., description="Sentence with ___ blank markers")
+    sentence_with_blanks: str = Field(
+        ..., description="Sentence with ___ blank markers"
+    )
     word_bank: list[str] = Field(..., description="Available words to fill blanks")
     blank_positions: list[int] = Field(
         ..., description="Positions of blanks in sentence"

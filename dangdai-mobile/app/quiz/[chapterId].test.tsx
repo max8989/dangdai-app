@@ -1,15 +1,17 @@
 /**
  * Chapter Detail / Quiz Screen Tests
  *
- * Integration tests for the Chapter Detail screen (quiz start screen).
- * Validates chapter info display, quiz type selection, progress display,
- * and mastery status handling.
+ * Integration tests for the Chapter Detail screen (exercise type selection).
+ * Validates chapter info display, exercise type selection for all 7 types + Mixed,
+ * progress display, and mastery status handling.
  *
  * Story 3.4: Open Chapter Navigation (No Gates)
+ * Story 3.5: Exercise Type Selection Screen
+ * FR15: User can select exercise type per chapter (7 types + "Mixed")
  *
  * AC #1: User can start quiz for any chapter regardless of completion status
  * AC #2: New user can navigate to any chapter immediately
- * AC #3: Chapter screen shows vocabulary and grammar quiz options
+ * AC #3: Chapter screen shows all 7 exercise types + Mixed
  * AC #4: User can retake quizzes, previous progress preserved
  * AC #5: Mastered chapters can still be practiced, status remains visible
  */
@@ -31,7 +33,7 @@ jest.mock('expo-router', () => ({
 
 // Mock Tamagui components
 jest.mock('tamagui', () => {
-  const { View, Text, TouchableOpacity, ActivityIndicator } = require('react-native')
+  const { View, Text, TouchableOpacity, ActivityIndicator, ScrollView } = require('react-native')
 
   return {
     YStack: ({ children, testID }: any) => <View testID={testID}>{children}</View>,
@@ -48,6 +50,7 @@ jest.mock('tamagui', () => {
         {children}
       </TouchableOpacity>
     ),
+    ScrollView: ({ children, ...props }: any) => <ScrollView {...props}>{children}</ScrollView>,
     Spinner: ({ testID }: any) => <ActivityIndicator testID={testID} />,
   }
 })
@@ -60,6 +63,12 @@ jest.mock('@tamagui/lucide-icons', () => {
     BookOpen: () => null,
     MessageSquare: () => null,
     Trophy: ({ testID }: any) => <View testID={testID} />,
+    PenLine: () => null,
+    Link2: () => null,
+    MessagesSquare: () => null,
+    ArrowRightLeft: () => null,
+    FileText: () => null,
+    Shuffle: () => null,
   }
 })
 
@@ -160,7 +169,12 @@ describe('ChapterDetailScreen', () => {
     })
   })
 
-  describe('quiz type selection (AC #3 - subtasks 1.3, 1.4)', () => {
+  describe('exercise type selection - all 8 cards (AC #3, Story 3.5, FR15)', () => {
+    it('renders Mixed quiz button', () => {
+      const { getByTestId } = render(<ChapterDetailScreen />)
+      expect(getByTestId('mixed-quiz-button')).toBeTruthy()
+    })
+
     it('renders vocabulary quiz button', () => {
       const { getByTestId } = render(<ChapterDetailScreen />)
       expect(getByTestId('vocabulary-quiz-button')).toBeTruthy()
@@ -171,6 +185,50 @@ describe('ChapterDetailScreen', () => {
       expect(getByTestId('grammar-quiz-button')).toBeTruthy()
     })
 
+    it('renders fill-in-the-blank quiz button', () => {
+      const { getByTestId } = render(<ChapterDetailScreen />)
+      expect(getByTestId('fill-in-blank-quiz-button')).toBeTruthy()
+    })
+
+    it('renders matching quiz button', () => {
+      const { getByTestId } = render(<ChapterDetailScreen />)
+      expect(getByTestId('matching-quiz-button')).toBeTruthy()
+    })
+
+    it('renders dialogue completion quiz button', () => {
+      const { getByTestId } = render(<ChapterDetailScreen />)
+      expect(getByTestId('dialogue-completion-quiz-button')).toBeTruthy()
+    })
+
+    it('renders sentence construction quiz button', () => {
+      const { getByTestId } = render(<ChapterDetailScreen />)
+      expect(getByTestId('sentence-construction-quiz-button')).toBeTruthy()
+    })
+
+    it('renders reading comprehension quiz button', () => {
+      const { getByTestId } = render(<ChapterDetailScreen />)
+      expect(getByTestId('reading-comprehension-quiz-button')).toBeTruthy()
+    })
+
+    it('renders all 8 exercise type buttons', () => {
+      const { getByTestId } = render(<ChapterDetailScreen />)
+      const expectedTestIds = [
+        'mixed-quiz-button',
+        'vocabulary-quiz-button',
+        'grammar-quiz-button',
+        'fill-in-blank-quiz-button',
+        'matching-quiz-button',
+        'dialogue-completion-quiz-button',
+        'sentence-construction-quiz-button',
+        'reading-comprehension-quiz-button',
+      ]
+      expectedTestIds.forEach((testId) => {
+        expect(getByTestId(testId)).toBeTruthy()
+      })
+    })
+  })
+
+  describe('exercise type navigation (Story 3.5)', () => {
     it('navigates to quiz loading with vocabulary type when vocabulary button pressed', () => {
       const { getByTestId } = render(<ChapterDetailScreen />)
 
@@ -199,6 +257,102 @@ describe('ChapterDetailScreen', () => {
           bookId: '2',
           quizType: 'grammar',
           exerciseType: 'grammar',
+        },
+      })
+    })
+
+    it('navigates to quiz loading with mixed type when mixed button pressed', () => {
+      const { getByTestId } = render(<ChapterDetailScreen />)
+
+      fireEvent.press(getByTestId('mixed-quiz-button'))
+
+      expect(mockPush).toHaveBeenCalledWith({
+        pathname: '/quiz/loading',
+        params: {
+          chapterId: '210',
+          bookId: '2',
+          quizType: 'mixed',
+          exerciseType: 'mixed',
+        },
+      })
+    })
+
+    it('navigates to quiz loading with fill_in_blank type', () => {
+      const { getByTestId } = render(<ChapterDetailScreen />)
+
+      fireEvent.press(getByTestId('fill-in-blank-quiz-button'))
+
+      expect(mockPush).toHaveBeenCalledWith({
+        pathname: '/quiz/loading',
+        params: {
+          chapterId: '210',
+          bookId: '2',
+          quizType: 'fill_in_blank',
+          exerciseType: 'fill_in_blank',
+        },
+      })
+    })
+
+    it('navigates to quiz loading with matching type', () => {
+      const { getByTestId } = render(<ChapterDetailScreen />)
+
+      fireEvent.press(getByTestId('matching-quiz-button'))
+
+      expect(mockPush).toHaveBeenCalledWith({
+        pathname: '/quiz/loading',
+        params: {
+          chapterId: '210',
+          bookId: '2',
+          quizType: 'matching',
+          exerciseType: 'matching',
+        },
+      })
+    })
+
+    it('navigates to quiz loading with dialogue_completion type', () => {
+      const { getByTestId } = render(<ChapterDetailScreen />)
+
+      fireEvent.press(getByTestId('dialogue-completion-quiz-button'))
+
+      expect(mockPush).toHaveBeenCalledWith({
+        pathname: '/quiz/loading',
+        params: {
+          chapterId: '210',
+          bookId: '2',
+          quizType: 'dialogue_completion',
+          exerciseType: 'dialogue_completion',
+        },
+      })
+    })
+
+    it('navigates to quiz loading with sentence_construction type', () => {
+      const { getByTestId } = render(<ChapterDetailScreen />)
+
+      fireEvent.press(getByTestId('sentence-construction-quiz-button'))
+
+      expect(mockPush).toHaveBeenCalledWith({
+        pathname: '/quiz/loading',
+        params: {
+          chapterId: '210',
+          bookId: '2',
+          quizType: 'sentence_construction',
+          exerciseType: 'sentence_construction',
+        },
+      })
+    })
+
+    it('navigates to quiz loading with reading_comprehension type', () => {
+      const { getByTestId } = render(<ChapterDetailScreen />)
+
+      fireEvent.press(getByTestId('reading-comprehension-quiz-button'))
+
+      expect(mockPush).toHaveBeenCalledWith({
+        pathname: '/quiz/loading',
+        params: {
+          chapterId: '210',
+          bookId: '2',
+          quizType: 'reading_comprehension',
+          exerciseType: 'reading_comprehension',
         },
       })
     })
@@ -353,7 +507,7 @@ describe('ChapterDetailScreen', () => {
       })
     })
 
-    it('quiz buttons remain enabled regardless of progress', () => {
+    it('all exercise type buttons remain enabled regardless of progress', () => {
       mockUseChapterProgress.mockReturnValue({
         data: { 210: { completionPercentage: 100 } },
         isLoading: false,
@@ -362,9 +516,20 @@ describe('ChapterDetailScreen', () => {
 
       const { getByTestId } = render(<ChapterDetailScreen />)
 
-      // Both buttons should be pressable
-      expect(getByTestId('vocabulary-quiz-button')).toBeTruthy()
-      expect(getByTestId('grammar-quiz-button')).toBeTruthy()
+      // All 8 buttons should be pressable
+      const expectedTestIds = [
+        'mixed-quiz-button',
+        'vocabulary-quiz-button',
+        'grammar-quiz-button',
+        'fill-in-blank-quiz-button',
+        'matching-quiz-button',
+        'dialogue-completion-quiz-button',
+        'sentence-construction-quiz-button',
+        'reading-comprehension-quiz-button',
+      ]
+      expectedTestIds.forEach((testId) => {
+        expect(getByTestId(testId)).toBeTruthy()
+      })
     })
   })
 

@@ -23,7 +23,7 @@ export function Provider({
       <QueryClientProvider client={queryClient}>
         <ToastProvider
           swipeDirection="horizontal"
-          duration={6000}
+          duration={12000}
           native={[
             // uncomment the next line to do native toasts on mobile. NOTE: it'll require you making a dev build and won't work with Expo Go
             // 'mobile'

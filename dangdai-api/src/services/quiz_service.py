@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 # Maximum time for quiz generation.
 # Budget: ~17s generation + ~3.5s evaluation + ~17s retry = ~37.5s worst case.
 # With 2 retries: ~55s. Set to 60s to accommodate evaluator-optimizer loop.
-GENERATION_TIMEOUT_SECONDS = 60
+GENERATION_TIMEOUT_SECONDS = 120
 
 
 class QuizService:

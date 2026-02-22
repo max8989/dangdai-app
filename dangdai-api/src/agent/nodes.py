@@ -512,7 +512,7 @@ def _get_output_schema_hint(exercise_type: str) -> str:
         '"question_subtype": "char_to_meaning", "options": ["a", "b", "c", "d"]}',
         "grammar": ', "sentence": "...", "options": ["a", "b", "c", "d"], '
         '"grammar_point": "..."}',
-        "fill_in_blank": ', "sentence_with_blank": "I ___ Chinese", '
+        "fill_in_blank": ', "sentence_with_blanks": "I ___ Chinese", '
         '"word_bank": ["study", "eat", "read"], "blank_positions": [1]}',
         "matching": ', "left_items": ["A", "B"], "right_items": ["1", "2"], '
         '"correct_pairs": [[0, 0], [1, 1]]}',

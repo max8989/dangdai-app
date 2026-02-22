@@ -42,7 +42,10 @@ interface WordBankSelectorProps {
 // ─── Styled Components ────────────────────────────────────────────────────────
 
 const WordBankItem = styled(Button, {
-  animation: 'quick',
+  // Only animate transform (pressStyle scale) and opacity — NOT colors.
+  // Reanimated cannot interpolate Tamagui Variable objects ($token colors),
+  // so color changes from variant state switches must apply instantly.
+  animateOnly: ['transform', 'opacity'],
   pressStyle: { scale: 0.95 },
   focusStyle: { borderColor: '$borderColorFocus' },
   paddingHorizontal: '$3',

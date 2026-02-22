@@ -37,7 +37,6 @@ interface FillInBlankSentenceProps {
 
 /** Blank slot button for interactive fill-in-blank */
 const BlankSlot = styled(Button, {
-  animation: 'medium',
   minWidth: 60,
   minHeight: 48,
   paddingHorizontal: '$2',
