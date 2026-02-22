@@ -40,7 +40,7 @@ def _mock_llm_response(content: str) -> MagicMock:
 
 
 class TestValidationServiceCorrectAnswer:
-    @patch("src.services.validation_service.get_llm_client")
+    @patch("src.services.validation_service.get_llm")
     @pytest.mark.asyncio
     async def test_correct_answer_returns_is_correct_true(self, mock_get_llm):
         mock_llm = MagicMock()
@@ -65,7 +65,7 @@ class TestValidationServiceCorrectAnswer:
         assert "correct" in result.explanation.lower()
         assert len(result.alternatives) == 1
 
-    @patch("src.services.validation_service.get_llm_client")
+    @patch("src.services.validation_service.get_llm")
     @pytest.mark.asyncio
     async def test_incorrect_answer_returns_is_correct_false(self, mock_get_llm):
         mock_llm = MagicMock()
@@ -90,7 +90,7 @@ class TestValidationServiceCorrectAnswer:
         assert result.is_correct is False
         assert len(result.alternatives) == 2
 
-    @patch("src.services.validation_service.get_llm_client")
+    @patch("src.services.validation_service.get_llm")
     @pytest.mark.asyncio
     async def test_dialogue_completion_request_processed(self, mock_get_llm):
         mock_llm = MagicMock()
@@ -120,7 +120,7 @@ class TestValidationServiceCorrectAnswer:
         assert result.is_correct is True
         assert result.alternatives == []
 
-    @patch("src.services.validation_service.get_llm_client")
+    @patch("src.services.validation_service.get_llm")
     @pytest.mark.asyncio
     async def test_empty_alternatives_list_accepted(self, mock_get_llm):
         mock_llm = MagicMock()
@@ -149,7 +149,7 @@ class TestValidationServiceCorrectAnswer:
 
 
 class TestValidationServiceParseFailure:
-    @patch("src.services.validation_service.get_llm_client")
+    @patch("src.services.validation_service.get_llm")
     @pytest.mark.asyncio
     async def test_invalid_json_falls_back_to_exact_match_correct(self, mock_get_llm):
         mock_llm = MagicMock()
@@ -167,7 +167,7 @@ class TestValidationServiceParseFailure:
         assert result.is_correct is True
         assert result.alternatives == []
 
-    @patch("src.services.validation_service.get_llm_client")
+    @patch("src.services.validation_service.get_llm")
     @pytest.mark.asyncio
     async def test_invalid_json_falls_back_to_exact_match_incorrect(self, mock_get_llm):
         mock_llm = MagicMock()
@@ -183,7 +183,7 @@ class TestValidationServiceParseFailure:
         assert result.is_correct is False
         assert "我學中文" in result.explanation
 
-    @patch("src.services.validation_service.get_llm_client")
+    @patch("src.services.validation_service.get_llm")
     @pytest.mark.asyncio
     async def test_markdown_code_block_stripped_before_parse(self, mock_get_llm):
         mock_llm = MagicMock()
@@ -207,7 +207,7 @@ class TestValidationServiceParseFailure:
 
         assert result.is_correct is True
 
-    @patch("src.services.validation_service.get_llm_client")
+    @patch("src.services.validation_service.get_llm")
     @pytest.mark.asyncio
     async def test_missing_fields_in_json_use_defaults(self, mock_get_llm):
         """Partial JSON response — missing keys fall back to defaults."""
@@ -233,7 +233,7 @@ class TestValidationServiceParseFailure:
 
 
 class TestValidationServiceTimeout:
-    @patch("src.services.validation_service.get_llm_client")
+    @patch("src.services.validation_service.get_llm")
     @pytest.mark.asyncio
     async def test_timeout_raises_timeout_error(self, mock_get_llm):
         async def slow_invoke(*args, **kwargs):

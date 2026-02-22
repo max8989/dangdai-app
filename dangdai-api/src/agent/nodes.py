@@ -27,7 +27,7 @@ from src.agent.state import QuizGenerationState
 from src.repositories.chapter_repo import ChapterRepository
 from src.services.rag_service import RagService
 from src.services.weakness_service import WeaknessService
-from src.utils.llm import get_llm_client
+from src.utils.llm_factory import get_llm
 
 logger = logging.getLogger(__name__)
 
@@ -200,7 +200,7 @@ async def generate_quiz(state: QuizGenerationState) -> dict[str, Any]:
         )
 
     # Call LLM asynchronously
-    llm = get_llm_client()
+    llm = get_llm()
     messages = [
         SystemMessage(content=SYSTEM_PROMPT),
         HumanMessage(content=prompt_text),
@@ -212,6 +212,16 @@ async def generate_quiz(state: QuizGenerationState) -> dict[str, Any]:
         response = await llm.ainvoke(messages)
         llm_elapsed = (time.perf_counter() - llm_start) * 1000
         logger.info("[Node:generate_quiz] LLM responded in %.0fms", llm_elapsed)
+
+        # Log token usage if available
+        usage = getattr(response, "usage_metadata", None)
+        if usage:
+            logger.info(
+                "[Node:generate_quiz] Token usage: input=%s output=%s total=%s",
+                usage.get("input_tokens", "?"),
+                usage.get("output_tokens", "?"),
+                usage.get("total_tokens", "?"),
+            )
 
         content = (
             response.content
@@ -377,7 +387,7 @@ async def evaluate_content(state: QuizGenerationState) -> dict[str, Any]:
             questions_json=questions_json,
         )
 
-        llm = get_llm_client()
+        llm = get_llm()
         messages = [
             SystemMessage(content=CONTENT_EVALUATION_SYSTEM_PROMPT),
             HumanMessage(content=prompt_text),
@@ -387,6 +397,16 @@ async def evaluate_content(state: QuizGenerationState) -> dict[str, Any]:
         response = await llm.ainvoke(messages)
         llm_elapsed = (time.perf_counter() - llm_start) * 1000
         logger.info("[Node:evaluate_content] LLM responded in %.0fms", llm_elapsed)
+
+        # Log token usage if available
+        usage = getattr(response, "usage_metadata", None)
+        if usage:
+            logger.info(
+                "[Node:evaluate_content] Token usage: input=%s output=%s total=%s",
+                usage.get("input_tokens", "?"),
+                usage.get("output_tokens", "?"),
+                usage.get("total_tokens", "?"),
+            )
 
         content = (
             response.content

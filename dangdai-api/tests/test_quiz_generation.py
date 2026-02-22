@@ -308,7 +308,7 @@ class TestEvaluateContentNode:
     """Tests for the evaluate_content LLM-based content evaluator node."""
 
     @pytest.mark.asyncio
-    @patch("src.agent.nodes.get_llm_client")
+    @patch("src.agent.nodes.get_llm")
     async def test_evaluate_content_passed(self, mock_llm_client):
         """Test evaluate_content when all questions pass all 5 rules."""
         from src.agent.nodes import evaluate_content
@@ -343,7 +343,7 @@ class TestEvaluateContentNode:
         mock_llm.ainvoke.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("src.agent.nodes.get_llm_client")
+    @patch("src.agent.nodes.get_llm")
     async def test_evaluate_content_failed_traditional_chinese(self, mock_llm_client):
         """Test evaluate_content detects Simplified Chinese violation."""
         from src.agent.nodes import evaluate_content
@@ -386,7 +386,7 @@ class TestEvaluateContentNode:
         assert result["retry_count"] == 1
 
     @pytest.mark.asyncio
-    @patch("src.agent.nodes.get_llm_client")
+    @patch("src.agent.nodes.get_llm")
     async def test_evaluate_content_failed_pinyin_diacritics(self, mock_llm_client):
         """Test evaluate_content detects pinyin tone number violation."""
         from src.agent.nodes import evaluate_content
@@ -420,7 +420,7 @@ class TestEvaluateContentNode:
         assert "pinyin_diacritics" in result["evaluator_feedback"]
 
     @pytest.mark.asyncio
-    @patch("src.agent.nodes.get_llm_client")
+    @patch("src.agent.nodes.get_llm")
     async def test_evaluate_content_skipped_when_structural_errors(
         self, mock_llm_client
     ):
@@ -439,7 +439,7 @@ class TestEvaluateContentNode:
         mock_llm_client.assert_not_called()
 
     @pytest.mark.asyncio
-    @patch("src.agent.nodes.get_llm_client")
+    @patch("src.agent.nodes.get_llm")
     async def test_evaluate_content_defaults_to_pass_on_llm_error(
         self, mock_llm_client
     ):

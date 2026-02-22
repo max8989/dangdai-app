@@ -50,7 +50,7 @@ development_status:
   1-5-configure-state-management-tanstack-query-zustand: done
   1-6-deploy-python-backend-to-azure-container-apps: done
   1-7-configure-ci-cd-with-github-actions: done
-  1-8-configurable-llm-provider-azure-openai: ready-for-dev
+  1-8-configurable-llm-provider-azure-openai: review
   1-9-request-cancellation-backend-endpoints: ready-for-dev
   epic-1-retrospective: optional
 

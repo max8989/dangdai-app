@@ -1,6 +1,9 @@
 """FastAPI application entry point for Dangdai API."""
 
 import logging
+import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
@@ -14,10 +17,23 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    """Application lifespan: log LLM provider on startup."""
+    provider = os.getenv("LLM_PROVIDER", "azure_openai")
+    model = os.getenv("LLM_MODEL", "(default)")
+    logger.info("Using LLM provider: %s with model: %s", provider, model)
+    yield
+
+
 app = FastAPI(
     title="Dangdai API",
     description="Python backend for Dangdai Chinese learning app with LangGraph quiz generation",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 # Setup middleware (CORS, error handling)

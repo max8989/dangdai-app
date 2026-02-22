@@ -17,7 +17,7 @@ from src.agent.prompts import (
     ANSWER_VALIDATION_SYSTEM_PROMPT,
 )
 from src.api.schemas import ValidationRequest, ValidationResponse
-from src.utils.llm import get_llm_client
+from src.utils.llm_factory import get_llm
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ class ValidationService:
             user_answer=request.user_answer,
         )
 
-        llm = get_llm_client()
+        llm = get_llm()
         messages = [
             SystemMessage(content=ANSWER_VALIDATION_SYSTEM_PROMPT),
             HumanMessage(content=prompt_text),

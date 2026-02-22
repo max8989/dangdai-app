@@ -41,9 +41,28 @@ variable "supabase_service_key" {
 }
 
 variable "llm_api_key" {
-  description = "LLM API key (OpenAI, Anthropic, etc.)"
+  description = "LLM API key (legacy, deprecated)"
   type        = string
   sensitive   = true
+  default     = ""
+}
+
+variable "azure_openai_location" {
+  description = "Azure region for the OpenAI resource"
+  type        = string
+  default     = "eastus"
+}
+
+variable "azure_openai_deployment_name" {
+  description = "Azure OpenAI model deployment name"
+  type        = string
+  default     = "gpt-4o"
+}
+
+variable "azure_openai_tpm_limit" {
+  description = "Azure OpenAI tokens per minute rate limit (in thousands)"
+  type        = number
+  default     = 30
 }
 
 variable "langsmith_api_key" {
