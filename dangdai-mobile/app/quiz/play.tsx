@@ -940,7 +940,8 @@ export default function QuizPlayScreen() {
     const incorrectItems = incorrectAnswers.map((item) => {
       const question = quizPayload?.questions[item.questionIndex]
       return {
-        questionText: question?.question_text ?? '',
+        // Use sub-question text for reading comprehension, parent question text otherwise
+        questionText: item.subQuestionText ?? question?.question_text ?? '',
         userAnswer: item.userAnswer,
         correctAnswer: item.correctAnswer,
         character: question?.character,

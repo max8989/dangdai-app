@@ -63,6 +63,41 @@ function categorizeHttpError(status: number, exerciseTypeLabel: string): QuizGen
 }
 
 /**
+ * Transform a quiz API response to resolve reading comprehension sub-question
+ * correct indices into correct_answer strings.
+ *
+ * The backend sends `correct: number` (0-based index into options) for each
+ * comprehension sub-question. The frontend expects `correct_answer: string`
+ * (the actual answer text). This function resolves the index to the text.
+ */
+function resolveComprehensionAnswers(response: QuizResponse): QuizResponse {
+  return {
+    ...response,
+    questions: response.questions.map((q) => {
+      if (
+        q.exercise_type === 'reading_comprehension' &&
+        q.comprehension_questions
+      ) {
+        return {
+          ...q,
+          comprehension_questions: q.comprehension_questions.map((subQ) => {
+            // If correct_answer is already populated (e.g., in tests), keep it
+            if (subQ.correct_answer) return subQ
+            // Resolve correct index to answer text
+            const correctIndex = subQ.correct ?? 0
+            return {
+              ...subQ,
+              correct_answer: subQ.options[correctIndex] ?? '',
+            }
+          }),
+        }
+      }
+      return q
+    }),
+  }
+}
+
+/**
  * API client for communicating with the Python backend.
  */
 export const api = {
@@ -108,7 +143,8 @@ export const api = {
         throw categorizeHttpError(response.status, label)
       }
 
-      return (await response.json()) as QuizResponse
+      const quizResponse = (await response.json()) as QuizResponse
+      return resolveComprehensionAnswers(quizResponse)
     } catch (error) {
       clearTimeout(timeoutId)
 

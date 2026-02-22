@@ -558,6 +558,157 @@ describe('useQuizStore — Story 4.11 completion state (Task 1)', () => {
       const incorrect = useQuizStore.getState().getIncorrectAnswers()
       expect(incorrect).toEqual([])
     })
+
+    // Shared reading comprehension fixture (F5: extracted to reduce duplication)
+    const makeRcPayload = (quizId: string): QuizResponse => ({
+      quiz_id: quizId,
+      chapter_id: 202,
+      book_id: 2,
+      exercise_type: 'reading_comprehension',
+      question_count: 1,
+      questions: [
+        {
+          question_id: 'rc-q1',
+          exercise_type: 'reading_comprehension',
+          question_text: 'Read the passage',
+          correct_answer: '',
+          explanation: '',
+          source_citation: 'Book 2, Chapter 2',
+          passage: '美美直接坐巴士到台北。',
+          comprehension_questions: [
+            {
+              question: 'How does Meimei get to Taipei?',
+              options: ['She takes a bus.', 'She takes the MRT.'],
+              correct_answer: 'She takes a bus.',
+            },
+            {
+              question: 'Where does Meimei go?',
+              options: ['Taipei', 'Taichung'],
+              correct_answer: 'Taipei',
+            },
+          ],
+        },
+      ],
+    })
+
+    it('returns empty array when all reading comprehension sub-answers are correct', () => {
+      useQuizStore.getState().startQuiz('rc-quiz-1', makeRcPayload('rc-quiz-1'))
+      // Store answers as JSON array (matching play.tsx behavior)
+      useQuizStore.getState().setAnswer(0, JSON.stringify(['She takes a bus.', 'Taipei']))
+      const incorrect = useQuizStore.getState().getIncorrectAnswers()
+      expect(incorrect).toHaveLength(0)
+    })
+
+    it('returns incorrect sub-answers for reading comprehension questions', () => {
+      useQuizStore.getState().startQuiz('rc-quiz-2', makeRcPayload('rc-quiz-2'))
+      // First sub-question correct, second wrong
+      useQuizStore.getState().setAnswer(0, JSON.stringify(['She takes a bus.', 'Taichung']))
+      const incorrect = useQuizStore.getState().getIncorrectAnswers()
+      expect(incorrect).toHaveLength(1)
+      expect(incorrect[0]).toEqual({
+        questionIndex: 0,
+        userAnswer: 'Taichung',
+        correctAnswer: 'Taipei',
+        subQuestionIndex: 1,
+        subQuestionText: 'Where does Meimei go?',
+      })
+    })
+
+    it('returns multiple incorrect sub-answers for reading comprehension', () => {
+      useQuizStore.getState().startQuiz('rc-quiz-3', makeRcPayload('rc-quiz-3'))
+      // Both sub-questions wrong
+      useQuizStore.getState().setAnswer(0, JSON.stringify(['She takes the MRT.', 'Taichung']))
+      const incorrect = useQuizStore.getState().getIncorrectAnswers()
+      expect(incorrect).toHaveLength(2)
+      expect(incorrect[0]).toEqual({
+        questionIndex: 0,
+        userAnswer: 'She takes the MRT.',
+        correctAnswer: 'She takes a bus.',
+        subQuestionIndex: 0,
+        subQuestionText: 'How does Meimei get to Taipei?',
+      })
+      expect(incorrect[1]).toEqual({
+        questionIndex: 0,
+        userAnswer: 'Taichung',
+        correctAnswer: 'Taipei',
+        subQuestionIndex: 1,
+        subQuestionText: 'Where does Meimei go?',
+      })
+    })
+
+    it('handles malformed JSON answer for reading comprehension gracefully', () => {
+      useQuizStore.getState().startQuiz('rc-quiz-4', makeRcPayload('rc-quiz-4'))
+      // Store a non-JSON string as the answer (simulates corrupted state)
+      useQuizStore.getState().setAnswer(0, 'not-valid-json')
+      const incorrect = useQuizStore.getState().getIncorrectAnswers()
+      expect(incorrect).toHaveLength(1)
+      expect(incorrect[0]).toEqual({
+        questionIndex: 0,
+        userAnswer: 'not-valid-json',
+        correctAnswer: '',
+      })
+    })
+
+    it('handles non-array JSON for reading comprehension gracefully', () => {
+      useQuizStore.getState().startQuiz('rc-quiz-5', makeRcPayload('rc-quiz-5'))
+      // Store a JSON object instead of array
+      useQuizStore.getState().setAnswer(0, JSON.stringify({ answer: 'wrong type' }))
+      const incorrect = useQuizStore.getState().getIncorrectAnswers()
+      expect(incorrect).toHaveLength(1)
+      expect(incorrect[0]).toEqual({
+        questionIndex: 0,
+        userAnswer: '{"answer":"wrong type"}',
+        correctAnswer: '',
+      })
+    })
+
+    it('handles mixed quiz with standard + reading comprehension questions', () => {
+      const mixedPayload: QuizResponse = {
+        quiz_id: 'mixed-quiz-1',
+        chapter_id: 202,
+        book_id: 2,
+        exercise_type: 'vocabulary',
+        question_count: 2,
+        questions: [
+          {
+            question_id: 'vocab-q1',
+            exercise_type: 'vocabulary',
+            question_text: 'What does 吃 mean?',
+            correct_answer: 'to eat',
+            explanation: '吃 means to eat.',
+            source_citation: 'Book 2, Chapter 2',
+            options: ['to eat', 'to drink', 'to sleep', 'to walk'],
+          },
+          {
+            question_id: 'rc-q1',
+            exercise_type: 'reading_comprehension',
+            question_text: 'Read the passage',
+            correct_answer: '',
+            explanation: '',
+            source_citation: 'Book 2, Chapter 2',
+            passage: '美美直接坐巴士到台北。',
+            comprehension_questions: [
+              {
+                question: 'How does Meimei get to Taipei?',
+                options: ['She takes a bus.', 'She takes the MRT.'],
+                correct_answer: 'She takes a bus.',
+              },
+            ],
+          },
+        ],
+      }
+      useQuizStore.getState().startQuiz('mixed-quiz-1', mixedPayload)
+      // Standard question wrong, RC sub-question correct
+      useQuizStore.getState().setAnswer(0, 'to drink')
+      useQuizStore.getState().setAnswer(1, JSON.stringify(['She takes a bus.']))
+      const incorrect = useQuizStore.getState().getIncorrectAnswers()
+      expect(incorrect).toHaveLength(1)
+      expect(incorrect[0]).toEqual({
+        questionIndex: 0,
+        userAnswer: 'to drink',
+        correctAnswer: 'to eat',
+      })
+    })
   })
 
   describe('resetQuiz() resets completion state (Task 1.6)', () => {

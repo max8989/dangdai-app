@@ -118,6 +118,8 @@ export interface ComprehensionSubQuestion {
   question: string
   /** Multiple choice options for this sub-question */
   options: string[]
+  /** Index of the correct option (0-based, from backend API) */
+  correct?: number
   /** The correct answer text (resolved from backend's correct index) */
   correct_answer: string
   /** Optional per-sub-question explanation */

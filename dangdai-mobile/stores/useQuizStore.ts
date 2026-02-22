@@ -25,6 +25,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 
 import type { QuizResponse, QuizQuestion } from '../types/quiz'
 
+/** A single incorrect answer entry returned by getIncorrectAnswers(). */
+export interface IncorrectAnswerDetail {
+  questionIndex: number
+  userAnswer: string
+  correctAnswer: string
+  /** Sub-question index for reading comprehension (undefined for other types) */
+  subQuestionIndex?: number
+  /** Sub-question text for reading comprehension */
+  subQuestionText?: string
+}
+
 /**
  * Quiz session state interface
  */
@@ -90,7 +101,7 @@ interface QuizState {
   /** Returns elapsed quiz duration in minutes (0 if not started). Story 4.11 Task 1.4 */
   getQuizDuration: () => number
   /** Returns details of incorrectly answered questions. Story 4.11 Task 1.5 */
-  getIncorrectAnswers: () => { questionIndex: number; userAnswer: string; correctAnswer: string }[]
+  getIncorrectAnswers: () => IncorrectAnswerDetail[]
 
   // Actions
   /** Sets isComplete to true — called when the last question's feedback timer fires. Story 4.11 Task 1.3 */
@@ -201,10 +212,56 @@ export const useQuizStore = create<QuizState>()(
       getIncorrectAnswers: () => {
         const { quizPayload, answers } = get()
         if (!quizPayload || !quizPayload.questions) return []
-        const result: { questionIndex: number; userAnswer: string; correctAnswer: string }[] = []
+        const result: IncorrectAnswerDetail[] = []
         quizPayload.questions.forEach((question, index) => {
           const userAnswer = answers[index]
           if (userAnswer === undefined) return // Not answered — skip
+
+          // Reading comprehension: answers stored as JSON array of sub-answers
+          if (
+            question.exercise_type === 'reading_comprehension' &&
+            question.comprehension_questions
+          ) {
+            let parsedAnswers: unknown
+            try {
+              parsedAnswers = JSON.parse(userAnswer)
+            } catch {
+              // Malformed JSON — treat entire question as incorrect
+              result.push({
+                questionIndex: index,
+                userAnswer,
+                correctAnswer: question.correct_answer,
+              })
+              return
+            }
+            // Guard: ensure parsed value is actually an array
+            if (!Array.isArray(parsedAnswers)) {
+              result.push({
+                questionIndex: index,
+                userAnswer,
+                correctAnswer: question.correct_answer,
+              })
+              return
+            }
+            question.comprehension_questions.forEach((subQ, subIdx) => {
+              const subAnswer = parsedAnswers[subIdx]
+              if (subAnswer === undefined || typeof subAnswer !== 'string') return
+              // Use strict equality to match handleReadingSubQuestionAnswer scoring path
+              const isSubCorrect = subAnswer === subQ.correct_answer
+              if (!isSubCorrect) {
+                result.push({
+                  questionIndex: index,
+                  userAnswer: subAnswer,
+                  correctAnswer: subQ.correct_answer,
+                  subQuestionIndex: subIdx,
+                  subQuestionText: subQ.question,
+                })
+              }
+            })
+            return
+          }
+
+          // Standard question types: case-insensitive comparison
           const isCorrect =
             userAnswer.trim().toLowerCase() === question.correct_answer.trim().toLowerCase()
           if (!isCorrect) {
