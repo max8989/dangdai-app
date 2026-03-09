@@ -280,6 +280,8 @@ async def generate_quiz(state: QuizGenerationState) -> dict[str, Any]:
         )
         return {"questions": questions}
 
+    except asyncio.CancelledError:
+        raise  # Do NOT swallow — let cancellation propagate
     except Exception as e:
         elapsed = (time.perf_counter() - start) * 1000
         logger.error(
@@ -559,6 +561,8 @@ async def evaluate_content(state: QuizGenerationState) -> dict[str, Any]:
             "quiz_payload": {},
         }
 
+    except asyncio.CancelledError:
+        raise  # Do NOT swallow — let cancellation propagate
     except Exception as e:
         # If the evaluator itself fails, don't block the quiz
         # This is a safety mechanism to ensure quizzes are delivered even if

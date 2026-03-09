@@ -6,6 +6,7 @@ POST /api/quizzes/validate-answer - Validate an open-ended answer via LLM
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -121,6 +122,8 @@ async def generate_quiz(
             detail=f"Quiz generation failed: {error_msg}",
         )
 
+    except asyncio.CancelledError:
+        raise  # Do NOT swallow — let cancellation propagate
     except Exception:
         logger.exception(
             "Quiz generation UNEXPECTED ERROR for user=%s chapter=%d exercise_type=%s",
@@ -185,6 +188,8 @@ async def validate_answer(
             detail="Answer validation timed out",
         )
 
+    except asyncio.CancelledError:
+        raise  # Do NOT swallow — let cancellation propagate
     except Exception:
         logger.exception(
             "Unexpected error during answer validation for user=%s exercise_type=%s",

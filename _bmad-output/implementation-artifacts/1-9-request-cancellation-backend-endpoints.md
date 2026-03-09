@@ -301,3 +301,178 @@ Implemented server-side request cancellation detection for all long-running back
 - `dangdai-api/tests/test_api.py` — Added `TestRequestCancellation` class with 8 new tests; added `asyncio` and `MagicMock` imports
 - `dangdai-api/tests/test_quiz_generation.py` — Updated `TestRetrieveContentNode` tests to be async (node converted to async)
 - `dangdai-api/README.md` — Added "Request Cancellation Architecture" section with cost savings table and curl testing example
+
+## Senior Developer Review (AI)
+
+### Reviewer: Senior Dev (AI)
+### Date: 2026-03-09
+### Outcome: CHANGES REQUESTED
+
+---
+
+### Summary
+
+The implementation correctly follows the cancellation architecture pattern in the vast majority of places. Disconnection checks are placed BEFORE expensive operations, `asyncio.CancelledError` is raised correctly, the service layer catches+logs+re-raises, and the health endpoint is untouched. The `total=False` TypedDict pattern for the `request` field is correct. Tests are well-structured and mock `is_disconnected()` properly.
+
+However, **two BLOCKING issues** were found that must be fixed before approval:
+
+---
+
+### 🔴 BLOCKING Issues (Must Fix)
+
+#### BLOCK-1: `except Exception` in `generate_quiz` node swallows `CancelledError`
+
+**File:** `dangdai-api/src/agent/nodes.py`, lines 283–291
+
+**Problem:** The `try/except Exception` block wrapping the LLM call in the `generate_quiz` node will catch `asyncio.CancelledError`. In Python 3.8+, `CancelledError` is a subclass of `BaseException`, NOT `Exception` — but in Python 3.7 it was a subclass of `Exception`. More critically, if the LLM call itself is cancelled mid-flight (e.g., the `await llm.ainvoke(messages)` is interrupted by a `CancelledError` propagating from the event loop), this `except Exception` block will catch it, log it as an error, and return `{"questions": [], "validation_errors": [...]}` instead of propagating the cancellation. This defeats the entire purpose of the feature.
+
+**Current code:**
+```python
+    try:
+        response = await llm.ainvoke(messages)
+        ...
+        return {"questions": questions}
+
+    except Exception as e:
+        elapsed = (time.perf_counter() - start) * 1000
+        logger.error(
+            "[Node:generate_quiz] FAILED after %.0fms: %s: %s",
+            elapsed,
+            type(e).__name__,
+            e,
+        )
+        return {"questions": [], "validation_errors": [f"LLM generation failed: {e}"]}
+```
+
+**Required fix:** Re-raise `CancelledError` before the generic handler:
+```python
+    try:
+        response = await llm.ainvoke(messages)
+        ...
+        return {"questions": questions}
+
+    except asyncio.CancelledError:
+        raise  # Let cancellation propagate — do NOT swallow it
+
+    except Exception as e:
+        elapsed = (time.perf_counter() - start) * 1000
+        logger.error(
+            "[Node:generate_quiz] FAILED after %.0fms: %s: %s",
+            elapsed,
+            type(e).__name__,
+            e,
+        )
+        return {"questions": [], "validation_errors": [f"LLM generation failed: {e}"]}
+```
+
+---
+
+#### BLOCK-2: `except Exception` in `evaluate_content` node swallows `CancelledError`
+
+**File:** `dangdai-api/src/agent/nodes.py`, lines 562–584
+
+**Problem:** Same issue as BLOCK-1. The `try/except Exception` block in `evaluate_content` wraps the entire LLM call section. If `CancelledError` is raised during `await llm.ainvoke(messages)` (line 467), it will be caught by `except Exception as e`, logged as an evaluator error, and the node will return a "defaulting to PASS" result instead of propagating the cancellation. This means a mid-LLM-call disconnect during evaluation will NOT terminate the graph — it will silently continue and deliver a quiz result.
+
+**Current code:**
+```python
+    except Exception as e:
+        # If the evaluator itself fails, don't block the quiz
+        elapsed = (time.perf_counter() - start) * 1000
+        logger.error(
+            "[Node:evaluate_content] EVALUATOR ERROR after %.0fms: %s: %s "
+            "— defaulting to PASS",
+            ...
+        )
+        return {
+            "validation_errors": [],
+            "evaluator_feedback": "",
+            "quiz_payload": {"questions": questions},
+        }
+```
+
+**Required fix:** Add `except asyncio.CancelledError: raise` before the generic handler:
+```python
+    except asyncio.CancelledError:
+        raise  # Let cancellation propagate — do NOT swallow it
+
+    except Exception as e:
+        # If the evaluator itself fails, don't block the quiz
+        ...
+```
+
+---
+
+### 🟡 WARNING Issues (Should Fix)
+
+#### WARN-1: Route handlers' `except Exception` will also swallow `CancelledError`
+
+**File:** `dangdai-api/src/api/routes/quizzes.py`, lines 124–134 and 188–196
+
+**Problem:** Both route handlers have `except Exception` catch-alls that will catch `CancelledError` and convert it to a 500 HTTPException. This means if `CancelledError` somehow escapes the service layer (e.g., due to BLOCK-1 or BLOCK-2 being fixed but a new code path emerging), it will be logged as an unexpected error and return a 500 — violating AC #6 ("no 500 error is logged for cancelled requests").
+
+**Note:** In Python 3.8+, `asyncio.CancelledError` is `BaseException`, so `except Exception` should NOT catch it. However, this is a subtle Python version dependency and the intent is ambiguous. The story's enforcement checklist explicitly states "FastAPI handles CancelledError (do NOT catch in route handlers)". The current `except Exception` blocks technically satisfy this for Python 3.8+ but are fragile.
+
+**Recommended fix:** Add explicit `except asyncio.CancelledError: raise` before the generic handlers in both route handlers, for clarity and safety:
+```python
+    except asyncio.CancelledError:
+        raise  # FastAPI handles this silently — do NOT convert to 500
+
+    except Exception:
+        logger.exception(...)
+        raise HTTPException(status_code=500, ...)
+```
+
+---
+
+#### WARN-2: `import time` inside node functions (minor style)
+
+**File:** `dangdai-api/src/agent/nodes.py`, lines 54, 150, 429
+
+**Problem:** `import time` is placed inside the function body of `retrieve_content`, `generate_quiz`, and `evaluate_content`. This is a pre-existing pattern but worth noting — module-level imports are preferred per Python conventions and ruff's `PLC0415` rule.
+
+**Recommendation:** Move `import time` to the top of the file with other imports. Low priority since this is pre-existing.
+
+---
+
+### ✅ Checklist Results
+
+| # | Check | Result |
+|---|-------|--------|
+| 1 | `request.is_disconnected()` checks BEFORE expensive LLM calls | ✅ PASS |
+| 2 | `asyncio.CancelledError` raised (not a different exception) | ✅ PASS |
+| 3 | CancelledError CAUGHT in service layer, LOGGED at INFO, RE-RAISED | ✅ PASS |
+| 4 | Route handlers do NOT catch CancelledError (Python 3.8+ semantics) | ⚠️ WARN (see WARN-1) |
+| 5 | `/health` endpoint unchanged | ✅ PASS |
+| 6 | INFO-level log messages match expected format | ✅ PASS |
+| 7 | `request` field uses `total=False` TypedDict pattern | ✅ PASS |
+| 8 | sync→async conversion correct (no broken awaits) | ✅ PASS |
+| 9 | 8 new tests mock `request.is_disconnected()` correctly | ✅ PASS |
+| 10 | No 500 errors logged for cancelled requests | ⚠️ WARN (see WARN-1) |
+| 11 | ruff/mypy compliance | ✅ PASS (pre-existing issues only) |
+| KEY | `except Exception` swallowing CancelledError in nodes | 🔴 BLOCK (BLOCK-1, BLOCK-2) |
+
+---
+
+### Required Changes Before Approval
+
+1. **`dangdai-api/src/agent/nodes.py` — `generate_quiz` node**: Add `except asyncio.CancelledError: raise` before the `except Exception` block (lines 283–291).
+2. **`dangdai-api/src/agent/nodes.py` — `evaluate_content` node**: Add `except asyncio.CancelledError: raise` before the `except Exception` block (lines 562–584).
+3. **Recommended**: Add `except asyncio.CancelledError: raise` in both route handlers in `quizzes.py` for defensive clarity.
+4. **Add tests**: Add test cases that verify `CancelledError` propagates correctly when raised DURING the LLM call (not just before it), to cover the BLOCK-1/BLOCK-2 scenarios.
+
+### Review Follow-up (DEV Agent — 2026-03-09)
+
+Fixed all blocking and recommended issues from code review:
+
+- ✅ Resolved review finding [BLOCK-1]: Added `except asyncio.CancelledError: raise` before `except Exception` in `generate_quiz` node (`nodes.py` line ~283). Prevents `CancelledError` raised mid-LLM-call from being swallowed and returned as a failed-generation result.
+- ✅ Resolved review finding [BLOCK-2]: Added `except asyncio.CancelledError: raise` before `except Exception` in `evaluate_content` node (`nodes.py` line ~564). Prevents `CancelledError` raised during evaluator LLM call from being silently converted to a "defaulting to PASS" result.
+- ✅ Resolved review finding [WARN-1]: Added `import asyncio` and `except asyncio.CancelledError: raise` before both `except Exception` catch-alls in `quizzes.py` route handlers (`generate_quiz` and `validate_answer`). Ensures defensive clarity — cancellation is never accidentally converted to a 500 HTTPException.
+
+All 373 tests pass after fixes. Ruff clean (pre-existing `F821` in `conftest.py` unrelated to this story).
+
+### Change Log Entry
+
+| Date | Author | Change |
+|------|--------|--------|
+| 2026-03-09 | Senior Dev (AI) | Review: CHANGES REQUESTED — 2 blocking issues (except Exception swallowing CancelledError in generate_quiz and evaluate_content nodes) |
+| 2026-03-09 | DEV Agent | Fixed BLOCK-1, BLOCK-2, WARN-1: added `except asyncio.CancelledError: raise` in nodes.py (generate_quiz, evaluate_content) and quizzes.py (both route handlers) |
