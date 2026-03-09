@@ -4,6 +4,8 @@ workflowComplete: true
 completedAt: 2026-02-15
 updatedAt: 2026-03-08
 updateHistory:
+  - date: '2026-03-09'
+    changes: 'Correct Course (Epic 11 retro): Added Story 3.7 (Wire Browse Screen Navigation). Updated story creation template with mandatory seeding/hook/component patterns (A1-A9 from retro). Story 3.7 formalises deferred navigation wiring for vocabulary/grammar/dialogue browse screens (retro A7).'
   - date: '2026-03-08'
     changes: 'Structured content & premade exercises: Added FR51-FR58 (premade exercises, content browsing, grammar coverage). Added Epic 11 (Content Seeding & Structured Data Pipeline). Added new Stories 1.10 (structured content tables), 3.6 (Books 1-4 expansion), 4.14 (migrate quiz gen to structured content). Updated Story 3.5 for premade + AI exercise sections. Updated Epic 4 goal for structured content. Updated NFRs 13, 17, 27, 28 for structured content. Expanded content scope from Books 1-2 to Books 1-4 (54 lessons).'
   - date: '2026-02-20'
@@ -305,9 +307,9 @@ This document provides the complete epic and story breakdown for dangdai-app, de
 | FR52 | Epic 11 | User can complete premade exercises with local validation |
 | FR53 | Epic 11 | Premade exercise results tracked in performance system |
 | FR54 | Epic 3 | Chapter view shows premade + AI-generated exercise options |
-| FR55 | Epic 11 | User can browse vocabulary for a chapter |
-| FR56 | Epic 11 | User can browse grammar points for a chapter |
-| FR57 | Epic 11 | User can browse dialogues for a chapter |
+| FR55 | Epic 11 + Epic 3 (Story 3.7) | User can browse vocabulary for a chapter |
+| FR56 | Epic 11 + Epic 3 (Story 3.7) | User can browse grammar points for a chapter |
+| FR57 | Epic 11 + Epic 3 (Story 3.7) | User can browse dialogues for a chapter |
 | FR58 | Epic 4 (Story 4.14) | AI-generated quizzes MUST cover all grammar points (validation) |
 
 ## Epic List
@@ -886,6 +888,40 @@ So that I can access all available Dangdai textbook content.
 **And** Books 3 and 4 use distinct cover colors (orange, purple) as defined in `constants/books.ts`
 
 **Note:** The `constants/books.ts` and `constants/chapters.ts` files already contain Books 1-4 data. This story ensures the UI displays all 4 books and handles the different lesson counts (12 vs 15) correctly.
+
+---
+
+### Story 3.7: Wire Browse Screen Navigation from Exercise Type Selection
+
+As a user,
+I want to navigate to vocabulary, grammar, and dialogue browse screens from the Exercise Type Selection screen,
+So that I can study chapter content directly without starting a quiz.
+
+**Acceptance Criteria:**
+
+**Given** I am on the Exercise Type Selection screen for a chapter
+**When** the screen loads
+**Then** I see navigation entry points for "Browse Vocabulary", "Browse Grammar", and "Browse Dialogues" (visible only when that content exists for the chapter)
+
+**Given** I tap "Browse Vocabulary"
+**When** navigation completes
+**Then** I am taken to `app/chapter/[chapterId]/vocabulary.tsx` for that chapter
+
+**Given** I tap "Browse Grammar"
+**When** navigation completes
+**Then** I am taken to `app/chapter/[chapterId]/grammar.tsx` for that chapter
+
+**Given** I tap "Browse Dialogues"
+**When** navigation completes
+**Then** I am taken to `app/chapter/[chapterId]/dialogues.tsx` for that chapter
+
+**Given** a chapter has no vocabulary/grammar/dialogue data yet
+**When** the Exercise Type Selection screen loads
+**Then** the corresponding browse entry point is hidden (graceful degradation, matching 42P01 pattern from Stories 11.5–11.7)
+
+**Note:** Story 3.5 completion notes confirm stub navigation to these routes was wired. This story validates and completes that wiring end-to-end with the populated data from Epic 11 and ensures all three browse routes are reachable and tested from the main navigation flow.
+
+**Rationale:** Action item A7 from Epic 11 retrospective — browse screens exist and are complete (Stories 11.5–11.7, 402 passing tests) but are not fully reachable from the main navigation flow without this wiring being verified and end-to-end tested.
 
 ---
 

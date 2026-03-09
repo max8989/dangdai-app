@@ -288,6 +288,22 @@ dangdai-api/src/
 - **DO NOT** pass raw Supabase response objects to LLM — format as clean text/JSON context
 - **DO NOT** ignore cancellation checks — add `request.is_disconnected()` before Supabase queries
 
+### Prerequisites — MUST be completed before dev starts
+
+> **BLOCKER (Action Item A10 — Epic 11 Retro):** The `grammar_points`, `dialogues`, and
+> `premade_exercises` tables currently have **0 rows**. Story 4.14 cannot be meaningfully
+> developed or tested until these tables are populated. Complete the following before
+> picking up this story:
+>
+> - [ ] Run `seed_grammar_points.py` with a real LLM API key against chunk files
+> - [ ] Run `seed_dialogues.py` with a real LLM API key against chunk files
+> - [ ] Run `seed_premade_exercises.py` with a real LLM API key against chunk files
+> - [ ] Verify `grammar_points` coverage: all 54 lessons have at least one grammar point
+> - [ ] Verify `dialogues` coverage: all 54 lessons have at least one dialogue
+> - [ ] Confirm `vocabulary` table has 3,997 rows (already seeded in Story 11.1)
+>
+> [Source: epic-11-retro-2026-03-09.md#A10, #6.1, #7.1]
+
 ### Dependencies
 
 - **Depends on:** Story 1.10 (structured content tables must exist), Stories 11.1-11.3 (tables must be populated with data)

@@ -73,6 +73,7 @@ development_status:
   3-4-open-chapter-navigation-no-gates: done
   3-5-exercise-type-selection-screen: done
   3-6-expand-book-selection-to-books-1-4: ready-for-dev
+  3-7-wire-browse-screen-navigation: ready-for-dev
   epic-3-retrospective: optional
 
   # Epic 4: Quiz Experience & Exercise Types
