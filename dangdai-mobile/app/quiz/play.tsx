@@ -47,13 +47,14 @@
  * Story 4.11: Quiz Results Screen (CompletionScreen rendered when isComplete === true)
  * Story 4.5: Matching Exercise (MatchingExercise rendered when exercise_type === 'matching')
  * Story 4.12: Text Input Answer Type (TextInputAnswer rendered when input_type === 'text_input')
+ * Story 4.10b: Quiz Pause/Resume (ExitConfirmationModal + pause/resume logic)
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Alert } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { YStack, XStack, Text, Button, AnimatePresence } from 'tamagui'
-import { useRouter, Stack } from 'expo-router'
+import { useRouter, Stack, useNavigation } from 'expo-router'
+import { useToastController } from '@tamagui/toast'
 import { ArrowLeft } from '@tamagui/lucide-icons'
 
 import { useQuizStore } from '../../stores/useQuizStore'
@@ -78,6 +79,9 @@ import { MatchingExercise } from '../../components/quiz/MatchingExercise'
 import { ReadingPassageCard } from '../../components/quiz/ReadingPassageCard'
 import { TextInputAnswer } from '../../components/quiz/TextInputAnswer'
 import { preloadSounds, unloadSounds, playSound } from '../../hooks/useSound'
+import { usePauseQuiz } from '../../hooks/usePauseQuiz'
+import { ExitConfirmationModal } from '../../components/quiz/ExitConfirmationModal'
+import type { PausedQuizState } from '../../types/paused-quiz'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -264,7 +268,9 @@ const POINTS_PER_CORRECT = 10
 
 export default function QuizPlayScreen() {
   const router = useRouter()
+  const navigation = useNavigation()
   const insets = useSafeAreaInsets()
+  const toast = useToastController()
 
   // ─── Store state ─────────────────────────────────────────────────────────
 
@@ -307,7 +313,14 @@ export default function QuizPlayScreen() {
   const timer = useQuestionTimer(currentQuestionIndex)
   const { saveQuestionResult, saveQuizAttempt, clearResumableQuiz } = useQuizPersistence()
 
+  // ─── Story 4.10b: Pause/Resume hooks ─────────────────────────────────────
+
+  const { pauseQuiz, pauseQuizMutation } = usePauseQuiz()
+
   // ─── Local state ──────────────────────────────────────────────────────────
+
+  /** Controls visibility of the exit confirmation modal (Story 4.10b) */
+  const [showExitModal, setShowExitModal] = useState(false)
 
   /** The answer selected by the user for the current question (null = not answered yet) */
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
@@ -350,6 +363,102 @@ export default function QuizPlayScreen() {
       void unloadSounds()
     }
   }, []) // mount-only intentional
+
+  // ─── Story 4.10b: beforeRemove listener for exit confirmation ────────────
+  // Intercepts back navigation when quiz is in progress (not complete).
+  // Shows ExitConfirmationModal instead of navigating away immediately.
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      // Allow navigation if quiz is complete (user tapped Continue on CompletionScreen)
+      if (isComplete) return
+
+      // Allow navigation if no quiz is active (edge case: empty store)
+      const storeState = useQuizStore.getState()
+      if (!storeState.hasActiveQuiz()) return
+
+      // Block navigation and show exit modal
+      e.preventDefault()
+      setShowExitModal(true)
+    })
+
+    return unsubscribe
+  }, [navigation, isComplete])
+
+  // ─── Story 4.10b: Pause/Cancel/Stay handlers ─────────────────────────────
+
+  /**
+   * Handle "Pause Quiz" — save current quiz state to Supabase, then navigate back.
+   */
+  const handlePause = useCallback(async () => {
+    const storeState = useQuizStore.getState()
+    const currentChapterId = storeState.chapterId ?? quizPayload?.chapter_id ?? 0
+    const currentBookId = storeState.bookId ?? quizPayload?.book_id ?? 0
+    const currentExerciseType = storeState.exerciseType ?? quizPayload?.exercise_type ?? ''
+    const currentStartedAt = storeState.startedAt ?? new Date().toISOString()
+
+    const pausedState: PausedQuizState = {
+      questions: quizPayload?.questions ?? [],
+      currentQuestionIndex: currentQuestionIndex,
+      answers: storeState.answers,
+      startedAt: currentStartedAt,
+      timeElapsed: storeState.timeElapsed,
+      exerciseType: currentExerciseType as import('../../types/quiz').ExerciseType,
+      chapterId: currentChapterId,
+      bookId: currentBookId,
+    }
+
+    try {
+      await pauseQuiz({
+        chapterId: currentChapterId,
+        exerciseType: currentExerciseType,
+        quizState: pausedState,
+      })
+
+      // Show success toast
+      toast.show('Quiz paused', {
+        message: 'Resume anytime from the dashboard.',
+      })
+
+      setShowExitModal(false)
+      // Navigate back — beforeRemove listener is bypassed since isComplete check
+      // won't block (we need to allow navigation after pause)
+      // We use router.back() after clearing the active quiz to avoid re-triggering the modal
+      clearResumableQuiz()
+      router.back()
+    } catch (err) {
+      console.warn('[QuizPlay] Failed to pause quiz:', err)
+      // Show error toast — keep modal open with Stay/Cancel options
+      toast.show("Can't pause quiz", {
+        message: 'No internet connection. Try again.',
+        type: 'error',
+      })
+    }
+  }, [
+    quizPayload,
+    currentQuestionIndex,
+    pauseQuiz,
+    toast,
+    clearResumableQuiz,
+    router,
+  ])
+
+  /**
+   * Handle "Cancel Quiz" — discard progress and navigate back.
+   */
+  const handleCancel = useCallback(() => {
+    setShowExitModal(false)
+    // Clear the active quiz state so beforeRemove doesn't re-trigger
+    clearResumableQuiz()
+    router.back()
+  }, [clearResumableQuiz, router])
+
+  /**
+   * Handle "Stay" — dismiss modal, continue quiz.
+   */
+  const handleStay = useCallback(() => {
+    setShowExitModal(false)
+  }, [])
 
   // ─── Edge case: no quiz data ──────────────────────────────────────────────
 
@@ -895,24 +1004,11 @@ export default function QuizPlayScreen() {
   )
 
   // ─── Exit confirmation dialog ─────────────────────────────────────────────
+  // Story 4.10b: replaced Alert with ExitConfirmationModal
 
   const handleLeave = useCallback(() => {
-    Alert.alert(
-      'Leave exercise?',
-      'Your progress will be saved.',
-      [
-        {
-          text: 'Keep Learning',
-          style: 'cancel',
-        },
-        {
-          text: 'Leave',
-          style: 'destructive',
-          onPress: () => router.back(),
-        },
-      ]
-    )
-  }, [router])
+    setShowExitModal(true)
+  }, [])
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -1277,6 +1373,15 @@ export default function QuizPlayScreen() {
           onNext={handleNext}
         />
       </YStack>
+
+      {/* Exit Confirmation Modal (Story 4.10b) */}
+      <ExitConfirmationModal
+        open={showExitModal}
+        onStay={handleStay}
+        onPause={() => { void handlePause() }}
+        onCancel={handleCancel}
+        isPausing={pauseQuizMutation.isPending}
+      />
     </>
   )
 }

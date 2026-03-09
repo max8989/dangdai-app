@@ -9,6 +9,7 @@
  * On cancel, navigates back to the exercise type selection / chapter detail.
  *
  * Story 4.2: Quiz Loading Screen with Progressive Loading
+ * Story 4.10b: Quiz Pause/Resume — resume paused quiz flow
  */
 
 import { useEffect, useCallback, useState } from 'react'
@@ -21,17 +22,26 @@ import { useQuizStore } from '../../stores/useQuizStore'
 import { LOADING_TIPS, TIP_ROTATION_INTERVAL_MS, getNextTipIndex } from '../../constants/tips'
 import { EXERCISE_TYPE_LABELS } from '../../types/quiz'
 import type { ExerciseType, QuizGenerationError, QuizResponse } from '../../types/quiz'
+import { usePauseQuiz } from '../../hooks/usePauseQuiz'
 
 export default function QuizLoadingScreen() {
-  const { chapterId, bookId, quizType, exerciseType: exerciseTypeParam } = useLocalSearchParams<{
+  const {
+    chapterId,
+    bookId,
+    quizType,
+    exerciseType: exerciseTypeParam,
+    resumePaused,
+  } = useLocalSearchParams<{
     chapterId: string
     bookId: string
     quizType: string
     exerciseType: string
+    resumePaused: string
   }>()
   const router = useRouter()
   const startQuiz = useQuizStore((state) => state.startQuiz)
   const setQuizPayload = useQuizStore((state) => state.setQuizPayload)
+  const restoreState = useQuizStore((state) => state.restoreState)
 
   // Support both exerciseType (preferred) and quizType (legacy Story 3.4 param)
   const exerciseType = exerciseTypeParam ?? quizType ?? 'vocabulary'
@@ -44,6 +54,10 @@ export default function QuizLoadingScreen() {
   // Derive chapter number from chapter ID convention: chapterId = bookId * 100 + chapterNumber
   const chapterNumber = bookIdNum > 0 ? chapterIdNum - bookIdNum * 100 : chapterIdNum
 
+  // Story 4.10b: Resume paused quiz hook
+  const { resumeQuiz, deletePausedQuiz } = usePauseQuiz()
+  const isResumingPaused = resumePaused === 'true'
+
   // Quiz generation mutation
   const { mutate, isPending, isError, error, data, reset } = useQuizGeneration()
 
@@ -53,16 +67,57 @@ export default function QuizLoadingScreen() {
   // Simulated progress (cosmetic, not tied to actual backend progress)
   const [progress, setProgress] = useState(0)
 
-  // Trigger quiz generation on mount
+  // Trigger quiz generation on mount (or resume paused quiz)
   useEffect(() => {
-    if (chapterIdNum > 0 && bookIdNum > 0) {
+    if (chapterIdNum <= 0 || bookIdNum <= 0) return
+
+    if (isResumingPaused) {
+      // Story 4.10b: Resume paused quiz — fetch state from Supabase and restore
+      const doResume = async () => {
+        try {
+          const pausedState = await resumeQuiz({ chapterId: chapterIdNum, exerciseType })
+
+          if (pausedState) {
+            // Task 14.2: Validate the paused state before restoring.
+            // If questions array is missing or empty, treat as corrupted.
+            if (!pausedState.questions || pausedState.questions.length === 0) {
+              console.warn('[QuizLoading] Paused quiz state is corrupted (no questions). Deleting and generating fresh quiz.')
+              // Delete the corrupted record, then fall back to fresh generation
+              try { await deletePausedQuiz({ chapterId: chapterIdNum, exerciseType }) } catch { /* ignore */ }
+              mutate({ chapterId: chapterIdNum, bookId: bookIdNum, exerciseType })
+              return
+            }
+
+            // Restore the paused state into the Zustand store
+            restoreState(pausedState)
+
+            // Delete the paused quiz record (it's now active)
+            await deletePausedQuiz({ chapterId: chapterIdNum, exerciseType })
+
+            // Navigate to play screen
+            router.replace('/quiz/play' as const)
+          } else {
+            // No paused quiz found — fall back to generating a new quiz
+            mutate({ chapterId: chapterIdNum, bookId: bookIdNum, exerciseType })
+          }
+        } catch (err) {
+          console.warn('[QuizLoading] Failed to resume paused quiz:', err)
+          // Task 14.2: On any error during resume, attempt to clean up the paused record
+          // and fall back to generating a fresh quiz.
+          try { await deletePausedQuiz({ chapterId: chapterIdNum, exerciseType }) } catch { /* ignore */ }
+          mutate({ chapterId: chapterIdNum, bookId: bookIdNum, exerciseType })
+        }
+      }
+
+      void doResume()
+    } else {
       mutate({
         chapterId: chapterIdNum,
         bookId: bookIdNum,
         exerciseType,
       })
     }
-  }, [chapterIdNum, bookIdNum, exerciseType, mutate])
+  }, [chapterIdNum, bookIdNum, exerciseType, isResumingPaused, mutate, resumeQuiz, restoreState, deletePausedQuiz, router])
 
   // Tip rotation effect
   useEffect(() => {

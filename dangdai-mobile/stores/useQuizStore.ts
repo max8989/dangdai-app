@@ -17,6 +17,7 @@
  * Story 4.9: Extended with showFeedback, feedbackIsCorrect, triggerShowFeedback, hideFeedback
  * Story 4.10: Added persist middleware, chapterId/bookId/exerciseType, hasActiveQuiz, _hasHydrated
  * Story 4.11: Extended with isComplete, quizStartTime, completeQuiz(), getQuizDuration(), getIncorrectAnswers()
+ * Story 4.10b: Extended with startedAt, timeElapsed, restoreState() for pause/resume feature
  */
 
 import { create } from 'zustand'
@@ -24,6 +25,7 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 
 import type { QuizResponse, QuizQuestion } from '../types/quiz'
+import type { PausedQuizState } from '../types/paused-quiz'
 
 /** A single incorrect answer entry returned by getIncorrectAnswers(). */
 export interface IncorrectAnswerDetail {
@@ -94,6 +96,12 @@ interface QuizState {
   // Persisted so duration is accurate after crash recovery. Set in startQuiz(), cleared in resetQuiz().
   quizStartTime: number | null
 
+  // Pause/Resume state (Story 4.10b)
+  // ISO timestamp when the quiz was originally started (for PausedQuizState serialization).
+  startedAt: string | null
+  // Time elapsed in milliseconds before the quiz was paused (for accurate duration tracking).
+  timeElapsed: number
+
   // Derived getters
   getCurrentQuestion: () => QuizQuestion | null
   isLastQuestion: () => boolean
@@ -107,6 +115,11 @@ interface QuizState {
   /** Sets isComplete to true — called when the last question's feedback timer fires. Story 4.11 Task 1.3 */
   completeQuiz: () => void
   startQuiz: (quizId: string, payload?: QuizResponse, chapterId?: number | null, bookId?: number | null, exerciseType?: string | null) => void
+  /**
+   * Restore a paused quiz state into the store (Story 4.10b).
+   * Called on quiz screen mount when a paused quiz is detected.
+   */
+  restoreState: (state: PausedQuizState) => void
   setQuizPayload: (payload: QuizResponse) => void
   setAnswer: (questionIndex: number, answer: string) => void
   nextQuestion: () => void
@@ -183,6 +196,10 @@ export const useQuizStore = create<QuizState>()(
       // Story 4.11 completion state
       isComplete: false,
       quizStartTime: null,
+
+      // Story 4.10b pause/resume state
+      startedAt: null,
+      timeElapsed: 0,
 
       // Derived getters
       getCurrentQuestion: () => {
@@ -301,6 +318,9 @@ export const useQuizStore = create<QuizState>()(
           // Story 4.11: record start time for duration calculation; reset completion
           isComplete: false,
           quizStartTime: Date.now(),
+          // Story 4.10b: record ISO start time for pause/resume serialization
+          startedAt: new Date().toISOString(),
+          timeElapsed: 0,
         })),
 
       setQuizPayload: (payload) => set({ quizPayload: payload }),
@@ -342,9 +362,46 @@ export const useQuizStore = create<QuizState>()(
           // Story 4.11: reset completion state
           isComplete: false,
           quizStartTime: null,
+          // Story 4.10b: reset pause/resume state
+          startedAt: null,
+          timeElapsed: 0,
         }),
 
       setHasHydrated: (hydrated) => set({ _hasHydrated: hydrated }),
+
+      // Story 4.10b: Restore a paused quiz state into the store
+      restoreState: (state: PausedQuizState) =>
+        set({
+          currentQuestion: state.currentQuestionIndex,
+          answers: state.answers,
+          startedAt: state.startedAt,
+          timeElapsed: state.timeElapsed,
+          chapterId: state.chapterId,
+          bookId: state.bookId,
+          exerciseType: state.exerciseType,
+          // Synthetic quiz ID for paused quizzes (no real quiz_id from API)
+          currentQuizId: `paused-${state.chapterId}-${state.exerciseType}`,
+          // Reconstruct quizPayload from the paused state
+          quizPayload: {
+            quiz_id: `paused-${state.chapterId}-${state.exerciseType}`,
+            chapter_id: state.chapterId,
+            book_id: state.bookId,
+            exercise_type: state.exerciseType,
+            question_count: state.questions.length,
+            questions: state.questions,
+          },
+          // Reset completion state
+          isComplete: false,
+          // Restore quiz start time from paused state (for duration tracking)
+          quizStartTime: new Date(state.startedAt).getTime(),
+          // Reset ephemeral UI state
+          blankAnswers: {},
+          blankAnswerIndices: {},
+          matchingScore: { correct: 0, incorrect: 0 },
+          placedTileIds: [],
+          showFeedback: false,
+          feedbackIsCorrect: null,
+        }),
 
       // Matching exercise score actions (Story 4.5)
       addMatchedPairScore: () =>
@@ -443,6 +500,9 @@ export const useQuizStore = create<QuizState>()(
         isComplete: state.isComplete,
         // quizStartTime: persisted so quiz duration is accurate after crash recovery
         quizStartTime: state.quizStartTime,
+        // Story 4.10b: persist startedAt and timeElapsed for pause/resume serialization
+        startedAt: state.startedAt,
+        timeElapsed: state.timeElapsed,
       }),
 
       // Called after AsyncStorage data is loaded into the store.

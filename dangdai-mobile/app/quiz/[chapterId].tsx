@@ -10,6 +10,7 @@
  * Story 3.4: Open Chapter Navigation (No Gates)
  * Story 3.5: Exercise Type Selection Screen
  * FR15: User can select exercise type per chapter (7 types + "Mixed")
+ * Story 4.10b: Quiz Pause/Resume — PausedQuizBanner integration
  */
 
 import { YStack, XStack, Text, H2, Card, Button, ScrollView, type ColorTokens } from 'tamagui'
@@ -31,6 +32,8 @@ import { useChapter } from '../../hooks/useChapters'
 import { useChapterProgress } from '../../hooks/useChapterProgress'
 import { BOOKS } from '../../constants/books'
 import type { ExerciseType } from '../../types/quiz'
+import { PausedQuizBanner } from '../../components/quiz/PausedQuizBanner'
+import { useAllPausedQuizzes } from '../../hooks/usePausedQuiz'
 
 /**
  * Exercise type card configuration.
@@ -133,6 +136,12 @@ export default function ChapterDetailScreen() {
   const percentage = progress?.completionPercentage ?? 0
   const isMastered = percentage >= 80
 
+  // Story 4.10b: Fetch all paused quizzes for this chapter to show banners
+  const { data: allPausedQuizzes } = useAllPausedQuizzes()
+  const pausedQuizzesForChapter = allPausedQuizzes?.filter(
+    (pq) => pq.chapter_id === chapterIdNum
+  ) ?? []
+
   // Invalid chapterId or chapter not found state
   if (!isValidChapterId || !chapter) {
     return (
@@ -169,6 +178,27 @@ export default function ChapterDetailScreen() {
     })
   }
 
+  // Story 4.10b: Handle resume from PausedQuizBanner
+  const handleResume = (exerciseType: string) => {
+    // Navigate to quiz loading screen with resumePaused flag
+    // The loading screen will navigate to play.tsx which restores the paused state
+    router.push({
+      pathname: '/quiz/loading',
+      params: {
+        chapterId: chapterIdNum.toString(),
+        bookId: chapter.bookId.toString(),
+        quizType: exerciseType,
+        exerciseType,
+        resumePaused: 'true',
+      },
+    })
+  }
+
+  // Story 4.10b: Handle discard from PausedQuizBanner (no-op — banner disappears automatically)
+  const handleDiscard = () => {
+    // Banner will disappear automatically after deletePausedQuiz invalidates the query
+  }
+
   return (
     <>
       <Stack.Screen
@@ -192,6 +222,17 @@ export default function ChapterDetailScreen() {
           padding="$4"
           testID="chapter-detail-screen"
         >
+          {/* Story 4.10b: Paused Quiz Banners — shown for each paused quiz for this chapter */}
+          {pausedQuizzesForChapter.map((pq) => (
+            <PausedQuizBanner
+              key={`${pq.chapter_id}-${pq.exercise_type}`}
+              chapterId={chapterIdNum}
+              exerciseType={pq.exercise_type}
+              onResume={() => handleResume(pq.exercise_type as ExerciseType)}
+              onDiscard={handleDiscard}
+            />
+          ))}
+
           {/* Chapter Info */}
           <YStack gap="$2" marginBottom="$6">
             <Text fontSize="$2" color="$gray10" testID="book-info">

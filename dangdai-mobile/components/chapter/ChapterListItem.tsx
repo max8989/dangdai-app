@@ -14,9 +14,10 @@
  */
 
 import { Card, XStack, YStack, Text, Circle, Progress } from 'tamagui'
-import { ChevronRight, Check } from '@tamagui/lucide-icons'
+import { ChevronRight, Check, Pause } from '@tamagui/lucide-icons'
 
 import type { Chapter, ChapterProgress } from '../../types/chapter'
+import { useAllPausedQuizzes } from '../../hooks/usePausedQuiz'
 
 type ChapterStatus = 'not-started' | 'in-progress' | 'mastered'
 
@@ -63,6 +64,10 @@ export function ChapterListItem({ chapter, progress, onPress }: ChapterListItemP
 
   const progressText = status === 'mastered' ? 'Mastered' : `${percentage}%`
 
+  // Story 4.10b: Check for paused quizzes for this chapter
+  const { data: allPausedQuizzes } = useAllPausedQuizzes()
+  const hasPausedQuiz = (allPausedQuizzes ?? []).some((pq) => pq.chapter_id === chapter.id)
+
   return (
     <Card
       elevate
@@ -104,13 +109,25 @@ export function ChapterListItem({ chapter, progress, onPress }: ChapterListItemP
         {/* Chapter Info */}
         <YStack flex={1} gap="$1">
           <XStack justifyContent="space-between" alignItems="center">
-            <Text
-              fontSize="$5"
-              fontWeight="500"
-              testID={`chapter-title-english-${chapter.id}`}
-            >
-              {chapter.titleEnglish}
-            </Text>
+            <XStack alignItems="center" gap="$2" flex={1}>
+              <Text
+                fontSize="$5"
+                fontWeight="500"
+                testID={`chapter-title-english-${chapter.id}`}
+              >
+                {chapter.titleEnglish}
+              </Text>
+              {/* Story 4.10b: Pause badge — shown when a paused quiz exists for this chapter */}
+              {hasPausedQuiz && (
+                <Pause
+                  size={14}
+                  color="$blue10"
+                  animation="bouncy"
+                  enterStyle={{ scale: 0 }}
+                  testID={`chapter-pause-badge-${chapter.id}`}
+                />
+              )}
+            </XStack>
             <Text
               fontSize="$2"
               color={config.progressTextColor}

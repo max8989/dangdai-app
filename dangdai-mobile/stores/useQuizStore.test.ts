@@ -727,6 +727,129 @@ describe('useQuizStore — Story 4.11 completion state (Task 1)', () => {
   })
 })
 
+describe('useQuizStore — Story 4.10b pause/resume state (Task 5)', () => {
+  beforeEach(() => {
+    useQuizStore.getState().resetQuiz()
+  })
+
+  describe('initial state', () => {
+    it('starts with startedAt as null', () => {
+      expect(useQuizStore.getState().startedAt).toBeNull()
+    })
+
+    it('starts with timeElapsed as 0', () => {
+      expect(useQuizStore.getState().timeElapsed).toBe(0)
+    })
+  })
+
+  describe('startQuiz() sets startedAt (Task 5.1)', () => {
+    it('sets startedAt to an ISO timestamp when startQuiz is called', () => {
+      useQuizStore.getState().startQuiz('quiz-1', mockQuizResponse, 101, 1, 'vocabulary')
+      const { startedAt } = useQuizStore.getState()
+      expect(startedAt).not.toBeNull()
+      expect(typeof startedAt).toBe('string')
+      // Should be a valid ISO timestamp
+      expect(new Date(startedAt!).getTime()).not.toBeNaN()
+    })
+  })
+
+  describe('restoreState() action (Task 5.3)', () => {
+    const pausedState = {
+      questions: mockQuizResponse.questions,
+      currentQuestionIndex: 2,
+      answers: { 0: 'to study', 1: 'chī' },
+      startedAt: '2026-03-09T10:00:00.000Z',
+      timeElapsed: 45000,
+      exerciseType: 'vocabulary' as const,
+      chapterId: 212,
+      bookId: 2,
+    }
+
+    it('restores currentQuestion from paused state', () => {
+      useQuizStore.getState().restoreState(pausedState)
+      expect(useQuizStore.getState().currentQuestion).toBe(2)
+    })
+
+    it('restores answers from paused state', () => {
+      useQuizStore.getState().restoreState(pausedState)
+      expect(useQuizStore.getState().answers).toEqual({ 0: 'to study', 1: 'chī' })
+    })
+
+    it('restores startedAt from paused state', () => {
+      useQuizStore.getState().restoreState(pausedState)
+      expect(useQuizStore.getState().startedAt).toBe('2026-03-09T10:00:00.000Z')
+    })
+
+    it('restores timeElapsed from paused state', () => {
+      useQuizStore.getState().restoreState(pausedState)
+      expect(useQuizStore.getState().timeElapsed).toBe(45000)
+    })
+
+    it('restores chapterId from paused state', () => {
+      useQuizStore.getState().restoreState(pausedState)
+      expect(useQuizStore.getState().chapterId).toBe(212)
+    })
+
+    it('restores bookId from paused state', () => {
+      useQuizStore.getState().restoreState(pausedState)
+      expect(useQuizStore.getState().bookId).toBe(2)
+    })
+
+    it('restores exerciseType from paused state', () => {
+      useQuizStore.getState().restoreState(pausedState)
+      expect(useQuizStore.getState().exerciseType).toBe('vocabulary')
+    })
+
+    it('sets a synthetic currentQuizId for paused quiz', () => {
+      useQuizStore.getState().restoreState(pausedState)
+      expect(useQuizStore.getState().currentQuizId).toBe('paused-212-vocabulary')
+    })
+
+    it('reconstructs quizPayload from paused state questions', () => {
+      useQuizStore.getState().restoreState(pausedState)
+      const { quizPayload } = useQuizStore.getState()
+      expect(quizPayload).not.toBeNull()
+      expect(quizPayload!.questions).toEqual(mockQuizResponse.questions)
+      expect(quizPayload!.chapter_id).toBe(212)
+      expect(quizPayload!.book_id).toBe(2)
+    })
+
+    it('resets isComplete to false', () => {
+      useQuizStore.getState().completeQuiz()
+      expect(useQuizStore.getState().isComplete).toBe(true)
+      useQuizStore.getState().restoreState(pausedState)
+      expect(useQuizStore.getState().isComplete).toBe(false)
+    })
+
+    it('resets ephemeral UI state (blankAnswers, placedTileIds, showFeedback)', () => {
+      useQuizStore.getState().setBlankAnswer(0, '想')
+      useQuizStore.getState().placeTile('tile-0')
+      useQuizStore.getState().triggerShowFeedback(true)
+
+      useQuizStore.getState().restoreState(pausedState)
+
+      expect(useQuizStore.getState().blankAnswers).toEqual({})
+      expect(useQuizStore.getState().placedTileIds).toEqual([])
+      expect(useQuizStore.getState().showFeedback).toBe(false)
+    })
+  })
+
+  describe('resetQuiz() clears pause/resume state (Task 5.4)', () => {
+    it('resets startedAt to null on reset', () => {
+      useQuizStore.getState().startQuiz('quiz-1', mockQuizResponse)
+      expect(useQuizStore.getState().startedAt).not.toBeNull()
+      useQuizStore.getState().resetQuiz()
+      expect(useQuizStore.getState().startedAt).toBeNull()
+    })
+
+    it('resets timeElapsed to 0 on reset', () => {
+      useQuizStore.getState().startQuiz('quiz-1', mockQuizResponse)
+      useQuizStore.getState().resetQuiz()
+      expect(useQuizStore.getState().timeElapsed).toBe(0)
+    })
+  })
+})
+
 describe('useQuizStore — Story 4.10 persist middleware', () => {
   beforeEach(() => {
     useQuizStore.getState().resetQuiz()
