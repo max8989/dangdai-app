@@ -41,6 +41,9 @@ export const queryKeys = {
 
   // Exercise type progress (Story 4.11)
   exerciseTypeProgress: (chapterId: number) => ['exerciseTypeProgress', chapterId] as const,
+
+  // Vocabulary (Story 11.5)
+  vocabulary: (bookId: number, lessonId: number) => ['vocabulary', bookId, lessonId] as const,
 } as const
 
 // Type helper for query key extraction
