@@ -149,13 +149,13 @@ development_status:
   epic-10-retrospective: optional
 
   # Epic 11: Content Seeding & Structured Data Pipeline
-  epic-11: backlog
-  11-1-vocabulary-seeding-from-flash-card-tsv: backlog
-  11-2-grammar-points-extraction-and-seeding: backlog
-  11-3-dialogue-extraction-and-seeding: backlog
-  11-4-premade-workbook-exercise-seeding: backlog
-  11-5-vocabulary-browse-screen: backlog
-  11-6-grammar-points-browse-screen: backlog
-  11-7-dialogue-browse-screen: backlog
-  11-8-premade-exercise-completion-flow: backlog
+  epic-11: in-progress
+  11-1-vocabulary-seeding-from-flash-card-tsv: ready-for-dev
+  11-2-grammar-points-extraction-and-seeding: ready-for-dev
+  11-3-dialogue-extraction-and-seeding: ready-for-dev
+  11-4-premade-workbook-exercise-seeding: ready-for-dev
+  11-5-vocabulary-browse-screen: ready-for-dev
+  11-6-grammar-points-browse-screen: ready-for-dev
+  11-7-dialogue-browse-screen: ready-for-dev
+  11-8-premade-exercise-completion-flow: ready-for-dev
   epic-11-retrospective: optional
