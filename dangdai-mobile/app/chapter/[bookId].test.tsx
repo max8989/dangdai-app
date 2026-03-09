@@ -73,13 +73,21 @@ jest.mock('../../components/chapter/ChapterListSkeleton', () => ({
   },
 }))
 
-// Mock useChapters
-const mockChapters = [
+// Mock useChapters — returns different chapters based on bookId (Story 3.6)
+const mockChaptersBook1 = [
   { id: 101, bookId: 1, chapterNumber: 1, titleEnglish: 'Welcome to Taiwan!', titleChinese: '歡迎你來臺灣！' },
   { id: 102, bookId: 1, chapterNumber: 2, titleEnglish: 'My Family', titleChinese: '我的家人' },
 ]
+const mockChaptersBook3 = Array.from({ length: 12 }, (_, i) => ({
+  id: 301 + i,
+  bookId: 3,
+  chapterNumber: i + 1,
+  titleEnglish: `Book 3 Chapter ${i + 1}`,
+  titleChinese: `第三冊第${i + 1}課`,
+}))
+const mockUseChapters = jest.fn()
 jest.mock('../../hooks/useChapters', () => ({
-  useChapters: () => mockChapters,
+  useChapters: (bookId: number) => mockUseChapters(bookId),
 }))
 
 // Mock useChapterProgress
@@ -88,11 +96,13 @@ jest.mock('../../hooks/useChapterProgress', () => ({
   useChapterProgress: (bookId: number) => mockUseChapterProgress(bookId),
 }))
 
-// Mock BOOKS constant
+// Mock BOOKS constant — all 4 books (Story 3.6)
 jest.mock('../../constants/books', () => ({
   BOOKS: [
-    { id: 1, title: 'Book 1', titleChinese: '第一册', chapterCount: 15, coverColor: '#06B6D4' },
-    { id: 2, title: 'Book 2', titleChinese: '第二册', chapterCount: 15, coverColor: '#F97316' },
+    { id: 1, title: 'Book 1', titleChinese: '第一册', chapterCount: 15, coverColor: '$blue9' },
+    { id: 2, title: 'Book 2', titleChinese: '第二册', chapterCount: 15, coverColor: '$green9' },
+    { id: 3, title: 'Book 3', titleChinese: '第三册', chapterCount: 12, coverColor: '$orange9' },
+    { id: 4, title: 'Book 4', titleChinese: '第四册', chapterCount: 12, coverColor: '$purple9' },
   ],
 }))
 
@@ -103,6 +113,11 @@ describe('ChapterListScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockUseLocalSearchParams.mockReturnValue({ bookId: '1' })
+    // Default: return Book 1 chapters
+    mockUseChapters.mockImplementation((bookId: number) => {
+      if (bookId === 3) return mockChaptersBook3
+      return mockChaptersBook1
+    })
   })
 
   describe('loading state (AC #4)', () => {
@@ -260,6 +275,96 @@ describe('ChapterListScreen', () => {
       const { getByTestId } = render(<ChapterListScreen />)
 
       expect(getByTestId('chapter-count')).toHaveTextContent('2 chapters')
+    })
+  })
+
+  /**
+   * Story 3.6: Expand Book Selection to Books 1-4
+   * Tests for Books 3 and 4 with 12 chapters each (AC #4)
+   */
+  describe('Story 3.6: Books 3 and 4 chapter list (AC #4)', () => {
+    it('displays 12 chapters for Book 3', () => {
+      mockUseLocalSearchParams.mockReturnValue({ bookId: '3' })
+      mockUseChapterProgress.mockReturnValue({
+        data: {},
+        isLoading: false,
+        error: null,
+      })
+
+      const { getByTestId } = render(<ChapterListScreen />)
+
+      expect(getByTestId('chapter-count')).toHaveTextContent('12 chapters')
+    })
+
+    it('displays Book 3 Chinese title in header', () => {
+      mockUseLocalSearchParams.mockReturnValue({ bookId: '3' })
+      mockUseChapterProgress.mockReturnValue({
+        data: {},
+        isLoading: false,
+        error: null,
+      })
+
+      const { getByTestId } = render(<ChapterListScreen />)
+
+      expect(getByTestId('book-chinese-title')).toHaveTextContent('第三册')
+    })
+
+    it('renders all 12 chapter items for Book 3', () => {
+      mockUseLocalSearchParams.mockReturnValue({ bookId: '3' })
+      mockUseChapterProgress.mockReturnValue({
+        data: {},
+        isLoading: false,
+        error: null,
+      })
+
+      const { getByTestId } = render(<ChapterListScreen />)
+
+      // Verify all 12 chapters are rendered (IDs 301-312)
+      for (let i = 1; i <= 12; i++) {
+        expect(getByTestId(`chapter-list-item-${300 + i}`)).toBeTruthy()
+      }
+    })
+
+    it('navigates to exercises for Book 3 chapters', () => {
+      mockUseLocalSearchParams.mockReturnValue({ bookId: '3' })
+      mockUseChapterProgress.mockReturnValue({
+        data: {},
+        isLoading: false,
+        error: null,
+      })
+
+      const { getByTestId } = render(<ChapterListScreen />)
+
+      fireEvent.press(getByTestId('chapter-list-item-301'))
+
+      expect(mockPush).toHaveBeenCalledWith('/chapter/301/exercises')
+    })
+
+    it('navigates to exercises for Book 4 chapters', () => {
+      // Book 4 uses same 12-chapter structure as Book 3
+      const mockChaptersBook4 = Array.from({ length: 12 }, (_, i) => ({
+        id: 401 + i,
+        bookId: 4,
+        chapterNumber: i + 1,
+        titleEnglish: `Book 4 Chapter ${i + 1}`,
+        titleChinese: `第四冊第${i + 1}課`,
+      }))
+      mockUseChapters.mockImplementation((bookId: number) => {
+        if (bookId === 4) return mockChaptersBook4
+        return mockChaptersBook1
+      })
+      mockUseLocalSearchParams.mockReturnValue({ bookId: '4' })
+      mockUseChapterProgress.mockReturnValue({
+        data: {},
+        isLoading: false,
+        error: null,
+      })
+
+      const { getByTestId } = render(<ChapterListScreen />)
+
+      fireEvent.press(getByTestId('chapter-list-item-401'))
+
+      expect(mockPush).toHaveBeenCalledWith('/chapter/401/exercises')
     })
   })
 })

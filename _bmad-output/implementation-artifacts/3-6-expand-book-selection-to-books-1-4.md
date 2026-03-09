@@ -1,6 +1,6 @@
 # Story 3.6: Expand Book Selection to Books 1-4
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -29,32 +29,32 @@ So that I can access all available Dangdai textbook content.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Verify constants/books.ts includes Books 3-4 (AC: #1, #3)
-  - [ ] 1.1 Check `constants/books.ts` — Books 3 and 4 should already exist with correct data
-  - [ ] 1.2 If missing, add Book 3 (id: 3, 12 lessons, orange color) and Book 4 (id: 4, 12 lessons, purple color)
-  - [ ] 1.3 Verify cover colors match UX spec: Book 3 = orange (#F97316), Book 4 = purple (#A855F7)
+- [x] Task 1: Verify constants/books.ts includes Books 3-4 (AC: #1, #3)
+  - [x] 1.1 Check `constants/books.ts` — Books 3 and 4 already exist with correct data
+  - [x] 1.2 Books 3 and 4 confirmed present (id: 3, 12 lessons, orange; id: 4, 12 lessons, purple)
+  - [x] 1.3 Cover colors use Tamagui tokens ($orange9, $purple9) matching UX spec intent
 
-- [ ] Task 2: Verify constants/chapters.ts includes Books 3-4 chapters (AC: #4)
-  - [ ] 2.1 Check `constants/chapters.ts` — chapters for Books 3-4 should already exist
-  - [ ] 2.2 If missing, add 12 chapters per book with chapter numbers, English titles, and Chinese titles
-  - [ ] 2.3 Verify chapter IDs follow convention: bookId * 100 + chapterNumber (301-312, 401-412)
+- [x] Task 2: Verify constants/chapters.ts includes Books 3-4 chapters (AC: #4)
+  - [x] 2.1 Check `constants/chapters.ts` — chapters for Books 3-4 already exist (301-312, 401-412)
+  - [x] 2.2 All 12 chapters per book confirmed with English and Chinese titles
+  - [x] 2.3 Chapter IDs verified: bookId * 100 + chapterNumber convention followed
 
-- [ ] Task 3: Update Book Selection screen if needed (AC: #1, #2)
-  - [ ] 3.1 Check `app/(tabs)/books.tsx` — verify it renders ALL books from BOOKS constant (not hardcoded to 2)
-  - [ ] 3.2 Verify BookCard component handles variable lesson counts correctly
-  - [ ] 3.3 Verify progress summary displays correctly for Books 3-4 (e.g., "0/12 chapters")
-  - [ ] 3.4 Ensure scrolling works with 4 book cards
+- [x] Task 3: Update Book Selection screen if needed (AC: #1, #2)
+  - [x] 3.1 `app/(tabs)/books.tsx` already renders ALL books from BOOKS constant (no hardcoding)
+  - [x] 3.2 BookCard component handles variable lesson counts via `book.chapterCount`
+  - [x] 3.3 Progress summary uses `book.chapterCount` as totalChapters (shows "0/12 chapters" for Books 3-4)
+  - [x] 3.4 ScrollView already supports 4+ book cards
 
-- [ ] Task 4: Update Chapter List screen for 12-chapter books (AC: #4)
-  - [ ] 4.1 Verify `app/chapter/[bookId].tsx` loads chapters dynamically (not hardcoded to 15)
-  - [ ] 4.2 Verify chapter list displays correctly with 12 items
-  - [ ] 4.3 Test navigation from Book 3/4 → chapter list → chapter detail
+- [x] Task 4: Update Chapter List screen for 12-chapter books (AC: #4)
+  - [x] 4.1 `app/chapter/[bookId].tsx` loads chapters via `useChapters(bookIdNum)` — fully dynamic
+  - [x] 4.2 Chapter list displays correctly with 12 items for Books 3-4
+  - [x] 4.3 Navigation from Book 3/4 → chapter list → exercises verified in tests
 
-- [ ] Task 5: Write/update tests (AC: all)
-  - [ ] 5.1 Test book selection screen renders 4 book cards
-  - [ ] 5.2 Test Books 1-2 show "15 lessons" and Books 3-4 show "12 lessons"
-  - [ ] 5.3 Test navigation to chapter list works for all 4 books
-  - [ ] 5.4 Test chapter list shows correct number of chapters per book
+- [x] Task 5: Write/update tests (AC: all)
+  - [x] 5.1 Created `app/(tabs)/books.test.tsx` — tests 4 book cards render (AC #1)
+  - [x] 5.2 Tests verify Books 1-2 show 15 lessons, Books 3-4 show 12 lessons (AC #2)
+  - [x] 5.3 Tests verify navigation to `/chapter/1`, `/chapter/2`, `/chapter/3`, `/chapter/4` (AC #4)
+  - [x] 5.4 Updated `app/chapter/[bookId].test.tsx` — tests 12-chapter display for Books 3 and 4
 
 ## Dev Notes
 
@@ -138,10 +138,41 @@ This is a **small story** — the data likely already exists in constants. The m
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+claude-sonnet-4-6 (anthropic/claude-sonnet-4-6)
 
 ### Debug Log References
 
+No debug issues encountered. All existing code was already correctly implemented for 4 books.
+
 ### Completion Notes List
 
+1. **Constants already complete**: `constants/books.ts` had all 4 books with correct chapterCounts (15, 15, 12, 12) and Tamagui color tokens ($blue9, $green9, $orange9, $purple9). `constants/chapters.ts` had all 54 chapters (IDs 101-115, 201-215, 301-312, 401-412).
+
+2. **UI already dynamic**: `app/(tabs)/books.tsx` renders from `BOOKS.map()` — no hardcoding. `app/chapter/[bookId].tsx` uses `useChapters(bookIdNum)` — fully dynamic.
+
+3. **BookCard handles variable counts**: Progress uses `book.chapterCount` as `totalChapters`, so Books 3-4 correctly show "0/12 chapters".
+
+4. **Bug fixed**: `hooks/useChapters.test.ts` had wrong expected title for chapter 105 (`'Dates'` → `'Beef Noodles Are Delicious'`).
+
+5. **Tests created/updated**:
+   - Created `app/(tabs)/books.test.tsx` (new) — 22 tests covering all 4 ACs
+   - Updated `app/chapter/[bookId].test.tsx` — added 5 Story 3.6 tests for Books 3/4, updated BOOKS mock to include all 4 books, refactored `useChapters` mock to be dynamic
+   - Fixed `hooks/useChapters.test.ts` — corrected wrong chapter title assertion
+
+6. **Pre-existing test failures**: 6 test suites fail due to pre-existing issues (Supabase env vars, CompletionScreen UI, exercises navigation) — none related to Story 3.6.
+
 ### File List
+
+**Created:**
+- `dangdai-mobile/app/(tabs)/books.test.tsx` — New Books screen unit tests (22 tests)
+
+**Modified:**
+- `dangdai-mobile/app/chapter/[bookId].test.tsx` — Added Story 3.6 tests for Books 3/4, updated BOOKS mock to 4 books, refactored useChapters mock
+- `dangdai-mobile/hooks/useChapters.test.ts` — Fixed wrong chapter title assertion for chapter 105
+
+**Verified (no changes needed):**
+- `dangdai-mobile/constants/books.ts` — Already has all 4 books
+- `dangdai-mobile/constants/chapters.ts` — Already has all 54 chapters
+- `dangdai-mobile/app/(tabs)/books.tsx` — Already renders from BOOKS constant
+- `dangdai-mobile/components/chapter/BookCard.tsx` — Already handles variable chapterCount
+- `dangdai-mobile/app/chapter/[bookId].tsx` — Already loads chapters dynamically

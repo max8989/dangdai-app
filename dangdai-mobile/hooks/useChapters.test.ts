@@ -99,7 +99,7 @@ describe('useChapter', () => {
     expect(result.current?.id).toBe(105)
     expect(result.current?.bookId).toBe(1)
     expect(result.current?.chapterNumber).toBe(5)
-    expect(result.current?.titleEnglish).toBe('Dates')
+    expect(result.current?.titleEnglish).toBe('Beef Noodles Are Delicious')
   })
 
   it('returns undefined for non-existent chapter', () => {
