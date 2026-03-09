@@ -144,6 +144,7 @@ export default function ExercisesScreen() {
       pathname: '/quiz/premade' as any,
       params: {
         chapterId: chapterIdNum.toString(),
+        bookId: chapter.bookId.toString(),
         exerciseId,
       },
     })

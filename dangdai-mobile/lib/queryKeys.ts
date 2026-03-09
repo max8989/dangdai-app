@@ -53,6 +53,9 @@ export const queryKeys = {
 
   // Premade Exercises (Story 3.5)
   premadeExercises: (bookId: number, lessonId: number) => ['premadeExercises', bookId, lessonId] as const,
+
+  // Single Premade Exercise with full content JSONB (Story 11.8)
+  premadeExercise: (exerciseId: string) => ['premadeExercise', exerciseId] as const,
 } as const
 
 // Type helper for query key extraction

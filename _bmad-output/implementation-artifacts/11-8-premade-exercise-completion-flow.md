@@ -1,6 +1,6 @@
 # Story 11.8: Premade Exercise Completion Flow
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -210,10 +210,29 @@ Exercise Type Selection (back)
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+anthropic/claude-sonnet-4-6
 
 ### Debug Log References
 
+None — clean implementation.
+
 ### Completion Notes List
 
+- Created `lib/premadeExerciseAdapter.ts` — transforms content JSONB to QuizQuestion[] for all 5 exercise types
+- Created `hooks/usePremadeExercise.ts` — fetches single exercise with full content JSONB (lazy, on open)
+- Replaced `app/quiz/premade.tsx` stub with full implementation reusing all existing quiz components
+- Updated `app/chapter/[chapterId]/exercises.tsx` to pass `bookId` param to premade screen
+- Updated `lib/queryKeys.ts` to register `premadeExercise` key for cache consistency
+- Code review fixes: array param normalization, initialization guard ref, removed unused store subscription
+- All 6 ACs verified: local rendering, component reuse, local validation, feedback, progress saving, completion indicator
+- 64 tests passing, TypeScript clean
+
 ### File List
+
+- `dangdai-mobile/app/quiz/premade.tsx` — REPLACED (stub → full implementation)
+- `dangdai-mobile/app/quiz/premade.test.tsx` — CREATED (18 tests)
+- `dangdai-mobile/hooks/usePremadeExercise.ts` — CREATED
+- `dangdai-mobile/lib/premadeExerciseAdapter.ts` — CREATED
+- `dangdai-mobile/lib/premadeExerciseAdapter.test.ts` — CREATED (46 tests)
+- `dangdai-mobile/lib/queryKeys.ts` — UPDATED (added premadeExercise key)
+- `dangdai-mobile/app/chapter/[chapterId]/exercises.tsx` — UPDATED (pass bookId to premade screen)
