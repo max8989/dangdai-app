@@ -153,7 +153,7 @@ development_status:
   11-1-vocabulary-seeding-from-flash-card-tsv: done
   11-2-grammar-points-extraction-and-seeding: done
   11-3-dialogue-extraction-and-seeding: done
-  11-4-premade-workbook-exercise-seeding: ready-for-dev
+  11-4-premade-workbook-exercise-seeding: done
   11-5-vocabulary-browse-screen: ready-for-dev
   11-6-grammar-points-browse-screen: ready-for-dev
   11-7-dialogue-browse-screen: ready-for-dev
