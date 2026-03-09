@@ -47,6 +47,9 @@ export const queryKeys = {
 
   // Grammar Points (Story 11.6)
   grammarPoints: (bookId: number, lessonId: number) => ['grammarPoints', bookId, lessonId] as const,
+
+  // Dialogues (Story 11.7)
+  dialogues: (bookId: number, lessonId: number) => ['dialogues', bookId, lessonId] as const,
 } as const
 
 // Type helper for query key extraction

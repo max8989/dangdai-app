@@ -5,4 +5,11 @@ Involved Epics: 3, 11
 
 ## Errors
 
-(No errors yet)
+[OK] dev-story 11.1: complete
+[OK] code-review 11.1: complete (7 issues found, 6 fixed, approved)
+[OK] dev-story 11.2: complete
+[OK] code-review 11.2: complete (7 issues found, 6 fixed, approved)
+[OK] Story 11.2: all steps complete
+[OK] dev-story 11.3: complete
+[OK] code-review 11.3: complete (6 issues found, 4 fixed, approved)
+[OK] Story 11.3: all steps complete
