@@ -1,6 +1,6 @@
 # Story 11.3: Dialogue Extraction and Seeding
 
-Status: review
+Status: done
 
 ## Story
 
@@ -208,12 +208,52 @@ claude-opus-4-6
 - 2026-03-08: Created `seed_dialogues.py` with LLM-assisted dialogue extraction from chunks
 - 2026-03-08: Created `test_seed_dialogues.py` with 46 unit tests covering all functions
 - 2026-03-08: All tests pass (157 total), lint clean
+- 2026-03-08: Senior dev review: fixed 4 issues (2 HIGH, 2 MEDIUM), added 2 tests, 48 tests pass
 
 ### File List
 
 | File | Action | Description |
 |------|--------|-------------|
 | `dangdai-api/src/scripts/seed_dialogues.py` | Created | Dialogue extraction and seeding script with LLM-assisted parsing |
-| `dangdai-api/tests/unit_tests/test_seed_dialogues.py` | Created | 46 unit tests for dialogue seeding functions |
+| `dangdai-api/tests/unit_tests/test_seed_dialogues.py` | Created | 48 unit tests for dialogue seeding functions |
 | `_bmad-output/implementation-artifacts/11-3-dialogue-extraction-and-seeding.md` | Modified | Story status and task tracking updates |
 | `_bmad-output/implementation-artifacts/sprint-status.yaml` | Modified | Story status updated to review |
+
+## Senior Developer Review (AI)
+
+**Reviewer:** claude-opus-4-6 (adversarial review)
+**Date:** 2026-03-08
+**Verdict:** Approved (after fixes)
+
+### Issues Found
+
+| # | Severity | Description | Status |
+|---|----------|-------------|--------|
+| 1 | HIGH | `detect_dialogue_number` defined and tested but never called — dead code with no fallback if LLM omits `dialogue_number` | ✅ Fixed |
+| 2 | HIGH | No deduplication of `(book_id, lesson_id, dialogue_number)` before upsert — duplicate chunks for same lesson could produce conflicting rows | ✅ Fixed |
+| 3 | MEDIUM | `validate_dialogue` doesn't warn on missing `title_traditional`/`title_english` (AC #4 requires these) | ✅ Fixed |
+| 4 | MEDIUM | No quality threshold — very low quality chunks (< 0.5) processed without filtering, wasting LLM calls on garbage | ✅ Fixed |
+| 5 | LOW | No integration tests for `process_chunks` or `main` — consistent with sibling script pattern, acceptable | Not fixed (acceptable) |
+| 6 | LOW | `_print_summary` uses `print` with `noqa: T201` — consistent with project pattern | Not fixed (acceptable) |
+
+### Fixes Applied
+
+1. **`detect_dialogue_number` fallback** (HIGH): Added fallback in `extract_dialogues_llm` — when LLM returns invalid/missing `dialogue_number`, `detect_dialogue_number(content)` is called to infer it from content markers. New test `test_uses_detect_dialogue_number_fallback` covers this.
+
+2. **Deduplication** (HIGH): Added dedup logic in `process_chunks` before return — keeps last extraction per `(book_id, lesson_id, dialogue_number)` key (later chunks = more complete). New test class `TestDeduplication` covers this.
+
+3. **Title validation warning** (MEDIUM): Added warning log in `validate_dialogue` when `title_traditional` or `title_english` is missing. Doesn't reject (DB allows NULL) but surfaces the issue. Test renamed to `test_missing_title_still_valid_but_warns`.
+
+4. **Quality threshold** (MEDIUM): Added `quality < 0.5` skip in `process_chunks` with warning log, preventing wasted LLM calls on garbage OCR content.
+
+### Test Results After Fixes
+
+- 48 tests pass (was 46, added 2 new tests)
+- Ruff lint: all checks passed
+- Ruff format: files already formatted
+
+### Risk Assessment
+
+- **Security risk:** LOW — script runs locally with service key, no user-facing attack surface
+- **Data integrity risk:** LOW after fixes — dedup prevents conflicting rows, fallback prevents missing dialogue_number
+- **Recommended follow-ups:** None blocking; PDF fallback deferred to future story as documented

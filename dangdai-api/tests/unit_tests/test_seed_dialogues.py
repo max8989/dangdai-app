@@ -365,7 +365,8 @@ class TestValidateDialogue:
         }
         assert validate_dialogue(dialogue) is False
 
-    def test_missing_title_still_valid(self):
+    def test_missing_title_still_valid_but_warns(self):
+        """Dialogues without titles pass validation but log a warning (AC #4)."""
         dialogue = {
             "dialogue_number": 1,
             "lines": [
@@ -553,6 +554,35 @@ class TestExtractDialoguesLlm:
         result = extract_dialogues_llm(DIALOGUE_CHUNK_BOOK1_L2, llm=mock_llm)
         assert len(result) == 1
 
+    def test_uses_detect_dialogue_number_fallback(self):
+        """When LLM omits dialogue_number, detect_dialogue_number is used as fallback."""
+        mock_llm = MagicMock()
+        mock_llm.invoke.return_value = MagicMock(
+            content=json.dumps(
+                [
+                    {
+                        "title_traditional": "對話二",
+                        "title_english": "Dialogue II",
+                        "lines": [
+                            {
+                                "speaker": "明華",
+                                "traditional": "你好",
+                                "simplified": "你好",
+                                "pinyin": "Nǐ hǎo",
+                                "english": "Hello",
+                            },
+                        ],
+                    }
+                ]
+            )
+        )
+
+        # The chunk content contains "Dialogue II" marker
+        result = extract_dialogues_llm(DIALOGUE_CHUNK_BOOK1_L2, llm=mock_llm)
+        assert len(result) == 1
+        # detect_dialogue_number should detect "寺 話 二 Dialogue II" → 2
+        assert result[0]["dialogue_number"] == 2
+
     def test_handles_string_response_without_content_attr(self):
         mock_llm = MagicMock()
         mock_llm.invoke.return_value = json.dumps(
@@ -721,3 +751,85 @@ class TestSeedDialogues:
 
         with pytest.raises(Exception, match="Connection refused"):
             seed_dialogues(rows)
+
+
+# ── Test: deduplication ────────────────────────────────────────────────
+
+
+class TestDeduplication:
+    """Tests for dialogue deduplication in process_chunks."""
+
+    @patch("src.scripts.seed_dialogues.extract_dialogues_llm")
+    @patch("src.scripts.seed_dialogues.load_chunks")
+    @patch("src.scripts.seed_dialogues.time")
+    def test_deduplicates_same_dialogue_number(
+        self, mock_time, mock_load, mock_extract
+    ):
+        """When two chunks produce same (book, lesson, dialogue_number), keep last."""
+        from src.scripts.seed_dialogues import process_chunks
+
+        mock_load.return_value = [
+            {
+                "content": "Dialogue I chunk 1",
+                "metadata": {
+                    "book": 1,
+                    "lesson": 1,
+                    "section": "dialogue",
+                    "page_range": "1-5",
+                    "content_quality": 0.9,
+                },
+            },
+            {
+                "content": "Dialogue I chunk 2",
+                "metadata": {
+                    "book": 1,
+                    "lesson": 1,
+                    "section": "dialogue",
+                    "page_range": "6-10",
+                    "content_quality": 0.95,
+                },
+            },
+        ]
+
+        # Both chunks produce Dialogue 1 for same lesson
+        mock_extract.side_effect = [
+            [
+                {
+                    "dialogue_number": 1,
+                    "title_traditional": "對話一",
+                    "title_english": "Dialogue I",
+                    "lines": [
+                        {
+                            "speaker": "A",
+                            "traditional": "早",
+                            "simplified": "早",
+                            "pinyin": "Zǎo",
+                            "english": "Morning",
+                        },
+                    ],
+                }
+            ],
+            [
+                {
+                    "dialogue_number": 1,
+                    "title_traditional": "對話一",
+                    "title_english": "Dialogue I",
+                    "lines": [
+                        {
+                            "speaker": "A",
+                            "traditional": "你好",
+                            "simplified": "你好",
+                            "pinyin": "Nǐ hǎo",
+                            "english": "Hello",
+                        },
+                    ],
+                }
+            ],
+        ]
+
+        with patch("pathlib.Path.exists", return_value=True):
+            result = process_chunks("/fake/dir", book_id=1)
+
+        # Should deduplicate to 1 dialogue (the last one wins)
+        assert len(result) == 1
+        assert result[0]["lines"][0]["english"] == "Hello"

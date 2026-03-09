@@ -192,6 +192,15 @@ def validate_dialogue(dialogue: dict[str, Any]) -> bool:
         if not validate_dialogue_line(line):
             return False
 
+    # Warn if titles are missing (AC #4 expects them to be set)
+    if not dialogue.get("title_traditional") or not dialogue.get("title_english"):
+        logger.warning(
+            "Dialogue %d missing title fields (title_traditional=%r, title_english=%r)",
+            dialogue.get("dialogue_number", 0),
+            dialogue.get("title_traditional"),
+            dialogue.get("title_english"),
+        )
+
     return True
 
 
@@ -248,9 +257,20 @@ def extract_dialogues_llm(
             )
             dialogues = [dialogues]
 
-        # Validate each dialogue
+        # Validate each dialogue and apply fallback for dialogue_number
         valid_dialogues = []
         for dialogue in dialogues:
+            # Fallback: use detect_dialogue_number if LLM didn't set it
+            if dialogue.get("dialogue_number") not in (1, 2):
+                detected = detect_dialogue_number(content)
+                dialogue["dialogue_number"] = detected
+                logger.info(
+                    "Used detect_dialogue_number fallback (%d) for Book %d Lesson %d",
+                    detected,
+                    metadata["book"],
+                    metadata["lesson"],
+                )
+
             if validate_dialogue(dialogue):
                 valid_dialogues.append(dialogue)
             else:
@@ -390,6 +410,18 @@ def process_chunks(
             for chunk in chunks_for_lesson:
                 quality = chunk["metadata"].get("content_quality", 1.0)
 
+                # Skip very low quality chunks
+                if quality < 0.5:
+                    logger.warning(
+                        "Skipping low-quality chunk: Book %d, Lesson %d "
+                        "(quality: %.2f, pages: %s)",
+                        bid,
+                        lesson_id,
+                        quality,
+                        chunk["metadata"].get("page_range", "?"),
+                    )
+                    continue
+
                 logger.info(
                     "Extracting dialogues: Book %d, Lesson %d "
                     "(quality: %.2f, pages: %s)...",
@@ -419,6 +451,21 @@ def process_chunks(
                         chunk["metadata"].get("page_range", "?"),
                         len(chunk.get("content", "")),
                     )
+
+    # Deduplicate: keep last extraction per (book_id, lesson_id, dialogue_number)
+    seen: dict[tuple[int, int, int], int] = {}
+    for idx, d in enumerate(all_dialogues):
+        key = (d["book_id"], d["lesson_id"], d["dialogue_number"])
+        seen[key] = idx
+    if len(seen) < len(all_dialogues):
+        deduped = [all_dialogues[i] for i in sorted(seen.values())]
+        logger.warning(
+            "Deduplicated %d → %d dialogues (removed %d duplicates)",
+            len(all_dialogues),
+            len(deduped),
+            len(all_dialogues) - len(deduped),
+        )
+        all_dialogues = deduped
 
     return all_dialogues
 
