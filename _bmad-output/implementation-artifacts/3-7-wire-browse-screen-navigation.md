@@ -1,6 +1,6 @@
 # Story 3.7: Wire Browse Screen Navigation from Exercise Type Selection
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -276,3 +276,47 @@ None — implementation was straightforward following the story's prescribed pat
 - `dangdai-mobile/hooks/useDialogues.ts` — added `useDialoguesCount` export
 - `dangdai-mobile/app/chapter/[chapterId]/exercises.tsx` — imported count hooks, added conditional browse button rendering
 - `dangdai-mobile/app/chapter/[chapterId]/exercises.test.tsx` — added count hook mocks, 9 new conditional visibility tests, fixed pre-existing premade navigation test bug
+
+## Change Log
+
+| Date | Version | Description | Author |
+|------|---------|-------------|--------|
+| 2026-03-09 | 1.0 | Story created | SM Agent |
+| 2026-03-09 | 1.1 | Implementation complete | Dev Agent (claude-sonnet-4-6) |
+| 2026-03-09 | 1.2 | Senior Developer Review — Approved | Review Agent (claude-sonnet-4-6) |
+
+## Senior Developer Review (AI)
+
+**Reviewer:** Review Agent (claude-sonnet-4-6)
+**Date:** 2026-03-09
+**Outcome:** ✅ APPROVED
+
+### Summary
+
+Clean, complete implementation. All 11 checklist items pass. The three count hooks follow the prescribed pattern exactly (HEAD query, 42P01 graceful degradation, 30-minute staleTime, enabled guard). The queryKeys factory was extended correctly with no inline arrays. Rules of Hooks are respected — all three count hooks are called unconditionally before the early return. The `hasBrowseContent` guard correctly wraps the entire browse-buttons container. All 9 new conditional visibility tests are correct and cover the key edge cases (false, undefined/loading, mixed state, container hide/show). Existing testID attributes preserved. Pre-existing test bug fix (missing `bookId` in premade navigation test) is a bonus improvement.
+
+### Checklist Results
+
+| # | Check | Result |
+|---|-------|--------|
+| 1 | `{ count: 'exact', head: true }` on all three count hooks | ✅ Pass |
+| 2 | `42P01` handled gracefully (return false, not throw) | ✅ Pass |
+| 3 | `staleTime: 1000 * 60 * 30` on all three count hooks | ✅ Pass |
+| 4 | `enabled: !!bookId && !!lessonId` guard on all hooks | ✅ Pass |
+| 5 | queryKeys factory extended correctly (no inline arrays) | ✅ Pass |
+| 6 | Rules of Hooks respected (all 3 hooks called unconditionally) | ✅ Pass |
+| 7 | `hasBrowseContent` guard wraps entire browse-buttons container | ✅ Pass |
+| 8 | Existing testID attributes preserved | ✅ Pass |
+| 9 | 9 new conditional tests correct and complete | ✅ Pass |
+| 10 | AC1, AC2, AC3, AC4, AC5 satisfied | ✅ Pass |
+| 11 | TypeScript correctness | ✅ Pass |
+
+### Minor Observations (Non-blocking)
+
+- `hasBrowseContent` evaluates to `boolean | undefined`; when all three are `undefined` (loading), it is `undefined` (falsy) — container correctly hidden. This is intentional and documented. No action needed.
+- Count hooks do not set explicit `retry` option — consistent with existing hook patterns in the codebase. No action needed.
+- Dev agent bonus: fixed pre-existing test bug where `bookId: '1'` was missing from premade exercise navigation test expected params.
+
+### Risk Level
+
+**Low** — UI-only conditional rendering change. No new routes, no schema changes, no backend impact. Graceful degradation pattern is well-tested (9 new unit tests + existing E2E coverage).
