@@ -45,11 +45,14 @@ development_status:
   1-1-initialize-mobile-app-with-tamagui-expo-router: done
   1-1b-configure-tamagui-theme-animation-presets: review
   1-2-initialize-python-backend-with-langgraph: done
-  1-3-configure-supabase-project-and-base-schema: in-progress
+  1-3-configure-supabase-project-and-base-schema: done
   1-4-configure-mobile-app-environment-and-supabase-client: done
   1-5-configure-state-management-tanstack-query-zustand: done
   1-6-deploy-python-backend-to-azure-container-apps: done
   1-7-configure-ci-cd-with-github-actions: done
+  1-8-configurable-llm-provider-azure-openai: review
+  1-9-request-cancellation-backend-endpoints: ready-for-dev
+  1-10-create-structured-content-tables: done
   epic-1-retrospective: optional
 
   # Epic 2: User Authentication & Identity
@@ -68,19 +71,28 @@ development_status:
   3-2-chapter-list-screen: done
   3-3-chapter-completion-status-display: done
   3-4-open-chapter-navigation-no-gates: done
+  3-5-exercise-type-selection-screen: ready-for-dev
+  3-6-expand-book-selection-to-books-1-4: ready-for-dev
   epic-3-retrospective: optional
 
-  # Epic 4: Quiz Experience & Feedback
+  # Epic 4: Quiz Experience & Exercise Types
   epic-4: in-progress
-  4-1-quiz-generation-api-endpoint: ready-for-dev
-  4-2-quiz-loading-screen-with-tips: backlog
-  4-3-vocabulary-quiz-question-display: backlog
-  4-4-answer-selection-with-2x2-grid: backlog
-  4-5-immediate-answer-feedback-visual-sound: backlog
-  4-6-quiz-progress-saving-crash-safe: backlog
-  4-7-grammar-quiz-question-types: backlog
-  4-8-quiz-results-screen: backlog
-  4-9-text-input-answer-type: backlog
+  4-1-quiz-generation-api-endpoint: done
+  4-1b-answer-validation-api-endpoint: done
+  4-2-quiz-loading-screen-with-tips: done
+  4-3-vocabulary-grammar-quiz-multiple-choice: done
+  4-4-fill-in-the-blank-exercise: done
+  4-5-matching-exercise: done
+  4-6-dialogue-completion-exercise: done
+  4-7-sentence-construction-exercise: done
+  4-8-reading-comprehension-exercise: done
+  4-9-immediate-answer-feedback: done
+  4-10-quiz-progress-saving: done
+  4-10b-quiz-pause-resume: ready-for-dev
+  4-11-quiz-results-screen: done
+  4-12-text-input-answer-type: done
+  4-13-evaluator-optimizer-quiz-validation: done
+  4-14-migrate-quiz-generation-to-structured-content: ready-for-dev
   epic-4-retrospective: optional
 
   # Epic 5: Chapter Assessment & Mastery
@@ -125,3 +137,25 @@ development_status:
   9-4-quiz-instructions-localization: backlog
   9-5-sound-and-theme-settings: backlog
   epic-9-retrospective: optional
+
+  # Epic 10: Performance Memory & Adaptive Learning
+  epic-10: backlog
+  10-1-weakness-profile-query-service: backlog
+  10-2-adaptive-quiz-biasing: backlog
+  10-3-weakness-dashboard-screen: backlog
+  10-4-focused-drill-from-weakness-dashboard: backlog
+  10-5-weakness-profile-real-time-updates: backlog
+  10-6-never-practiced-vs-practiced-but-weak: backlog
+  epic-10-retrospective: optional
+
+  # Epic 11: Content Seeding & Structured Data Pipeline
+  epic-11: in-progress
+  11-1-vocabulary-seeding-from-flash-card-tsv: ready-for-dev
+  11-2-grammar-points-extraction-and-seeding: ready-for-dev
+  11-3-dialogue-extraction-and-seeding: ready-for-dev
+  11-4-premade-workbook-exercise-seeding: ready-for-dev
+  11-5-vocabulary-browse-screen: ready-for-dev
+  11-6-grammar-points-browse-screen: ready-for-dev
+  11-7-dialogue-browse-screen: ready-for-dev
+  11-8-premade-exercise-completion-flow: ready-for-dev
+  epic-11-retrospective: optional

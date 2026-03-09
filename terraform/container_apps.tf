@@ -38,8 +38,47 @@ resource "azurerm_container_app" "api" {
       }
 
       env {
-        name        = "LLM_API_KEY"
-        secret_name = "llm-api-key"
+        name  = "LLM_PROVIDER"
+        value = "azure_openai"
+      }
+
+      env {
+        name  = "AZURE_OPENAI_ENDPOINT"
+        value = azurerm_cognitive_account.openai.endpoint
+      }
+
+      env {
+        name        = "AZURE_OPENAI_API_KEY"
+        secret_name = "azure-openai-api-key"
+      }
+
+      env {
+        name  = "AZURE_OPENAI_DEPLOYMENT_NAME"
+        value = var.azure_openai_deployment_name
+      }
+
+      env {
+        name  = "LLM_MODEL"
+        value = "gpt-4o"
+      }
+
+      env {
+        name  = "AZURE_OPENAI_API_VERSION"
+        value = var.azure_openai_api_version
+      }
+
+      env {
+        name        = "SUPABASE_JWT_SECRET"
+        secret_name = "supabase-jwt-secret"
+      }
+
+      # Legacy LLM_API_KEY (deprecated, kept for backward compatibility)
+      dynamic "env" {
+        for_each = var.llm_api_key != "" ? [1] : []
+        content {
+          name        = "LLM_API_KEY"
+          secret_name = "llm-api-key"
+        }
       }
 
       env {
@@ -62,7 +101,7 @@ resource "azurerm_container_app" "api" {
       }
     }
 
-    min_replicas = 0  # Scale to zero when not in use
+    min_replicas = 0 # Scale to zero when not in use
     max_replicas = 10
   }
 
@@ -77,8 +116,22 @@ resource "azurerm_container_app" "api" {
   }
 
   secret {
-    name  = "llm-api-key"
-    value = var.llm_api_key
+    name  = "azure-openai-api-key"
+    value = azurerm_cognitive_account.openai.primary_access_key
+  }
+
+  secret {
+    name  = "supabase-jwt-secret"
+    value = var.supabase_jwt_secret
+  }
+
+  # Legacy LLM API key secret (deprecated, only if provided)
+  dynamic "secret" {
+    for_each = var.llm_api_key != "" ? [1] : []
+    content {
+      name  = "llm-api-key"
+      value = var.llm_api_key
+    }
   }
 
   # Optional: LangSmith secret (only created if key provided)

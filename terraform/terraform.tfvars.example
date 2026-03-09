@@ -8,5 +8,7 @@ location             = "eastus"
 image_tag            = "latest"
 supabase_url         = "https://xxx.supabase.co"
 supabase_service_key = "eyJ..."
+supabase_jwt_secret  = "your-supabase-jwt-secret"
 llm_api_key          = "sk-..."
 langsmith_api_key    = ""  # Optional: LangSmith API key for observability
+azure_openai_api_version = "2024-02-15-preview"  # Optional: defaults to 2024-02-15-preview

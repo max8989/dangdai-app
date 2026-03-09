@@ -407,7 +407,7 @@ Common across all types:
 - Answer options use `pressStyle: { scale: 0.98 }`
 - Immediate feedback via `<Theme name="success">` or `<Theme name="error">` wrapping the interaction
 - Sound plays simultaneously (correct = ding, incorrect = gentle bonk)
-- After 1 second hold, `questionIndex` increments, triggering `AnimatePresence` exit/enter cycle
+- User taps "Next" button on FeedbackOverlay to advance; `questionIndex` increments, triggering `AnimatePresence` exit/enter cycle
 
 **3. Feedback (per question):**
 - Correct: `<Theme name="success">` on answer + satisfying sound + small point increment visible
@@ -679,13 +679,13 @@ flowchart TD
 **Key Design Decisions:**
 - Dashboard prominently shows weakness summary: "Focus areas: 會 vs 可以, Sentence Construction (40%)"
 - "Mixed" mode available from dashboard — AI generates questions biased toward documented weak areas (30-50% of questions target weaknesses)
-- Auto-advance between questions after feedback
+- User taps "Next" button to advance between questions after feedback
 - Completion screen shows: points, accuracy, **per-exercise-type breakdown**, and weakness summary
 - Weakness dashboard updates in real-time after each quiz completion
 - Dashboard updates immediately with new calendar state and refreshed weakness indicators
 
 **Timing:**
-- Question feedback: ~1 second display
+- Question feedback: displayed until user taps "Next"
 - Completion animation: ~2-3 seconds
 - Total session: ~10-15 minutes for 10-15 questions
 
@@ -1614,13 +1614,13 @@ The sub-theme automatically resolves `$background` to `$successBackground` or `$
 
 | State | Visual | Sound | Duration |
 |-------|--------|-------|----------|
-| Correct | Green border, checkmark icon, card highlight | Satisfying "ding" | 1 second |
-| Incorrect | Orange border, show correct answer | Gentle "bonk" | 1 second |
+| Correct | Green border, checkmark icon, card highlight | Satisfying "ding" | Until user taps "Next" |
+| Incorrect | Orange border, show correct answer | Gentle "bonk" | Until user taps "Next" |
 
 **Behavior:**
 - Feedback appears immediately on tap (<100ms)
-- Auto-advance to next question after 1 second
-- User cannot tap during feedback animation
+- User taps "Next" button on FeedbackOverlay to advance to next question
+- Answer options are disabled during feedback display
 - Points increment visible on correct answer
 
 #### Completion Feedback
@@ -1893,7 +1893,7 @@ Each exercise type has a distinct interaction model, but all share common feedba
 **Common Patterns Across All Types:**
 - Answer feedback appears within 100ms of interaction
 - Sound plays simultaneously with visual feedback (ding/bonk)
-- 1-second hold before auto-advance to next question
+- User taps "Next" button on FeedbackOverlay to advance to next question
 - Progress bar updates after each question regardless of type
 - Points increment visible on correct answer
 - `AnimatePresence` wraps all question transitions

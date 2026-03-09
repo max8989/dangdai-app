@@ -125,7 +125,9 @@ class TestTerraformConfiguration:
         assert "supabase-service-key" in content, (
             "Should configure supabase service key secret"
         )
-        assert "llm-api-key" in content, "Should configure LLM API key secret"
+        assert "azure-openai-api-key" in content, (
+            "Should configure Azure OpenAI API key secret"
+        )
 
     def test_terraform_has_environment_variables(self):
         """Test that Terraform configures required environment variables."""
@@ -134,7 +136,16 @@ class TestTerraformConfiguration:
         assert "SUPABASE_SERVICE_KEY" in content, (
             "Should configure SUPABASE_SERVICE_KEY env var"
         )
-        assert "LLM_API_KEY" in content, "Should configure LLM_API_KEY env var"
+        assert "LLM_PROVIDER" in content, "Should configure LLM_PROVIDER env var"
+        assert "AZURE_OPENAI_ENDPOINT" in content, (
+            "Should configure AZURE_OPENAI_ENDPOINT env var"
+        )
+        assert "AZURE_OPENAI_API_KEY" in content, (
+            "Should configure AZURE_OPENAI_API_KEY env var"
+        )
+        assert "AZURE_OPENAI_DEPLOYMENT_NAME" in content, (
+            "Should configure AZURE_OPENAI_DEPLOYMENT_NAME env var"
+        )
 
     def test_main_tf_has_log_analytics(self):
         """Test that main.tf creates Log Analytics workspace."""

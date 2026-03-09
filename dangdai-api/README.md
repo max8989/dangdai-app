@@ -1,61 +1,114 @@
-# New LangGraph Project
+# Dangdai API
 
-[![CI](https://github.com/langchain-ai/new-langgraph-project/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/langchain-ai/new-langgraph-project/actions/workflows/unit-tests.yml)
-[![Integration Tests](https://github.com/langchain-ai/new-langgraph-project/actions/workflows/integration-tests.yml/badge.svg)](https://github.com/langchain-ai/new-langgraph-project/actions/workflows/integration-tests.yml)
-
-This template demonstrates a simple application implemented using [LangGraph](https://github.com/langchain-ai/langgraph), designed for showing how to get started with [LangGraph Server](https://langchain-ai.github.io/langgraph/concepts/langgraph_server/#langgraph-server) and using [LangGraph Studio](https://langchain-ai.github.io/langgraph/concepts/langgraph_studio/), a visual debugging IDE.
-
-<div align="center">
-  <img src="./static/studio_ui.png" alt="Graph view in LangGraph studio UI" width="75%" />
-</div>
-
-The core logic defined in `src/agent/graph.py`, showcases an single-step application that responds with a fixed string and the configuration provided.
-
-You can extend this graph to orchestrate more complex agentic workflows that can be visualized and debugged in LangGraph Studio.
+Python FastAPI + LangGraph backend for quiz generation and answer validation.
 
 ## Getting Started
 
-1. Install dependencies, along with the [LangGraph CLI](https://langchain-ai.github.io/langgraph/concepts/langgraph_cli/), which will be used to run the server.
+1. Install dependencies:
 
 ```bash
-cd path/to/your/app
-pip install -e . "langgraph-cli[inmem]"
+cd dangdai-api
+pip install -e ".[dev]"
 ```
 
-2. (Optional) Customize the code and project as needed. Create a `.env` file if you need to use secrets.
+2. Copy the environment file and configure:
 
 ```bash
 cp .env.example .env
 ```
 
-If you want to enable LangSmith tracing, add your LangSmith API key to the `.env` file.
+3. Start the development server:
 
-```text
-# .env
-LANGSMITH_API_KEY=lsv2...
+```bash
+uvicorn src.api.main:app --reload --port 8000
 ```
 
-3. Start the LangGraph Server.
+## LLM Provider Configuration
 
-```shell
-langgraph dev
+The backend supports multiple LLM providers, configurable via environment variables. No code changes are needed to switch providers.
+
+### Azure OpenAI (Default)
+
+Set `LLM_PROVIDER=azure_openai` (or leave unset, as this is the default).
+
+Required environment variables:
+
+```bash
+LLM_PROVIDER=azure_openai
+AZURE_OPENAI_API_KEY=your-azure-openai-key
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
+AZURE_OPENAI_API_VERSION=2024-02-15-preview  # optional, this is the default
 ```
 
-For more information on getting started with LangGraph Server, [see here](https://langchain-ai.github.io/langgraph/tutorials/langgraph-platform/local-server/).
+### OpenAI
 
-## How to customize
+Set `LLM_PROVIDER=openai`.
 
-1. **Define runtime context**: Modify the `Context` class in the `graph.py` file to expose the arguments you want to configure per assistant. For example, in a chatbot application you may want to define a dynamic system prompt or LLM to use. For more information on runtime context in LangGraph, [see here](https://langchain-ai.github.io/langgraph/agents/context/?h=context#static-runtime-context).
+Required environment variables:
 
-2. **Extend the graph**: The core logic of the application is defined in [graph.py](./src/agent/graph.py). You can modify this file to add new nodes, edges, or change the flow of information.
+```bash
+LLM_PROVIDER=openai
+OPENAI_API_KEY=sk-...
+```
+
+### Anthropic
+
+Set `LLM_PROVIDER=anthropic`.
+
+Required environment variables:
+
+```bash
+LLM_PROVIDER=anthropic
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+### Switching Providers
+
+1. Update `LLM_PROVIDER` in your `.env` file
+2. Set the required credentials for the new provider
+3. Restart the backend server
+4. The startup log will confirm: `Using LLM provider: <provider> with model: <model>`
+
+### Optional LLM Parameters
+
+```bash
+LLM_MODEL=gpt-4o          # Override default model for the provider
+LLM_TEMPERATURE=0.7       # Sampling temperature (default: 0.7)
+LLM_MAX_TOKENS=2048       # Max output tokens (default: 2048)
+```
+
+### Cost Estimates (Azure OpenAI gpt-4o)
+
+| Scenario | LLM Calls | Estimated Cost |
+|----------|-----------|----------------|
+| Quiz generation (0 retries) | 2 (generation + evaluator) | ~$0.020 |
+| Quiz generation (1 retry) | 4 | ~$0.040 |
+| Quiz generation (2 retries, max) | 6 | ~$0.060 |
 
 ## Development
 
-While iterating on your graph in LangGraph Studio, you can edit past state and rerun your app from previous states to debug specific nodes. Local changes will be automatically applied via hot reload.
+```bash
+# Run unit tests
+make test
 
-Follow-up requests extend the same thread. You can create an entirely new thread, clearing previous history, using the `+` button in the top right.
+# Run integration tests (requires real API credentials)
+make integration_tests
 
-For more advanced features and examples, refer to the [LangGraph documentation](https://langchain-ai.github.io/langgraph/). These resources can help you adapt this template for your specific use case and build more sophisticated conversational agents.
+# Lint and format
+ruff check src/ tests/
+ruff format --check src/ tests/
 
-LangGraph Studio also integrates with [LangSmith](https://smith.langchain.com/) for more in-depth tracing and collaboration with teammates, allowing you to analyze and optimize your chatbot's performance.
+# Type checking
+mypy src/ --strict
+```
 
+## Architecture
+
+The quiz generation pipeline uses LangGraph:
+
+```
+START -> retrieve_content -> query_weakness -> generate_quiz -> validate_structure -> evaluate_content -> END
+```
+
+The LLM provider is abstracted via a factory pattern in `src/utils/llm_factory.py`. All graph nodes and services call `get_llm()` which returns a provider-agnostic `BaseChatModel` instance.

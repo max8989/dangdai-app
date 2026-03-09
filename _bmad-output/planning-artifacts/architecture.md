@@ -11,8 +11,18 @@ date: 'Sat Feb 14 2026'
 lastStep: 8
 status: 'complete'
 completedAt: '2026-02-14'
-updatedAt: '2026-02-20'
+updatedAt: 'Sat Feb 21 2026'
 updateHistory:
+  - date: 'Sat Feb 21 2026'
+    changes: 'Added Quiz Pause/Resume Architecture: Allows users to pause in-progress quizzes and resume later with full state restoration. Paused quizzes stored in Supabase paused_quizzes table with JSONB state. Exit modal updated with Pause/Cancel options. Improves UX by preventing accidental quiz loss.'
+  - date: 'Sat Feb 21 2026'
+    changes: 'Added Request Cancellation Architecture: Server-side cancellation via FastAPI Request.is_disconnected() to prevent orphaned LangGraph executions when users navigate away during quiz generation. Reduces cost waste by 70-90% on abandoned requests (~$16/month savings). Added enforcement guidelines for all backend endpoints.'
+  - date: 'Sun Mar 08 2026'
+    changes: 'Major architecture update: Structured Content Tables. Replaced RAG-only quiz generation with structured content approach. Added 4 new tables (vocabulary, dialogues, grammar_points, premade_exercises). Quiz generation now uses structured tables as primary source. Added premade workbook exercises per chapter. Updated chapter view to show premade + custom AI exercises. Expanded content scope to Books 1-4.'
+  - date: '2026-02-21'
+    changes: 'Added configurable LLM provider architecture with Azure OpenAI GPT-4o as default. Supports switching between Azure OpenAI, OpenAI, and other providers via environment configuration. Updated cost estimates for Azure pricing model.'
+  - date: '2026-02-21'
+    changes: 'Added Evaluator-Optimizer validation pattern to quiz generation pipeline. LLM-based content evaluator node validates Traditional Chinese compliance, pinyin diacritics, question language, and curriculum alignment. Upgraded default LLM model from gpt-4o to gpt-4.1. Updated graph topology, state definitions, and file structure.'
   - date: '2026-02-20'
     changes: 'Added Tamagui Theme & Animation Architecture section to align with enriched UX Design Specification'
   - date: '2026-02-20'
@@ -66,7 +76,7 @@ _This document builds collaboratively through step-by-step discovery. Sections a
 | Backend (Data) | Supabase (PostgreSQL + Auth) | User data, progress, auth |
 | Backend (AI) | Python (FastAPI + LangGraph) | RAG queries, quiz generation |
 | Vector Store | Supabase pgvector | Dangdai content embeddings |
-| LLM | External API (via LangChain) | Quiz question generation |
+| LLM | Azure OpenAI gpt-4o (configurable) | Quiz generation + content evaluation |
 | Min iOS | 13.0+ | - |
 | Min Android | API 21 (5.0)+ | - |
 | Connectivity | Online-only | MVP constraint |
@@ -75,26 +85,47 @@ _This document builds collaboratively through step-by-step discovery. Sections a
 
 ```
 Mobile App (Expo) ──┬──▶ Supabase (Auth, Progress, User Data, Performance Memory)
+                    │     ├──▶ Structured Content (vocabulary, dialogues, grammar_points)
+                    │     └──▶ Premade Exercises (premade_exercises — direct read, no LLM)
                     │
                     └──▶ Python Backend (FastAPI + LangGraph)
                               │
-                              ├──▶ Supabase pgvector (RAG retrieval by chapter + exercise type)
+                              ├──▶ Supabase Structured Content (vocabulary, grammar_points, dialogues — PRIMARY source)
+                              ├──▶ Supabase pgvector (RAG retrieval — SUPPLEMENTARY, culture/pronunciation context)
                               ├──▶ Supabase question_results (weakness profile query)
-                              ├──▶ LLM API (quiz generation + complex answer validation)
-                              └──▶ LangGraph Validation Node (self-check before response)
+                              ├──▶ LLM API - Azure OpenAI gpt-4o (quiz generation + complex answer validation)
+                              ├──▶ LangGraph Structure Validation Node (rule-based self-check)
+                              └──▶ LangGraph Content Evaluator Node (LLM-based quality gate)
 ```
 
-**Quiz Generation Flow (Detailed):**
+**Quiz Generation Flow (Detailed) -- Structured Content + Evaluator-Optimizer Pattern:**
 ```
-1. Mobile: POST /api/quizzes { chapter_id, exercise_type, user_jwt }
+1. Mobile: POST /api/quizzes/generate { chapter_id, exercise_type, user_jwt }
 2. Agent: Verify JWT → Query weakness profile from question_results (aggregation)
-3. Agent: RAG retrieve from pgvector filtered by (book, lesson, exercise_type)
-4. Agent: LLM generates quiz with pre-generated explanations, biased 30-50% toward weak areas
-5. Agent: Self-check validation node (correct answers exist, options distinct, curriculum-aligned)
-6. Agent: Return structured quiz payload with answer keys + explanations + source citations
-7. Mobile: Local validation for simple types (Vocabulary, Grammar, Matching, Fill-in-Blank, Reading)
-8. Mobile: LLM call via agent for complex types (Sentence Construction, Dialogue Completion) when answer differs from key
-9. Mobile: Save per-question results to question_results + update exercise_type_progress
+3. Agent: Retrieve structured content from Supabase:
+   a. vocabulary table: all vocab for this chapter (+ optionally previous chapters for cumulative review)
+   b. grammar_points table: all grammar points for this chapter (MUST cover all grammar points)
+   c. dialogues table: dialogue lines for this chapter (for Reading Comprehension, Dialogue Completion)
+   d. (Optional) dangdai_chunks: culture/pronunciation context if needed
+4. Agent: LLM (Azure OpenAI gpt-4o) generates quiz using structured content as context, with pre-generated explanations, biased 30-50% toward weak areas, ensuring ALL grammar points are covered
+5. Agent: Structure validation node (rule-based: correct answers exist, options distinct, required fields, all grammar points represented)
+6. Agent: Content evaluator node (LLM-based: Traditional Chinese compliance, pinyin diacritics, 
+          question text in UI language, curriculum alignment, pedagogical quality)
+   - If evaluator fails: structured feedback → retry generate_quiz (max 2 retries)
+   - Generator receives evaluator feedback to self-correct specific issues
+7. Agent: Return structured quiz payload with answer keys + explanations + source citations
+8. Mobile: Local validation for simple types (Vocabulary, Grammar, Matching, Fill-in-Blank, Reading)
+9. Mobile: LLM call via agent for complex types (Sentence Construction, Dialogue Completion) when answer differs from key
+10. Mobile: Save per-question results to question_results + update exercise_type_progress
+```
+
+**Premade Exercise Flow (NEW — no LLM needed):**
+```
+1. Mobile: GET premade exercises for chapter from Supabase (premade_exercises table)
+2. Mobile: Display exercise list with completion status per exercise
+3. User selects a premade exercise → exercises rendered locally from stored structured content
+4. Mobile: Local validation against stored correct answers
+5. Mobile: Save per-question results to question_results + update exercise_type_progress
 ```
 
 ### Cross-Cutting Concerns Identified
@@ -112,6 +143,8 @@ Mobile App (Expo) ──┬──▶ Supabase (Auth, Progress, User Data, Perfor
 11. **Adaptive Learning Pipeline**: Weakness profile computation → quiz bias → performance tracking → profile update loop
 12. **Hybrid Answer Validation**: Local validation for structured answers, LLM validation for open-ended answers (Sentence Construction, Dialogue Completion)
 13. **Exercise Type System**: 7 distinct exercise types with type-specific UI interactions, generation prompts, validation rules, and progress tracking
+14. **Request Cancellation**: Backend request cancellation when users navigate away from loading states, preventing resource waste and orphaned LangGraph executions
+15. **Quiz Pause/Resume**: Allow users to pause in-progress quizzes and resume later with full state restoration via Supabase `paused_quizzes` table
 
 ## Starter Template Evaluation
 
@@ -203,14 +236,79 @@ Project initialization should be the first implementation task, creating:
 | **Database** | Supabase PostgreSQL | Already chosen; handles auth, data, and pgvector |
 | **Migrations** | Supabase migrations | Built-in migration system |
 | **Weakness Profile** | Computed on request via SQL aggregation | Agent queries `question_results` directly; works at MVP scale (100 users, ~100 rows/user/week); avoids extra materialized table |
+| **Content Strategy** | Structured tables (primary) + RAG chunks (supplementary) | Structured vocab/grammar/dialogue tables provide consistent, reliable content for exercise generation. RAG chunks used only as supplementary context when needed (e.g., culture notes, pronunciation). |
 
-**Schema Approach:**
+**Schema Approach — User Data Tables:**
 - `users` - Profile + cached aggregates (total_points, current_streak, streak_updated_at)
 - `quiz_attempts` - Individual quiz records with JSONB `answers_json` for full quiz replay (includes per-question detail for history display)
-- `question_results` - **NEW**: Normalized per-question performance data (user_id, chapter_id, exercise_type, vocabulary_item, grammar_pattern, correct, time_spent_ms, created_at). Indexed on (user_id, exercise_type) and (user_id, vocabulary_item) for fast weakness aggregation. This is the source of truth for the adaptive learning system.
-- `exercise_type_progress` - **NEW**: Per exercise type per chapter progress (user_id, chapter_id, exercise_type, best_score, attempts_count, mastered_at). Directly feeds the Exercise Type Selection UI. Chapter mastery requires ≥4 of 7 types attempted with ≥80% average.
+- `question_results` - Normalized per-question performance data (user_id, chapter_id, exercise_type, vocabulary_item, grammar_pattern, correct, time_spent_ms, created_at). Indexed on (user_id, exercise_type) and (user_id, vocabulary_item) for fast weakness aggregation. This is the source of truth for the adaptive learning system.
+- `exercise_type_progress` - Per exercise type per chapter progress (user_id, chapter_id, exercise_type, best_score, attempts_count, mastered_at). Directly feeds the Exercise Type Selection UI. Chapter mastery requires ≥4 of 7 types attempted with ≥80% average.
 - `chapter_progress` - Per-chapter overall completion percentage (calculated from `exercise_type_progress`)
 - `daily_activity` - Streak tracking (one row per active day)
+- `paused_quizzes` - Paused in-progress quiz state (user_id, chapter_id, exercise_type, quiz_state JSONB, paused_at, expires_at). Allows users to pause and resume quizzes. One paused quiz per chapter per user (upsert). Auto-expires after 7 days.
+
+**Schema Approach — Structured Content Tables (NEW):**
+
+These tables store the Dangdai textbook curriculum content as structured data, replacing RAG-only retrieval for exercise generation. Content covers Books 1-4 (54 lessons total: 15+15+12+12).
+
+- `vocabulary` - All vocabulary items from the textbook series. Source: Flash-card.tsv (~3,000 items for Books 1-4). Traditional Chinese only.
+  - Fields: `id`, `book_id`, `lesson_id`, `vocab_section` (I or II), `traditional`, `pinyin`, `english`, `part_of_speech`, `is_name` (boolean for proper nouns), `sort_order`
+  - Indexes: (book_id, lesson_id), (traditional)
+
+- `dialogues` - Lesson dialogues in traditional, simplified, and English. Each lesson has Dialogue I and Dialogue II. Source: textbook chunks + PDFs.
+  - Fields: `id`, `book_id`, `lesson_id`, `dialogue_number` (1 or 2), `title_traditional`, `title_english`, `lines` (JSONB array of `{ speaker, traditional, simplified, pinyin, english }`)
+  - Indexes: (book_id, lesson_id)
+
+- `grammar_points` - Grammar rules and patterns per lesson. Each lesson typically has 4-6 grammar points. Source: textbook chunks (vocabulary section contains embedded grammar) + PDFs.
+  - Fields: `id`, `book_id`, `lesson_id`, `grammar_order` (order within lesson), `title_english`, `title_chinese`, `function_description`, `structure_pattern`, `usage_notes`, `examples` (JSONB array of `{ traditional, pinyin, english }`), `sort_order`
+  - Indexes: (book_id, lesson_id)
+
+- `premade_exercises` - Pre-existing workbook exercises stored in structured format. Source: workbook chunk files (workbook1-4_chunks.json), restructured into exercise format.
+  - Fields: `id`, `book_id`, `lesson_id`, `exercise_type` (listening, reading, fill_in_blank, dialogue_completion, sentence_construction, matching, character_writing, composition, pronunciation), `exercise_order` (order within lesson), `title`, `instructions`, `content` (JSONB — exercise-type-specific structure), `difficulty`, `source_page_range`
+  - Indexes: (book_id, lesson_id, exercise_type)
+
+- `dangdai_chunks` - (EXISTING) RAG vector chunks. Retained as supplementary context for culture notes, pronunciation guides, and any edge cases where structured tables lack coverage. Not the primary source for exercise generation.
+
+**Premade Exercise `content` JSONB Schema (by exercise type):**
+
+```typescript
+// Fill-in-the-blank
+{ sentences: [{ text_with_blanks: string, word_bank: string[], correct_answers: string[] }] }
+
+// Matching / Dialogue Completion
+{ pairs: [{ prompt: string, response: string }] }
+
+// Sentence Construction
+{ sentences: [{ scrambled_words: string[], correct_order: string }] }
+
+// Reading Comprehension
+{ passage: string, questions: [{ question: string, options: string[], correct_answer: string }] }
+
+// Listening (converted to reading for app — no audio)
+{ sentences: [{ pinyin: string, expected_chinese: string }] }
+
+// Composition
+{ prompt: string, word_count: number, suggested_vocabulary: string[] }
+```
+
+**Content Coverage Summary:**
+
+| Book | Lessons | Vocab Items | Dialogues | Grammar Points | Premade Exercises |
+|------|---------|-------------|-----------|----------------|-------------------|
+| 1 | 15 | ~568 | ~30 | ~60-90 | ~133 chunks → restructured |
+| 2 | 15 | ~658 | ~30 | ~60-90 | ~122 chunks → restructured |
+| 3 | 12 | ~850 | ~24 | ~48-72 | ~69 chunks → restructured |
+| 4 | 12 | ~997 | ~24 | ~48-72 | ~51 chunks → restructured |
+
+**Data Sources & Seeding:**
+
+| Table | Source | Extraction Method |
+|-------|--------|-------------------|
+| `vocabulary` | `/home/maxime/Downloads/Flash-card.tsv` | Parse TSV: header lines (`//當代中文/Book N/LXX-I/II`) define book/lesson/section; data lines are `traditional\tpinyin\tenglish(POS)` |
+| `dialogues` | `dangdai-rag/output_chunks/book{1-4}_chunks.json` (section=learning_objectives,vocabulary with dialogue content) + PDFs at `/home/maxime/Documents/NTNU Book/` | Extract from chunks where content contains dialogue markers; use PDFs for clean text when chunks have OCR noise |
+| `grammar_points` | `dangdai-rag/output_chunks/book{1-4}_chunks.json` (chunks containing "Function:", "Structure:", "Usage:", "Grammar", "文法") + PDFs | Extract grammar patterns from vocabulary-section chunks; ~35 grammar-containing chunks per book; supplement with PDF extraction |
+| `premade_exercises` | `dangdai-rag/output_chunks/workbook{1-4}_chunks.json` | Restructure chunks by exercise_type into proper exercise format with questions, options, correct answers |
+| `dangdai_chunks` | Already seeded (1060 rows with embeddings) | No change — retained as supplementary |
 
 **Weakness Profile Query (agent calls via Supabase service key):**
 ```sql
@@ -258,9 +356,14 @@ HAVING ROUND(COUNT(*) FILTER (WHERE correct)::decimal / COUNT(*) * 100) < 70;
 | **Auth Token Passing** | Supabase JWT in Authorization header | Python backend verifies JWT with Supabase |
 
 **Endpoints (Python Backend):**
-- `POST /api/quizzes/generate` - Generate quiz for chapter + exercise type. Accepts `{ chapter_id, book_id, exercise_type, user_jwt }`. Agent queries weakness profile, retrieves RAG content, generates quiz with pre-generated explanations. Returns structured quiz payload.
+- `POST /api/quizzes/generate` - Generate quiz for chapter + exercise type. Accepts `{ chapter_id, book_id, exercise_type, user_jwt }`. Agent queries weakness profile, retrieves structured content (vocabulary + grammar_points + dialogues), generates quiz with pre-generated explanations using structured content as context. Returns structured quiz payload. ALL grammar points for the chapter are covered.
 - `POST /api/quizzes/validate-answer` - **Hybrid validation endpoint** for complex exercise types (Sentence Construction, Dialogue Completion). Accepts `{ question, user_answer, correct_answer, exercise_type }`. LLM evaluates whether the answer is valid (correct/incorrect + alternative answers shown). Only called when local validation is insufficient.
 - `GET /api/health` - Health check
+
+**Endpoints (Supabase Direct — Mobile reads):**
+- Premade exercises: `supabase.from('premade_exercises').select('*').eq('book_id', bookId).eq('lesson_id', lessonId)` — no backend needed
+- Chapter vocabulary: `supabase.from('vocabulary').select('*').eq('book_id', bookId).eq('lesson_id', lessonId)` — for chapter vocabulary display
+- Chapter grammar: `supabase.from('grammar_points').select('*').eq('book_id', bookId).eq('lesson_id', lessonId)` — for grammar reference
 
 **Answer Validation Strategy (Hybrid):**
 
@@ -296,16 +399,27 @@ Every question in the quiz payload includes a `explanation` field and `source_ci
 
 **Azure Architecture:**
 ```
-Azure Container Apps
-├── dangdai-api (Python/LangGraph)
-│   ├── Scale: 0-10 instances
-│   ├── Memory: 1GB
-│   └── CPU: 0.5 vCPU
-└── Environment Variables
-    ├── SUPABASE_URL
-    ├── SUPABASE_SERVICE_KEY
-    ├── LLM_API_KEY
-    └── LANGSMITH_API_KEY (optional)
+Azure Resource Group
+├── Azure OpenAI Service
+│   ├── Resource: dangdai-openai (East US)
+│   ├── Deployment: gpt-4o
+│   ├── Token Limit: 30K TPM
+│   └── Cost: Pay-as-you-go (~$0.02-0.045 per quiz)
+│
+└── Azure Container Apps
+    ├── dangdai-api (Python/LangGraph)
+    │   ├── Scale: 0-10 instances
+    │   ├── Memory: 1GB
+    │   └── CPU: 0.5 vCPU
+    └── Environment Variables
+        ├── LLM_PROVIDER=azure_openai
+        ├── AZURE_OPENAI_API_KEY (from Key Vault)
+        ├── AZURE_OPENAI_ENDPOINT
+        ├── AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
+        ├── AZURE_OPENAI_MODEL=gpt-4o
+        ├── SUPABASE_URL
+        ├── SUPABASE_SERVICE_KEY (from Key Vault)
+        └── LANGSMITH_API_KEY (optional)
 ```
 
 ### Error Handling Strategy
@@ -325,6 +439,1168 @@ Azure Container Apps
 - Custom error boundary for React components
 - Toast notifications for recoverable errors
 - Progressive quiz loading: show first question ASAP while remaining generate in background
+
+### Request Cancellation Architecture
+
+This section defines the request cancellation mechanism that prevents resource waste when users navigate away from loading states (e.g., pressing "back" during quiz generation).
+
+#### Problem Statement
+
+**Current Behavior (Without Cancellation):**
+1. User initiates quiz generation → Mobile sends `POST /api/quizzes/generate` → Backend starts LangGraph execution
+2. User presses "back" button while quiz is loading (< 8 seconds typically)
+3. Mobile AbortController cancels the HTTP request (client-side only)
+4. Backend LangGraph execution **continues running** for the full duration (~8-60s depending on retries)
+5. Backend generates a complete quiz that is never consumed
+6. Wasted resources: LLM API calls ($0.02-0.06), CPU, database queries
+
+**Impact:**
+- Cost waste: ~$0.02-0.06 per abandoned quiz (2-3 LLM calls if evaluator triggers retries)
+- Server load: Orphaned LangGraph tasks accumulate under high user churn
+- User perception: Rapid back-and-forth navigation feels unresponsive because backend is still processing previous requests
+
+#### Architecture: Server-Side Cancellation via Request Context
+
+FastAPI provides native request cancellation detection through `Request.is_disconnected()`. When a client aborts an HTTP request (via AbortController), FastAPI automatically marks the request as disconnected. Long-running backend tasks should check this flag periodically and terminate gracefully.
+
+**Design Principle:** All long-running async operations (quiz generation, answer validation) must respect client disconnection by checking `Request.is_disconnected()` at key checkpoints and raising `asyncio.CancelledError` to abort execution.
+
+#### Implementation Pattern (FastAPI + LangGraph)
+
+**Step 1: Pass Request Object to Service Layer**
+
+Modify all endpoint handlers to pass the FastAPI `Request` object to service methods:
+
+```python
+# src/api/routes/quizzes.py
+from fastapi import Request
+
+@router.post("/generate")
+async def generate_quiz(
+    request_body: QuizGenerateRequest,
+    user_id: str = Depends(get_current_user),
+    request: Request,  # NEW: FastAPI request object
+) -> QuizGenerateResponse:
+    return await _quiz_service.generate_quiz(request_body, user_id, request)
+```
+
+**Step 2: Service Layer Checks Disconnection Before Expensive Operations**
+
+Modify service methods to check `request.is_disconnected()` before invoking the LangGraph agent:
+
+```python
+# src/services/quiz_service.py
+from fastapi import Request
+import asyncio
+
+class QuizService:
+    async def generate_quiz(
+        self,
+        params: QuizGenerateRequest,
+        user_id: str,
+        request: Request,  # NEW: Accept request object
+    ) -> QuizGenerateResponse:
+        # Check if client disconnected BEFORE starting expensive LangGraph execution
+        if await request.is_disconnected():
+            logger.info(
+                "[QuizService] Client disconnected before graph start (chapter=%d user=%s)",
+                params.chapter_id,
+                user_id,
+            )
+            raise asyncio.CancelledError("Client disconnected")
+        
+        # Invoke graph with cancellation awareness
+        result = await asyncio.wait_for(
+            self._run_graph_with_cancellation_check(graph_input, request),
+            timeout=GENERATION_TIMEOUT_SECONDS,
+        )
+        # ... rest of method
+```
+
+**Step 3: LangGraph Nodes Check Disconnection at Expensive Checkpoints**
+
+Modify LangGraph graph nodes to accept and check the request object at expensive operation boundaries:
+
+```python
+# src/agent/state.py (add request to state)
+from fastapi import Request
+
+class QuizGenerationState(TypedDict, total=False):
+    # ... existing fields ...
+    request: Request  # NEW: FastAPI request for cancellation checks
+
+# src/agent/nodes.py
+async def generate_quiz(state: QuizGenerationState) -> dict:
+    """Generate quiz questions using LLM (cancellation-aware)."""
+    request = state.get("request")
+    
+    # Check disconnection BEFORE expensive LLM call
+    if request and await request.is_disconnected():
+        logger.info("[generate_quiz] Client disconnected, aborting LLM call")
+        raise asyncio.CancelledError("Client disconnected")
+    
+    # Proceed with LLM generation
+    llm = get_llm(temperature=0.7, max_tokens=2048)
+    structured_llm = llm.with_structured_output(QuizSchema)
+    result = await structured_llm.ainvoke(prompt)
+    
+    # ... rest of generation logic
+
+async def evaluate_content(state: QuizGenerationState) -> dict:
+    """Evaluate quiz content quality (cancellation-aware)."""
+    request = state.get("request")
+    
+    # Check disconnection BEFORE evaluator LLM call
+    if request and await request.is_disconnected():
+        logger.info("[evaluate_content] Client disconnected, skipping evaluation")
+        raise asyncio.CancelledError("Client disconnected")
+    
+    # Proceed with evaluation
+    # ... evaluation logic
+```
+
+**Checkpoint Selection Criteria:**
+- ✅ Check BEFORE each LLM API call (most expensive operation, ~1-3s + cost)
+- ✅ Check BEFORE database queries (for weakness profile, RAG retrieval)
+- ❌ Do NOT check inside tight loops or after every line (overhead not worth it)
+- ❌ Do NOT check in synchronous/fast operations (<10ms)
+
+**Step 4: Handle CancelledError Gracefully**
+
+Modify service layer to catch `asyncio.CancelledError` and return a cancellation response instead of 500 error:
+
+```python
+# src/services/quiz_service.py
+try:
+    result = await asyncio.wait_for(
+        graph.ainvoke(graph_input),
+        timeout=GENERATION_TIMEOUT_SECONDS,
+    )
+except asyncio.CancelledError:
+    logger.info(
+        "[QuizService] Quiz generation cancelled by client disconnect (chapter=%d user=%s)",
+        params.chapter_id,
+        user_id,
+    )
+    # Re-raise so FastAPI can handle it (returns no response to disconnected client)
+    raise
+except asyncio.TimeoutError:
+    # ... existing timeout handling
+```
+
+FastAPI automatically handles `asyncio.CancelledError` by closing the response without sending data (client is already gone).
+
+#### Mobile Client Behavior (No Changes Required)
+
+The mobile client already uses `AbortController` for timeouts (see `lib/api.ts:86-102`). This same mechanism triggers server-side disconnection detection:
+
+```typescript
+// lib/api.ts (existing code, no changes needed)
+const controller = new AbortController()
+const timeoutId = setTimeout(() => controller.abort(), QUIZ_GENERATION_TIMEOUT_MS)
+
+const response = await fetch(`${API_BASE_URL}/api/quizzes/generate`, {
+  signal: controller.signal,  // This triggers is_disconnected() on backend when aborted
+})
+```
+
+**User Navigation Triggers Abort:**
+When the user presses "back" or navigates away from the quiz loading screen, React Native automatically aborts all in-flight fetch requests. The `signal` property ensures the backend detects this via `request.is_disconnected()`.
+
+#### Updated Endpoint Coverage
+
+**All backend endpoints must implement cancellation checks:**
+
+| Endpoint | Expensive Operations | Cancellation Checkpoints |
+|----------|---------------------|--------------------------|
+| `POST /api/quizzes/generate` | RAG retrieval, weakness profile query, LLM generation (2-4 calls), LLM evaluation (1-2 calls) | Before RAG query, before each LLM call in `generate_quiz` and `evaluate_content` nodes |
+| `POST /api/quizzes/validate-answer` | LLM answer validation call | Before LLM call in validation service |
+| `GET /health` | None (instant response) | No cancellation checks needed |
+
+#### Cost & Performance Impact
+
+| Metric | Before Cancellation | After Cancellation | Improvement |
+|--------|---------------------|-----------------------|-------------|
+| **Cost per abandoned quiz** | $0.02-0.06 (full generation) | $0-0.01 (partial, stopped early) | ~70-90% cost savings on cancellations |
+| **Server CPU waste** | 8-60s per orphaned task | <1s (stops at first checkpoint) | ~90-95% CPU savings |
+| **User experience** | No change (client already aborts) | No change (client already aborts) | Transparent to user |
+| **Code overhead** | None | ~3-5 lines per node + 1 state field | Minimal |
+
+**Expected cancellation rate:** ~5-15% of quiz generations (users exploring chapters, accidental taps, network issues).
+
+**Monthly savings estimate (100 active users, 10 quizzes/user/week, 10% cancellation rate):**
+- Cancellations per month: 100 × 10 × 4 × 0.10 = 400 cancellations
+- Cost savings: 400 × $0.04 (avg) = **~$16/month** (~8% of total LLM budget)
+
+#### Enforcement Guidelines
+
+**All AI Agents implementing backend endpoints MUST:**
+1. Accept `Request` object as a parameter in all route handlers for long-running operations (quiz generation, answer validation)
+2. Pass `Request` object to service layer methods
+3. Add `request: Request` field to LangGraph state definitions
+4. Check `await request.is_disconnected()` BEFORE each LLM API call in graph nodes
+5. Check `await request.is_disconnected()` BEFORE expensive database queries (RAG, weakness profile)
+6. Raise `asyncio.CancelledError` immediately when disconnection is detected
+7. Let FastAPI handle `CancelledError` (do NOT catch it in route handlers)
+8. Log cancellation events at INFO level for monitoring
+9. Never check disconnection in synchronous code or tight loops (use only before async I/O operations)
+
+**Testing cancellation behavior:**
+```bash
+# Simulate client disconnect mid-request using curl timeout
+curl -X POST http://localhost:8000/api/quizzes/generate \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $JWT" \
+  -d '{"chapter_id": 105, "book_id": 1, "exercise_type": "vocabulary"}' \
+  --max-time 2  # Abort after 2 seconds (quiz generation takes ~8s)
+
+# Expected backend logs:
+# [generate_quiz] Client disconnected, aborting LLM call
+# [QuizService] Quiz generation cancelled by client disconnect
+```
+
+### Quiz Pause/Resume Architecture
+
+This section defines the quiz pause/resume mechanism that allows users to pause an in-progress quiz and resume it later with full state restoration, preventing accidental loss of progress.
+
+#### Problem Statement
+
+**Current Behavior (Without Pause):**
+1. User starts a quiz → answers 3 out of 10 questions
+2. User accidentally navigates away or presses back button
+3. Exit confirmation modal appears with only "Cancel Quiz" option
+4. User must choose between:
+   - Losing all progress (cancel quiz)
+   - Staying on quiz screen (but they wanted to leave temporarily)
+5. No way to save partial progress and resume later
+
+**Impact:**
+- User frustration when accidentally navigating away
+- Lost progress discourages re-engagement
+- No flexibility to pause and resume across sessions
+- Users feel pressured to complete quizzes in one sitting
+
+#### Architecture: Paused Quiz State Persistence
+
+The pause/resume feature uses Supabase to persist the full quiz state (questions, user answers, current position, timer) when the user pauses, allowing them to resume exactly where they left off.
+
+**Design Principle:** Paused quiz state is stored separately from completed quiz attempts. Only one paused quiz per chapter per user is allowed (new pause overwrites old). Paused quizzes expire after 7 days.
+
+#### Database Schema
+
+**New Table: `paused_quizzes`**
+
+```sql
+CREATE TABLE paused_quizzes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  chapter_id INTEGER NOT NULL,
+  exercise_type TEXT NOT NULL, -- 'vocabulary' | 'grammar' | 'fill_in_blank' | 'matching' | 'dialogue' | 'sentence_construction' | 'reading' | 'mixed'
+  
+  -- Quiz state snapshot (JSONB for flexibility)
+  quiz_state JSONB NOT NULL, -- { questions, currentQuestionIndex, answers, startedAt, timeElapsed }
+  
+  -- Metadata
+  paused_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '7 days'),
+  
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  
+  -- Constraints
+  CONSTRAINT paused_quizzes_user_chapter_unique UNIQUE (user_id, chapter_id, exercise_type)
+);
+
+-- Index for user's paused quizzes lookup
+CREATE INDEX idx_paused_quizzes_user_id ON paused_quizzes(user_id);
+
+-- Index for cleanup job (delete expired quizzes)
+CREATE INDEX idx_paused_quizzes_expires_at ON paused_quizzes(expires_at);
+
+-- RLS policies
+ALTER TABLE paused_quizzes ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own paused quizzes"
+  ON paused_quizzes FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own paused quizzes"
+  ON paused_quizzes FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own paused quizzes"
+  ON paused_quizzes FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own paused quizzes"
+  ON paused_quizzes FOR DELETE
+  USING (auth.uid() = user_id);
+```
+
+**Quiz State JSONB Schema:**
+
+```typescript
+interface PausedQuizState {
+  questions: Question[];           // Full quiz payload from backend
+  currentQuestionIndex: number;    // 0-based index of current question
+  answers: Record<number, string>; // Map of questionIndex → user's answer
+  startedAt: string;               // ISO timestamp when quiz started
+  timeElapsed: number;             // Total time spent in milliseconds
+  exerciseType: ExerciseType;      // Exercise type (for type-specific UI restoration)
+  chapterId: number;               // Chapter ID
+  bookId: number;                  // Book ID
+}
+```
+
+#### Mobile App Changes
+
+**Updated Exit Modal (Exit Confirmation)**
+
+The exit confirmation modal (shown when user presses back during a quiz) now has **two** buttons instead of one:
+
+**Before:**
+```
+┌─────────────────────────────────────┐
+│   Are you sure you want to exit?   │
+│   Your progress will be lost.      │
+│                                     │
+│  [Cancel]         [Exit Quiz]      │
+└─────────────────────────────────────┘
+```
+
+**After:**
+```
+┌─────────────────────────────────────┐
+│   What would you like to do?       │
+│                                     │
+│  [Stay]  [Pause Quiz]  [Cancel Quiz]│
+└─────────────────────────────────────┘
+```
+
+**Button Behaviors:**
+
+| Button | Action | State Change |
+|--------|--------|--------------|
+| **Stay** | Dismiss modal, continue quiz | No state change |
+| **Pause Quiz** | Save current state to Supabase `paused_quizzes`, navigate away | Quiz state saved, user returns to previous screen |
+| **Cancel Quiz** | Discard all progress, navigate away | Quiz state lost, no database changes |
+
+**Modal Implementation Pattern:**
+
+```tsx
+// components/quiz/ExitConfirmationModal.tsx
+import { Dialog, Button, XStack, YStack, Text, Theme } from '@tamagui/core';
+import { usePauseQuiz } from '../../hooks/usePauseQuiz';
+
+interface ExitConfirmationModalProps {
+  open: boolean;
+  onStay: () => void;
+  onPause: () => void;
+  onCancel: () => void;
+}
+
+export function ExitConfirmationModal({
+  open,
+  onStay,
+  onPause,
+  onCancel,
+}: ExitConfirmationModalProps) {
+  return (
+    <Dialog open={open}>
+      <Dialog.Portal>
+        <Dialog.Overlay
+          animation="quick"
+          enterStyle={{ opacity: 0 }}
+          exitStyle={{ opacity: 0 }}
+        />
+        <Dialog.Content
+          animation="medium"
+          enterStyle={{ opacity: 0, scale: 0.9 }}
+          exitStyle={{ opacity: 0, scale: 0.9 }}
+        >
+          <YStack gap="$4" padding="$4">
+            <Dialog.Title>What would you like to do?</Dialog.Title>
+            
+            <XStack gap="$3" justifyContent="space-between">
+              <Button
+                flex={1}
+                onPress={onStay}
+                chromeless
+              >
+                Stay
+              </Button>
+              
+              <Theme name="primary">
+                <Button
+                  flex={1}
+                  onPress={onPause}
+                >
+                  Pause Quiz
+                </Button>
+              </Theme>
+              
+              <Theme name="error">
+                <Button
+                  flex={1}
+                  onPress={onCancel}
+                >
+                  Cancel Quiz
+                </Button>
+              </Theme>
+            </XStack>
+          </YStack>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog>
+  );
+}
+```
+
+**Quiz Screen Integration:**
+
+The quiz screen (`app/quiz/[chapterId].tsx`) uses React Navigation's `beforeRemove` listener to intercept back button presses:
+
+```typescript
+// app/quiz/[chapterId].tsx
+import { useNavigation } from '@react-navigation/native';
+import { useEffect, useState } from 'react';
+import { usePauseQuiz } from '../hooks/usePauseQuiz';
+
+export default function QuizScreen() {
+  const navigation = useNavigation();
+  const [showExitModal, setShowExitModal] = useState(false);
+  const { pauseQuiz } = usePauseQuiz();
+  const quizState = useQuizStore();
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      // If quiz is already complete, allow navigation
+      if (quizState.isComplete) {
+        return;
+      }
+
+      // Prevent default navigation
+      e.preventDefault();
+
+      // Show exit confirmation modal
+      setShowExitModal(true);
+    });
+
+    return unsubscribe;
+  }, [navigation, quizState.isComplete]);
+
+  const handlePause = async () => {
+    await pauseQuiz({
+      chapterId: quizState.chapterId,
+      exerciseType: quizState.exerciseType,
+      quizState: {
+        questions: quizState.questions,
+        currentQuestionIndex: quizState.currentQuestionIndex,
+        answers: quizState.answers,
+        startedAt: quizState.startedAt,
+        timeElapsed: quizState.timeElapsed,
+        exerciseType: quizState.exerciseType,
+        chapterId: quizState.chapterId,
+        bookId: quizState.bookId,
+      },
+    });
+    setShowExitModal(false);
+    navigation.goBack();
+  };
+
+  const handleCancel = () => {
+    setShowExitModal(false);
+    navigation.goBack();
+  };
+
+  return (
+    <>
+      {/* Quiz UI */}
+      
+      <ExitConfirmationModal
+        open={showExitModal}
+        onStay={() => setShowExitModal(false)}
+        onPause={handlePause}
+        onCancel={handleCancel}
+      />
+    </>
+  );
+}
+```
+
+#### Resume Flow
+
+**Resume Entry Points:**
+
+Users can resume paused quizzes from two locations:
+
+1. **Dashboard Continue Card**: If the user has a paused quiz, the "Continue Learning" card shows "Resume [Exercise Type] for Chapter X" instead of starting a new quiz
+2. **Exercise Type Selection Screen**: A banner appears at the top: "You have a paused [Exercise Type] quiz for this chapter. Resume?"
+
+**Resume Implementation:**
+
+```typescript
+// hooks/usePauseQuiz.ts
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '../lib/supabase';
+
+export function usePauseQuiz() {
+  const queryClient = useQueryClient();
+
+  const pauseQuiz = useMutation({
+    mutationFn: async ({ chapterId, exerciseType, quizState }: {
+      chapterId: number;
+      exerciseType: string;
+      quizState: PausedQuizState;
+    }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Upsert (insert or update) paused quiz
+      const { error } = await supabase
+        .from('paused_quizzes')
+        .upsert({
+          user_id: user.id,
+          chapter_id: chapterId,
+          exercise_type: exerciseType,
+          quiz_state: quizState,
+          paused_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pausedQuizzes'] });
+    },
+  });
+
+  const resumeQuiz = useMutation({
+    mutationFn: async ({ chapterId, exerciseType }: {
+      chapterId: number;
+      exerciseType: string;
+    }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Fetch paused quiz
+      const { data, error } = await supabase
+        .from('paused_quizzes')
+        .select('quiz_state')
+        .eq('user_id', user.id)
+        .eq('chapter_id', chapterId)
+        .eq('exercise_type', exerciseType)
+        .single();
+
+      if (error) throw error;
+      return data.quiz_state as PausedQuizState;
+    },
+  });
+
+  const deletePausedQuiz = useMutation({
+    mutationFn: async ({ chapterId, exerciseType }: {
+      chapterId: number;
+      exerciseType: string;
+    }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('paused_quizzes')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('chapter_id', chapterId)
+        .eq('exercise_type', exerciseType);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pausedQuizzes'] });
+    },
+  });
+
+  return {
+    pauseQuiz: pauseQuiz.mutateAsync,
+    resumeQuiz: resumeQuiz.mutateAsync,
+    deletePausedQuiz: deletePausedQuiz.mutateAsync,
+  };
+}
+
+// Query for paused quiz by chapter
+export function usePausedQuiz(chapterId: number, exerciseType: string) {
+  return useQuery({
+    queryKey: ['pausedQuizzes', chapterId, exerciseType],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+
+      const { data, error } = await supabase
+        .from('paused_quizzes')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('chapter_id', chapterId)
+        .eq('exercise_type', exerciseType)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error; // Ignore "no rows" error
+      return data;
+    },
+  });
+}
+```
+
+**Quiz Screen Resume Logic:**
+
+```typescript
+// app/quiz/[chapterId].tsx
+import { useEffect } from 'react';
+import { usePausedQuiz, usePauseQuiz } from '../hooks/usePauseQuiz';
+
+export default function QuizScreen() {
+  const { chapterId, exerciseType } = useLocalSearchParams();
+  const { data: pausedQuiz } = usePausedQuiz(Number(chapterId), exerciseType);
+  const { resumeQuiz, deletePausedQuiz } = usePauseQuiz();
+  const quizStore = useQuizStore();
+
+  useEffect(() => {
+    // If there's a paused quiz, restore state
+    if (pausedQuiz) {
+      const state = pausedQuiz.quiz_state as PausedQuizState;
+      quizStore.restoreState(state);
+      
+      // Delete paused quiz record (it's now active)
+      deletePausedQuiz({ chapterId: Number(chapterId), exerciseType });
+    }
+  }, [pausedQuiz]);
+
+  // ... rest of quiz screen
+}
+```
+
+#### State Management Updates
+
+**Zustand Store Additions:**
+
+```typescript
+// stores/useQuizStore.ts
+interface QuizState {
+  // ... existing fields ...
+  
+  // NEW: State restoration
+  restoreState: (state: PausedQuizState) => void;
+  
+  // NEW: Pause metadata
+  startedAt: string | null;
+  timeElapsed: number;
+}
+
+export const useQuizStore = create<QuizState>((set) => ({
+  // ... existing state ...
+  
+  startedAt: null,
+  timeElapsed: 0,
+  
+  restoreState: (state: PausedQuizState) =>
+    set({
+      questions: state.questions,
+      currentQuestionIndex: state.currentQuestionIndex,
+      answers: state.answers,
+      startedAt: state.startedAt,
+      timeElapsed: state.timeElapsed,
+      chapterId: state.chapterId,
+      bookId: state.bookId,
+      exerciseType: state.exerciseType,
+    }),
+  
+  // ... existing actions ...
+}));
+```
+
+#### UX Indicators
+
+**Paused Quiz Indicators:**
+
+1. **Dashboard Continue Card**:
+   - If paused quiz exists: "Resume Vocabulary Quiz - Chapter 5" (with pause icon)
+   - If no paused quiz: "Continue Learning - Chapter 5" (normal)
+
+2. **Exercise Type Selection Screen**:
+   - Banner at top: "⏸️ You have a paused Matching quiz. Tap to resume or start a new one."
+   - Tapping banner navigates to quiz screen with paused state restored
+
+3. **Chapter List**:
+   - Small pause icon badge on chapters with paused quizzes
+
+**Visual Design:**
+
+```tsx
+// components/dashboard/ContinueCard.tsx
+export function ContinueCard() {
+  const { data: pausedQuizzes } = useQuery({
+    queryKey: ['pausedQuizzes'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('paused_quizzes')
+        .select('*')
+        .order('paused_at', { ascending: false })
+        .limit(1);
+      return data;
+    },
+  });
+
+  const latestPaused = pausedQuizzes?.[0];
+
+  if (latestPaused) {
+    return (
+      <Card onPress={() => router.push(`/quiz/${latestPaused.chapter_id}`)}>
+        <XStack gap="$3" alignItems="center">
+          <Pause size={24} color="$primary" />
+          <YStack flex={1}>
+            <Text fontWeight="600">Resume {latestPaused.exercise_type}</Text>
+            <Text color="$colorSubtle" fontSize={14}>
+              Chapter {latestPaused.chapter_id} • {formatDistanceToNow(new Date(latestPaused.paused_at))} ago
+            </Text>
+          </YStack>
+        </XStack>
+      </Card>
+    );
+  }
+
+  // ... normal continue card
+}
+```
+
+#### Cleanup & Maintenance
+
+**Automatic Expiration:**
+
+Paused quizzes automatically expire after 7 days (enforced by `expires_at` timestamp). A scheduled Supabase Edge Function or cron job deletes expired records:
+
+```sql
+-- Cleanup query (run daily via cron)
+DELETE FROM paused_quizzes
+WHERE expires_at < NOW();
+```
+
+**Manual Deletion:**
+
+Users can manually delete paused quizzes:
+- Swipe-to-delete on dashboard paused quiz card
+- "Discard Paused Quiz" button on exercise type selection screen banner
+
+#### Cost & Performance Impact
+
+| Metric | Value | Notes |
+|--------|-------|-------|
+| **Database Storage** | ~2-5 KB per paused quiz | JSONB quiz state with 10 questions |
+| **Expected Paused Quizzes** | ~10-20 per 100 users | Most users pause occasionally |
+| **Storage Cost** | ~$0.01/month | Negligible with 7-day expiration |
+| **Query Performance** | <50ms | Indexed on `user_id`, single-row lookup |
+| **UX Improvement** | High | Prevents accidental progress loss, reduces friction |
+
+#### Enforcement Guidelines
+
+**All AI Agents implementing quiz screens MUST:**
+1. Add `beforeRemove` listener to intercept back button navigation
+2. Show exit confirmation modal with **three** options: Stay, Pause, Cancel
+3. Use `usePauseQuiz` hook to save/restore/delete paused quiz state
+4. Restore paused quiz state on quiz screen mount (if exists)
+5. Delete paused quiz record when user resumes (it's now active)
+6. Delete paused quiz record when user completes the quiz
+7. Show paused quiz indicators on dashboard and chapter screens
+8. Never allow more than one paused quiz per chapter per user (upsert behavior)
+9. Enforce 7-day expiration on `paused_quizzes` records
+
+**Testing pause/resume behavior:**
+```bash
+# 1. Start a quiz, answer 3 questions
+# 2. Press back button → Exit modal appears
+# 3. Select "Pause Quiz"
+# 4. Verify paused_quizzes record exists in Supabase
+# 5. Navigate back to quiz screen
+# 6. Verify quiz state restored (currentQuestionIndex = 3, answers populated)
+# 7. Complete quiz
+# 8. Verify paused_quizzes record deleted
+```
+
+### Quiz Generation Quality: Evaluator-Optimizer Pattern
+
+This section defines the LLM-based content evaluation architecture that ensures quiz quality beyond structural validation. The pattern follows the standard LangGraph evaluator-optimizer loop where a dedicated evaluator node acts as a quality gate, providing structured feedback to the generator for self-correction on failure.
+
+#### Problem Statement
+
+The quiz generator LLM (even with explicit prompt rules) occasionally:
+- Uses Simplified Chinese characters instead of Traditional (繁體字)
+- Outputs pinyin with tone numbers (e.g., `ni3 hao3`) instead of diacritics (e.g., `nǐ hǎo`)
+- Writes question text in Chinese instead of the expected UI language (English, French, etc.)
+- Generates content not aligned with the specified chapter
+
+The existing rule-based `validate_quiz` node only catches **structural** issues (missing fields, duplicate options, correct answer not in options). It cannot detect **linguistic** or **pedagogical** violations.
+
+#### Architecture: Two-Phase Validation
+
+**Phase 1: Structure Validation (rule-based, free, <10ms)**
+
+The existing `validate_structure` node performs:
+- Required field checks (`question_text`, `correct_answer`, `exercise_type`)
+- Duplicate question detection
+- Options distinctness verification
+- Correct answer in options (for MC types)
+- Explanation presence
+
+**Phase 2: Content Evaluation (LLM-based, ~$0.005, ~1-2s)**
+
+A new `evaluate_content` async node that invokes the LLM as an evaluator/judge:
+
+| Rule | What It Checks | Example Violation |
+|------|----------------|-------------------|
+| **Traditional Chinese Only** | All Chinese text uses Traditional characters (繁體字), zero Simplified characters (简体字) | `学习` instead of `學習` |
+| **Pinyin Diacritics** | All pinyin uses tone marks, never tone numbers or bare Latin | `xue2xi2` instead of `xuéxí` |
+| **Question Text Language** | `question_text` field is in the expected UI language (English by default), not in Chinese | `"哪個字對應拼音...?"` instead of `"Which character corresponds to the pinyin...?"` |
+| **Curriculum Alignment** | Content comes from the specified book/chapter, not hallucinated vocabulary | Testing `電腦` when it's not in Book 1 Ch 3 |
+| **Pedagogical Quality** | Distractors are plausible, explanations are educational, difficulty is appropriate | All distractors are obviously wrong or from unrelated topics |
+
+**Evaluator Output Schema:**
+
+```python
+class ContentEvaluation(BaseModel):
+    """Structured output from the content evaluator node."""
+    passed: bool
+    issues: list[ContentIssue]
+
+class ContentIssue(BaseModel):
+    """Individual issue found by the evaluator."""
+    question_id: str
+    rule: Literal[
+        "traditional_chinese",
+        "pinyin_diacritics",
+        "question_language",
+        "curriculum_alignment",
+        "pedagogical_quality",
+    ]
+    detail: str  # Human-readable description of the violation
+```
+
+#### Updated Graph Topology
+
+```
+START → retrieve_structured_content → query_weakness → generate_quiz → validate_structure → evaluate_content → END
+                                                           ↑                                       |
+                                                           └──── (if fails & retries ≤ 2) ────────┘
+```
+
+**`retrieve_structured_content` node (replaces RAG-only `retrieve_content`):**
+This node queries the **structured content tables** as the PRIMARY source:
+1. `vocabulary` — all vocab items for the target chapter (and optionally previous chapters for cumulative review)
+2. `grammar_points` — all grammar points for the target chapter (ALL must be covered in generated exercises)
+3. `dialogues` — dialogue lines for the target chapter (used for Reading Comprehension, Dialogue Completion exercise types)
+4. (Optional) `dangdai_chunks` — supplementary RAG retrieval for culture/pronunciation context when needed
+
+The node returns structured content objects (not raw text chunks), which the `generate_quiz` node uses to produce curriculum-aligned exercises. This ensures:
+- **Complete grammar coverage**: Every grammar point in the chapter is represented in generated exercises
+- **Accurate vocabulary**: No hallucinated vocabulary — only items actually in the textbook
+- **Reliable dialogue content**: Exact dialogue lines from the textbook for comprehension exercises
+
+**Retry flow:** When `evaluate_content` finds issues, it:
+1. Sets `validation_errors` with the evaluator's structured feedback
+2. Sets `evaluator_feedback` with a formatted string of all issues
+3. Increments `retry_count`
+4. Routes back to `generate_quiz` via conditional edge
+
+The `generate_quiz` node, on retry, appends the evaluator feedback to the LLM prompt:
+```
+## Previous Attempt Failed Evaluation
+The following issues were found in your previous generation:
+{evaluator_feedback}
+
+Please regenerate the quiz fixing ALL of the above issues.
+```
+
+This self-correction mechanism means the generator gets **specific, actionable feedback** rather than blindly retrying.
+
+#### Updated State Definition
+
+```python
+class QuizGenerationState(TypedDict, total=False):
+    # ... existing fields ...
+    
+    # NEW: Evaluator feedback for self-correction (set by evaluate_content)
+    evaluator_feedback: str
+```
+
+#### LLM Model Upgrade
+
+| Setting | Previous | Updated | Rationale |
+|---------|----------|---------|-----------|
+| Default OpenAI model | `gpt-4o` | `gpt-4.1` | Better instruction-following reduces baseline rule violations, fewer retry loops needed |
+
+Both the generator and evaluator use the same `gpt-4.1` model. The evaluator call is typically smaller (it receives the generated questions, not the full RAG context) so its cost is lower.
+
+#### Cost & Latency Impact
+
+| Metric | Before | After (happy path) | After (1 retry) |
+|--------|--------|---------------------|------------------|
+| LLM calls per quiz | 1 | 2 | 4 |
+| Generation latency | ~3-5s | ~4-7s | ~8-12s |
+| Cost per quiz | ~$0.02 | ~$0.025 | ~$0.045 |
+| Quality assurance | Structural only | Structural + linguistic + pedagogical | Same with self-correction |
+
+The 8s timeout budget (NFR) still holds for the happy path. For retries, the timeout is extended to 30s at the service level (existing `GENERATION_TIMEOUT_SECONDS`).
+
+#### New Prompts
+
+Two new prompt constants in `src/agent/prompts.py`:
+
+- **`CONTENT_EVALUATION_SYSTEM_PROMPT`**: Sets the LLM as a strict quality evaluator for Chinese language quizzes, with explicit rules for each validation dimension.
+- **`CONTENT_EVALUATION_PROMPT`**: Template that receives the generated questions JSON and the evaluation rules, returns the `ContentEvaluation` structured output.
+
+#### Enforcement Guidelines (Updated)
+
+**All AI Agents implementing quiz generation MUST:**
+1. Never remove or bypass the `evaluate_content` node
+2. Always pass evaluator feedback to the generator on retry
+3. Use Azure OpenAI gpt-4o as the default model (configurable via environment variables)
+4. Ensure the evaluator prompt checks ALL five rules (Traditional Chinese, pinyin, question language, curriculum, pedagogy)
+5. Cap retries at 2 (existing `MAX_RETRIES`) -- after 2 failed evaluations, return the best attempt with a warning flag
+
+### LLM Provider Configuration Architecture
+
+This section defines the configurable LLM provider architecture that allows switching between Azure OpenAI, OpenAI, and other providers without code changes.
+
+#### Provider Strategy Pattern
+
+The backend uses a **provider abstraction layer** to support multiple LLM providers while maintaining consistent quiz generation logic.
+
+**Design Principle:** All LLM calls go through a factory that instantiates the correct provider based on environment configuration. The quiz generation graph is provider-agnostic.
+
+#### Supported Providers
+
+| Provider | Models Available | Primary Use Case |
+|----------|------------------|------------------|
+| **Azure OpenAI** (Default) | gpt-4o, gpt-4o-mini, gpt-4-turbo, gpt-4 | Production deployment with Azure credits. Best for Traditional Chinese + structured output. |
+| **OpenAI** | gpt-4o, gpt-4-turbo, gpt-4.1, gpt-4o-mini | Development/testing, fallback provider |
+| **Custom/Local** | Any LangChain-compatible model | Future extensibility (e.g., Azure AI Phi-4, local models) |
+
+#### Configuration Schema
+
+**Environment Variables (Python Backend):**
+
+```bash
+# Provider Selection
+LLM_PROVIDER=azure_openai          # Options: "azure_openai", "openai", "custom"
+
+# Azure OpenAI Configuration (when LLM_PROVIDER=azure_openai)
+AZURE_OPENAI_API_KEY=<your-key>
+AZURE_OPENAI_ENDPOINT=https://<your-resource>.openai.azure.com/
+AZURE_OPENAI_API_VERSION=2024-02-15-preview
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o   # Your deployment name in Azure
+AZURE_OPENAI_MODEL=gpt-4o             # Underlying model
+
+# OpenAI Configuration (when LLM_PROVIDER=openai)
+OPENAI_API_KEY=<your-key>
+OPENAI_MODEL=gpt-4o                   # Options: gpt-4o, gpt-4o-mini, gpt-4-turbo, gpt-4.1
+
+# Model Parameters (apply to all providers)
+LLM_TEMPERATURE=0.7
+LLM_MAX_TOKENS=2048
+LLM_TOP_P=1.0
+
+# Quiz Generation Settings
+MAX_RETRIES=2
+GENERATION_TIMEOUT_SECONDS=30
+```
+
+#### Default Configuration (Production)
+
+| Setting | Value | Rationale |
+|---------|-------|-----------|
+| **LLM_PROVIDER** | `azure_openai` | Leverages $200/month Azure credit |
+| **AZURE_OPENAI_MODEL** | `gpt-4o` | Best balance of cost, Traditional Chinese quality, structured output reliability |
+| **Temperature** | `0.7` | Balanced creativity for diverse questions while maintaining accuracy |
+| **Max Tokens** | `2048` | Sufficient for 10-question quiz + explanations + source citations |
+
+#### Cost Analysis by Provider/Model
+
+**Azure OpenAI Pricing (Pay-as-you-go):**
+
+| Model | Input ($/1K tokens) | Output ($/1K tokens) | Est. Cost per Quiz | Quizzes per $200 |
+|-------|---------------------|----------------------|--------------------|--------------------|
+| **gpt-4o** | $0.0025 | $0.01 | **$0.02-0.045** | ~4,400-10,000 |
+| gpt-4o-mini | $0.00015 | $0.0006 | $0.004-0.008 | ~25,000-50,000 |
+| gpt-4-turbo | $0.001 | $0.003 | $0.008-0.018 | ~11,000-25,000 |
+
+**OpenAI Pricing (Standard API):**
+
+| Model | Input ($/1K tokens) | Output ($/1K tokens) | Est. Cost per Quiz |
+|-------|---------------------|----------------------|--------------------|
+| gpt-4o | $0.0025 | $0.01 | $0.02-0.045 |
+| gpt-4.1 | $0.0025 | $0.01 | $0.02-0.045 |
+| gpt-4o-mini | $0.00015 | $0.0006 | $0.004-0.008 |
+
+**Cost Breakdown (gpt-4o, happy path with 1 retry):**
+- Quiz generation: ~800 tokens input (RAG context + weakness profile + prompt), ~1200 tokens output → ~$0.014
+- Content evaluator: ~1400 tokens input (questions JSON + rules), ~200 tokens output → ~$0.006
+- Retry generation (if needed): ~$0.014
+- Retry evaluator (if needed): ~$0.006
+- **Total (0 retries)**: ~$0.020
+- **Total (1 retry)**: ~$0.040
+- **Total (2 retries, max)**: ~$0.060
+
+#### Implementation Pattern (LangChain)
+
+**Factory Function (`src/utils/llm_factory.py`):**
+
+```python
+from langchain_openai import AzureChatOpenAI, ChatOpenAI
+from langchain_core.language_models import BaseChatModel
+import os
+
+def get_llm(temperature: float = 0.7, max_tokens: int = 2048) -> BaseChatModel:
+    """
+    Factory function to instantiate the correct LLM provider based on environment.
+    
+    Returns:
+        BaseChatModel: Configured LLM instance
+        
+    Raises:
+        ValueError: If LLM_PROVIDER is invalid or required env vars are missing
+    """
+    provider = os.getenv("LLM_PROVIDER", "azure_openai")
+    
+    if provider == "azure_openai":
+        # Azure OpenAI configuration
+        required_vars = [
+            "AZURE_OPENAI_API_KEY",
+            "AZURE_OPENAI_ENDPOINT",
+            "AZURE_OPENAI_DEPLOYMENT_NAME",
+        ]
+        missing = [var for var in required_vars if not os.getenv(var)]
+        if missing:
+            raise ValueError(f"Missing Azure OpenAI config: {missing}")
+        
+        return AzureChatOpenAI(
+            azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
+            api_version=os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview"),
+            temperature=temperature,
+            max_tokens=max_tokens,
+            model=os.getenv("AZURE_OPENAI_MODEL", "gpt-4o"),
+        )
+    
+    elif provider == "openai":
+        # OpenAI configuration
+        if not os.getenv("OPENAI_API_KEY"):
+            raise ValueError("Missing OPENAI_API_KEY")
+        
+        return ChatOpenAI(
+            model=os.getenv("OPENAI_MODEL", "gpt-4o"),
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+    
+    else:
+        raise ValueError(f"Unsupported LLM_PROVIDER: {provider}")
+```
+
+**Usage in Quiz Generation Graph (`src/agent/nodes.py`):**
+
+```python
+from src.utils.llm_factory import get_llm
+
+async def generate_quiz(state: QuizGenerationState) -> dict:
+    """Generate quiz questions using configured LLM provider."""
+    llm = get_llm(temperature=0.7, max_tokens=2048)
+    
+    # Use llm for generation (provider-agnostic)
+    structured_llm = llm.with_structured_output(QuizSchema)
+    result = await structured_llm.ainvoke(prompt)
+    
+    # ... rest of generation logic
+```
+
+#### Azure OpenAI Deployment Setup
+
+**Step 1: Create Azure OpenAI Resource**
+- Navigate to Azure Portal → Create Resource → Azure OpenAI
+- Region: East US (recommended for gpt-4o availability)
+- Pricing Tier: Standard
+
+**Step 2: Deploy Model**
+- In Azure OpenAI Studio → Deployments → Create New
+- Model: `gpt-4o` (latest version)
+- Deployment Name: `gpt-4o` (this becomes `AZURE_OPENAI_DEPLOYMENT_NAME`)
+- Tokens per Minute Rate Limit: 30K (adjust based on usage)
+
+**Step 3: Get Credentials**
+- Keys and Endpoint → Copy Key 1 → Set as `AZURE_OPENAI_API_KEY`
+- Copy Endpoint URL → Set as `AZURE_OPENAI_ENDPOINT`
+
+**Step 4: Test Connection**
+```bash
+curl https://<your-resource>.openai.azure.com/openai/deployments/gpt-4o/chat/completions?api-version=2024-02-15-preview \
+  -H "Content-Type: application/json" \
+  -H "api-key: $AZURE_OPENAI_API_KEY" \
+  -d '{"messages":[{"role":"user","content":"Hello"}]}'
+```
+
+#### Migration Path
+
+**From OpenAI to Azure OpenAI:**
+1. Deploy gpt-4o model in Azure OpenAI Studio
+2. Update environment variables (set `LLM_PROVIDER=azure_openai`, add Azure credentials)
+3. Restart backend service (zero code changes required)
+4. Monitor cost in Azure Cost Management (should see $0.02-0.045 per quiz)
+
+**Rollback to OpenAI:**
+1. Set `LLM_PROVIDER=openai`
+2. Ensure `OPENAI_API_KEY` is set
+3. Restart backend service
+
+#### Model Selection Guidelines
+
+**When to use gpt-4o (Azure OpenAI):**
+- ✅ Production deployment (default)
+- ✅ Traditional Chinese content generation
+- ✅ Structured output reliability required
+- ✅ Budget allows ~4,400+ quizzes/month
+
+**When to use gpt-4o-mini (Azure OpenAI):**
+- ✅ High-volume testing (25K+ quizzes/month)
+- ✅ Budget-constrained deployment
+- ⚠️ Accept higher retry rates (~15-20% vs ~5-10% for gpt-4o)
+- ⚠️ May need prompt tuning for Traditional Chinese reliability
+
+**When to use OpenAI (not Azure):**
+- ✅ Development/local testing
+- ✅ Azure OpenAI resource not available
+- ✅ Accessing gpt-4.1 (not yet in Azure)
+
+#### Monitoring & Observability
+
+**Cost Tracking:**
+- Azure Cost Management: Track daily spend by resource
+- LangSmith: Log all LLM calls with token counts (optional, requires `LANGSMITH_API_KEY`)
+- Custom metrics: Log quiz generation success rate, retry rate, average cost per quiz
+
+**Quality Metrics:**
+- Content evaluator pass rate (target: >90% on first attempt)
+- Retry rate (target: <10% require 1+ retries)
+- User-reported content issues (track via feedback form)
+
+**Alerts:**
+- Daily cost exceeds $10 (30% of monthly budget)
+- Content evaluator fail rate exceeds 20%
+- Quiz generation timeout rate exceeds 5%
+
+#### Enforcement Guidelines
+
+**All AI Agents implementing LLM integration MUST:**
+1. Always use `get_llm()` factory function, never instantiate providers directly
+2. Never hardcode provider-specific code in graph nodes
+3. Support switching providers via environment variables only
+4. Default to `azure_openai` provider in production `.env.example`
+5. Document all provider-specific environment variables in README
+6. Test quiz generation with both Azure OpenAI and OpenAI before deployment
+7. Log provider type and model name on each quiz generation for debugging
 
 ### Tamagui Theme & Animation Architecture
 
@@ -831,10 +2107,13 @@ dangdai-mobile/
 │   │   └── [bookId].tsx              # Chapter list for book (with per-type indicators)
 │   │
 │   ├── exercise-type/
-│   │   └── [chapterId].tsx           # Exercise type selection screen
+│   │   └── [chapterId].tsx           # Exercise type selection screen (premade + AI-generated)
 │   │
 │   ├── quiz/
 │   │   └── [chapterId].tsx           # Quiz screen (handles all 7 exercise types)
+│   │
+│   ├── premade/
+│   │   └── [exerciseId].tsx          # Premade workbook exercise screen (no LLM needed)
 │   │
 │   └── weakness/
 │       └── index.tsx                 # Weakness dashboard screen
@@ -855,7 +2134,8 @@ dangdai-mobile/
 │   │   ├── DialogueCard.tsx          # Conversation bubble layout
 │   │   ├── WordBankSelector.tsx      # Horizontal word bank for fill-in-the-blank
 │   │   ├── ReadingPassageCard.tsx    # Scrollable passage + comprehension questions
-│   │   └── ExerciseTypeSelector.tsx  # Grid of exercise type cards with per-type progress
+│   │   ├── ExerciseTypeSelector.tsx  # Grid of exercise type cards with per-type progress
+│   │   └── PremadeExerciseCard.tsx   # Card for premade workbook exercise with completion status
 │   │
 │   ├── progress/
 │   │   ├── ActivityCalendar.tsx      # GitHub-style calendar
@@ -895,6 +2175,9 @@ dangdai-mobile/
 ├── hooks/
 │   ├── useAuth.ts                    # Auth state & actions
 │   ├── useQuiz.ts                    # Quiz data fetching + generation (TanStack Query)
+│   ├── usePremadeExercises.ts        # Premade workbook exercises per chapter (Supabase direct read)
+│   ├── useVocabulary.ts              # Vocabulary items per chapter (Supabase direct read)
+│   ├── useGrammarPoints.ts           # Grammar points per chapter (Supabase direct read)
 │   ├── useProgress.ts                # Progress data fetching
 │   ├── useChapters.ts                # Chapter list fetching
 │   ├── useExerciseTypes.ts           # Exercise type progress per chapter
@@ -920,6 +2203,7 @@ dangdai-mobile/
 ├── types/
 │   ├── quiz.ts                       # Quiz, Question, Answer types (all 7 exercise types)
 │   ├── exercise.ts                   # ExerciseType enum, ExerciseTypeProgress, MatchingPair, SentenceTile, DialogueBubble
+│   ├── content.ts                    # Vocabulary, GrammarPoint, Dialogue, PremadeExercise types (maps to structured content tables)
 │   ├── weakness.ts                   # WeaknessProfile, WeakVocabItem, WeakGrammarPattern, ExerciseTypeAccuracy
 │   ├── user.ts                       # User, Progress types
 │   ├── chapter.ts                    # Book, Chapter types
@@ -975,10 +2259,10 @@ dangdai-api/
 │   │
 │   ├── agent/                        # LangGraph quiz generation
 │   │   ├── __init__.py
-│   │   ├── graph.py                  # Main quiz generation graph (retrieve → generate → validate → respond)
-│   │   ├── nodes.py                  # Graph nodes (retrieve_content, query_weakness, generate_quiz, validate_quiz, validate_answer)
-│   │   ├── prompts.py                # LLM prompt templates (per exercise type + validation + explanation generation)
-│   │   └── state.py                  # Graph state definitions (includes weakness profile, exercise type)
+│   │   ├── graph.py                  # Main quiz generation graph (retrieve_structured_content → query_weakness → generate → validate_structure → evaluate_content → respond)
+│   │   ├── nodes.py                  # Graph nodes (retrieve_structured_content, query_weakness, generate_quiz, validate_structure, evaluate_content)
+│   │   ├── prompts.py                # LLM prompt templates (per exercise type + content evaluation + answer validation)
+│   │   └── state.py                  # Graph state definitions (includes weakness profile, exercise type, evaluator_feedback)
 │   │
 │   ├── api/                          # FastAPI routes
 │   │   ├── __init__.py
@@ -994,21 +2278,23 @@ dangdai-api/
 │   ├── services/
 │   │   ├── __init__.py
 │   │   ├── quiz_service.py           # Quiz business logic (generation orchestration)
-│   │   ├── rag_service.py            # RAG retrieval logic (filtered by exercise type)
+│   │   ├── content_service.py        # Structured content retrieval for quiz generation (vocab + grammar + dialogues)
+│   │   ├── rag_service.py            # RAG retrieval logic (supplementary — culture/pronunciation context only)
 │   │   ├── weakness_service.py       # Weakness profile query and aggregation from question_results
 │   │   ├── validation_service.py     # LLM-based answer validation for complex exercise types
 │   │   └── auth_service.py           # Supabase JWT verification
 │   │
 │   ├── repositories/
 │   │   ├── __init__.py
-│   │   ├── vector_store.py           # pgvector operations (filtered by book, lesson, exercise_type)
+│   │   ├── content_repo.py           # Structured content queries (vocabulary, grammar_points, dialogues, premade_exercises tables)
+│   │   ├── vector_store.py           # pgvector operations (supplementary RAG — culture/pronunciation)
 │   │   ├── chapter_repo.py           # Chapter content retrieval
 │   │   └── performance_repo.py       # Query question_results for weakness profile aggregation
 │   │
 │   └── utils/
 │       ├── __init__.py
 │       ├── supabase.py               # Supabase client (service key for agent DB access)
-│       ├── llm.py                    # LLM client configuration
+│       ├── llm_factory.py            # LLM provider factory (Azure OpenAI, OpenAI, custom)
 │       └── config.py                 # Environment configuration
 │
 └── tests/
@@ -1024,10 +2310,65 @@ dangdai-api/
 ```
 terraform/
 ├── main.tf                           # Azure provider, resource group
+├── openai.tf                         # Azure OpenAI resource provisioning
 ├── container_apps.tf                 # Azure Container Apps environment
+├── key_vault.tf                      # Azure Key Vault for secrets (API keys)
 ├── variables.tf                      # Input variables
-├── outputs.tf                        # Output values (URLs, etc.)
+├── outputs.tf                        # Output values (URLs, OpenAI endpoint, etc.)
 └── terraform.tfvars.example          # Example variable values
+```
+
+#### Environment Configuration Files
+
+**Python Backend `.env.example`:**
+
+```bash
+# === LLM Provider Configuration ===
+# Options: "azure_openai", "openai"
+LLM_PROVIDER=azure_openai
+
+# === Azure OpenAI (when LLM_PROVIDER=azure_openai) ===
+AZURE_OPENAI_API_KEY=your-azure-openai-api-key
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+AZURE_OPENAI_API_VERSION=2024-02-15-preview
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
+AZURE_OPENAI_MODEL=gpt-4o
+
+# === OpenAI (when LLM_PROVIDER=openai) ===
+OPENAI_API_KEY=your-openai-api-key
+OPENAI_MODEL=gpt-4o
+
+# === LLM Parameters ===
+LLM_TEMPERATURE=0.7
+LLM_MAX_TOKENS=2048
+LLM_TOP_P=1.0
+
+# === Quiz Generation ===
+MAX_RETRIES=2
+GENERATION_TIMEOUT_SECONDS=30
+
+# === Supabase ===
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_KEY=your-service-role-key
+
+# === Observability (Optional) ===
+LANGSMITH_API_KEY=your-langsmith-key
+LANGSMITH_PROJECT=dangdai-quiz-generation
+```
+
+**Mobile App `.env.local.example`:**
+
+```bash
+# Supabase
+EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+
+# Python Backend API
+EXPO_PUBLIC_API_URL=https://dangdai-api.azurecontainerapps.io
+
+# Features
+EXPO_PUBLIC_ENABLE_LLM_VALIDATION=true
+EXPO_PUBLIC_ENABLE_WEAKNESS_BIASING=true
 ```
 
 ### Architectural Boundaries
@@ -1039,46 +2380,57 @@ terraform/
 | Mobile → Supabase | HTTPS (Supabase JS) | Supabase Auth (JWT) |
 | Mobile → Python API | HTTPS REST | Supabase JWT in Authorization header |
 | Python API → Supabase | HTTPS (Supabase Python) | Service role key |
-| Python API → LLM | HTTPS | API key |
+| Python API → Azure OpenAI | HTTPS (LangChain AzureChatOpenAI) | Azure OpenAI API key |
 
 **Component Boundaries:**
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│ Mobile App (dangdai-app)                                        │
-├─────────────────────────────────────────────────────────────────┤
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
-│  │   Screens    │──│  Components  │──│    Stores    │          │
-│  │  (app/)      │  │              │  │  (Zustand)   │          │
-│  └──────────────┘  └──────────────┘  └──────────────┘          │
-│         │                 │                 │                   │
-│         └────────────────┬┴─────────────────┘                   │
-│                          │                                      │
-│                   ┌──────┴──────┐                               │
-│                   │    Hooks    │                               │
-│                   │ (TanStack)  │                               │
-│                   └──────┬──────┘                               │
-│                          │                                      │
-│         ┌────────────────┼────────────────┐                     │
-│         │                │                │                     │
-│  ┌──────┴──────┐  ┌──────┴──────┐  ┌──────┴──────┐             │
-│  │ lib/api.ts  │  │lib/supabase │  │   types/    │             │
-│  │ (Python)    │  │   (Data)    │  │             │             │
-│  └──────┬──────┘  └──────┬──────┘  └─────────────┘             │
-└─────────┼────────────────┼──────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────┐
+│ Mobile App (dangdai-mobile)                                               │
+├───────────────────────────────────────────────────────────────────────────┤
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                    │
+│  │   Screens    │──│  Components  │──│    Stores    │                    │
+│  │  (app/)      │  │              │  │  (Zustand)   │                    │
+│  └──────────────┘  └──────────────┘  └──────────────┘                    │
+│         │                 │                 │                             │
+│         └────────────────┬┴─────────────────┘                             │
+│                          │                                                │
+│                   ┌──────┴──────┐                                         │
+│                   │    Hooks    │                                         │
+│                   │ (TanStack)  │                                         │
+│                   └──────┬──────┘                                         │
+│                          │                                                │
+│         ┌────────────────┼────────────────┐                               │
+│         │                │                │                               │
+│  ┌──────┴──────┐  ┌──────┴──────┐  ┌──────┴──────┐                       │
+│  │ lib/api.ts  │  │lib/supabase │  │   types/    │                       │
+│  │ (Python)    │  │   (Data)    │  │             │                       │
+│  └──────┬──────┘  └──────┬──────┘  └─────────────┘                       │
+└─────────┼────────────────┼────────────────────────────────────────────────┘
           │                │
-          ▼                ▼
-┌─────────────────┐  ┌─────────────────────────────────────────┐
-│  Python API     │  │  Supabase                               │
-│  (dangdai-api)  │  │  ├── Auth (users, sessions)             │
-│  ├── /quizzes   │  │  ├── Database (progress, quiz_attempts) │
-│  └── /health    │  │  └── pgvector (Dangdai embeddings)      │
-└────────┬────────┘  └─────────────────────────────────────────┘
-         │
-         ▼
+          │                ▼
+          │   ┌────────────────────────────────────────────────────────────┐
+          │   │  Supabase                                                 │
+          │   │  ├── Auth (users, sessions)                               │
+          │   │  ├── User Data (progress, quiz_attempts, question_results)│
+          │   │  ├── Structured Content (vocabulary, grammar_points,      │
+          │   │  │   dialogues, premade_exercises) ← DIRECT READ          │
+          │   │  └── pgvector (dangdai_chunks — supplementary RAG)        │
+          │   └──────────────────────────────┬─────────────────────────────┘
+          │                                  │
+          ▼                                  ▼
+┌──────────────────────────┐     (Python API also reads
+│  Python API              │      structured content +
+│  (dangdai-api)           │      pgvector via service key)
+│  ├── /quizzes/generate   │
+│  ├── /quizzes/validate   │
+│  └── /health             │
+└──────────┬───────────────┘
+           │
+           ▼
 ┌─────────────────┐
 │  LLM API        │
-│  (Claude/GPT)   │
+│  (Azure OpenAI) │
 └─────────────────┘
 ```
 
@@ -1093,7 +2445,11 @@ terraform/
 | Chapter progress | Supabase `chapter_progress` | Direct from mobile (calculated from exercise_type_progress) |
 | Weakness profile | Computed from `question_results` | Python agent queries on each quiz generation request |
 | Generated quizzes | In-memory (Python) | Generated per request, not persisted |
-| Dangdai content | Supabase pgvector | Python backend RAG retrieval (filtered by exercise type) |
+| Vocabulary | Supabase `vocabulary` | Python agent (read for quiz generation context), mobile (read for vocab lists/study) |
+| Grammar points | Supabase `grammar_points` | Python agent (read for quiz generation — ALL must be covered), mobile (read for grammar reference) |
+| Dialogues | Supabase `dialogues` | Python agent (read for reading comprehension/dialogue exercises), mobile (read for dialogue study) |
+| Premade exercises | Supabase `premade_exercises` | Direct from mobile via Supabase JS (no Python/LLM involvement) |
+| RAG chunks (supplementary) | Supabase `dangdai_chunks` pgvector | Python backend supplementary retrieval (culture/pronunciation context only) |
 
 ### Integration Points
 
@@ -1136,37 +2492,40 @@ terraform/
 6. RAG Service retrieves Chapter 12 content from pgvector
    │  FILTERED by: book=2, lesson=12, exercise_type="matching"
    │
-7. LangGraph generates quiz biased toward weak areas (30-50% of questions)
+7. LangGraph generates quiz (gpt-4.1) biased toward weak areas (30-50% of questions)
    │  Each question includes: answer_key, explanation, source_citation
    │
-8. Validation Node self-checks: correct answers exist, options distinct,
-   │  vocabulary/grammar items from chapter, no duplicates
-   │  Bad questions → regenerated individually
+8. Structure Validation Node (rule-based): correct answers exist, options distinct,
+   │  required fields present, no duplicates
    │
-9. API returns { quiz_id, exercise_type, questions: [{
-   │    question, options, correct_answer, explanation, source_citation, ...
-   │  }] }
+9. Content Evaluator Node (LLM-based): Traditional Chinese compliance, pinyin diacritics,
+   │  question text in UI language, curriculum alignment, pedagogical quality
+   │  If evaluation fails → structured feedback → retry generate_quiz (max 2 retries)
    │
-10. Mobile stores quiz in useQuizStore, renders MatchingExercise component
+10. API returns { quiz_id, exercise_type, questions: [{
+    │    question, options, correct_answer, explanation, source_citation, ...
+    │  }] }
     │
-11. User answers each question:
+11. Mobile stores quiz in useQuizStore, renders MatchingExercise component
+    │
+12. User answers each question:
     │  - Matching/Vocabulary/Grammar/Fill-in-Blank/Reading: LOCAL validation
     │    (compare against answer_key in payload, instant feedback with explanation)
     │  - Sentence Construction/Dialogue Completion: LOCAL check first,
     │    then LLM call via POST /api/quizzes/validate-answer if answer differs from key
     │
-12. Per-question: Mobile saves result to question_results via Supabase
+13. Per-question: Mobile saves result to question_results via Supabase
     │  { user_id, chapter_id, exercise_type, vocabulary_item, correct, time_spent_ms }
     │
-13. On quiz completion, Mobile saves to Supabase:
+14. On quiz completion, Mobile saves to Supabase:
     │  - quiz_attempts record (with JSONB answers for replay)
     │  - exercise_type_progress update (best_score, attempts_count, mastered_at)
     │  - chapter_progress update (recalculated from exercise_type_progress)
     │  - user aggregates update (points, streak)
     │
-14. CompletionScreen shows: score, per-exercise-type breakdown, weakness update
+15. CompletionScreen shows: score, per-exercise-type breakdown, weakness update
     │
-15. TanStack Query invalidates: progress, exercise type progress, weakness profile
+16. TanStack Query invalidates: progress, exercise type progress, weakness profile
 ```
 
 ### Development Workflow Integration
@@ -1245,7 +2604,7 @@ All technology choices validated as compatible:
 All 50 FRs mapped to architectural components:
 - FR1-FR6 (Auth): `app/(auth)/`, `lib/supabase.ts`, `hooks/useAuth.ts`
 - FR7-FR10 (Navigation): `app/(tabs)/books.tsx`, `app/chapter/[bookId].tsx`
-- FR11-FR14 (RAG Quiz Generation): Python API `agent/graph.py`, `services/rag_service.py`, `services/weakness_service.py`, validation node
+- FR11-FR14 (Quiz Generation): Python API `agent/graph.py`, `services/content_service.py` (structured content — primary), `services/rag_service.py` (supplementary), `services/weakness_service.py`, validation node
 - FR15-FR22 (Exercise Types): `app/quiz/[chapterId].tsx`, `components/quiz/` (7 type-specific components), `app/exercise-type/[chapterId].tsx`
 - FR23-FR26 (Quiz Interaction): `components/quiz/FeedbackOverlay.tsx` (with pre-generated explanations), `CompletionScreen.tsx`
 - FR27-FR30 (Chapter Assessment): `app/quiz/[chapterId].tsx` (chapter test mode), `exercise_type_progress` table, mastery calculation
@@ -1258,11 +2617,11 @@ All 50 FRs mapped to architectural components:
 All 31 NFRs addressed architecturally:
 - Performance: 8s quiz generation with progressive loading, 500ms nav, 3s launch, 2s weakness calc
 - Security: Supabase Auth, JWT verification, service keys, per-user data isolation (RLS)
-- Reliability: TanStack Query caching, crash-safe progress sync, no empty RAG results, graceful degradation
-- Integration: RAG fallback to broader content (NFR17), LLM validation timeout fallback
+- Reliability: TanStack Query caching, crash-safe progress sync, no empty results (structured content eliminates empty RAG risk), graceful degradation
+- Integration: Structured content as primary source eliminates RAG empty-result risk (NFR17), LLM validation timeout fallback
 - Scalability: Azure Container Apps auto-scaling, ~100 question_results rows/user/week
 - Localization: i18n folder with 4 language files
-- AI & RAG Quality: Self-check validation node, exercise-type-specific prompts, workbook format compliance
+- AI & RAG Quality: Two-phase validation (rule-based structure + LLM-based content evaluation), evaluator-optimizer retry loop, exercise-type-specific prompts, Traditional Chinese & pinyin enforcement, workbook format compliance, structured content ensures 100% grammar coverage per chapter
 
 ### Implementation Readiness Validation
 
@@ -1290,9 +2649,13 @@ All 31 NFRs addressed architecturally:
 
 | Gap | Resolution |
 |-----|------------|
-| Database schema details | First migration will define 6 tables (users, quiz_attempts, question_results, exercise_type_progress, chapter_progress, daily_activity) |
-| LLM prompt templates per exercise type | 7 distinct prompt templates needed (one per exercise type). Iterate during quiz generation development |
+| Database schema details | Migrations will define user data tables (users, quiz_attempts, question_results, exercise_type_progress, chapter_progress, daily_activity, paused_quizzes) + structured content tables (vocabulary, dialogues, grammar_points, premade_exercises) |
+| Content seeding scripts | Extraction scripts needed for: TSV→vocabulary, chunks→grammar_points, chunks+PDFs→dialogues, workbook chunks→premade_exercises. Run once, then verify. |
+| LLM prompt templates per exercise type | 7 distinct prompt templates needed (one per exercise type). Must reference structured content fields, not raw RAG chunks. Iterate during development. |
+| Content evaluator prompts | `CONTENT_EVALUATION_SYSTEM_PROMPT` and `CONTENT_EVALUATION_PROMPT` need implementation matching the 5-rule evaluation schema |
 | LLM validation prompts | Prompts for Sentence Construction and Dialogue Completion answer evaluation |
+| Grammar coverage validation | `validate_structure` node must verify ALL grammar_points for the chapter are represented in generated quiz questions |
+| Premade exercise quality | Workbook chunk→exercise extraction may need manual review/cleanup for ambiguous exercises |
 | Sound asset files | Use placeholder sounds, replace with final |
 | Weakness profile query optimization | Start with simple aggregation; add indexes if slow at scale |
 
@@ -1302,6 +2665,7 @@ All 31 NFRs addressed architecturally:
 - Performance monitoring (Sentry, LangSmith)
 - Materialized weakness_profiles table if aggregation queries become slow
 - Supabase RPC function for weakness profile (encapsulate SQL)
+- Extend structured content to Books 5-6 (data sources already available)
 
 ### Architecture Completeness Checklist
 
@@ -1309,13 +2673,13 @@ All 31 NFRs addressed architecturally:
 - [x] Project context thoroughly analyzed
 - [x] Scale and complexity assessed (Medium-High, 100 users, 7 exercise types, adaptive learning)
 - [x] Technical constraints identified (Online-only, iOS 13+, Android 21+)
-- [x] Cross-cutting concerns mapped (13 concerns identified including adaptive learning, hybrid validation, exercise type system)
+- [x] Cross-cutting concerns mapped (15 concerns identified including adaptive learning, hybrid validation, exercise type system, request cancellation, quiz pause/resume)
 
 **Architectural Decisions**
 - [x] Critical decisions documented with versions
 - [x] Technology stack fully specified
 - [x] Integration patterns defined (REST, Supabase JS)
-- [x] Performance considerations addressed (5s quiz gen, retry patterns)
+- [x] Performance considerations addressed (4-7s quiz gen happy path, evaluator-optimizer retry patterns, 30s timeout budget)
 
 **Implementation Patterns**
 - [x] Naming conventions established (snake_case DB, PascalCase components)
@@ -1343,6 +2707,9 @@ All 31 NFRs addressed architecturally:
 5. Well-defined integration boundaries
 6. Hybrid answer validation strategy balances UX quality with cost
 7. Adaptive learning pipeline fully specified (weakness profile → quiz biasing → performance tracking → profile update)
+8. Evaluator-optimizer pattern ensures quiz content quality (Traditional Chinese, pinyin diacritics, question language, curriculum alignment) with self-correcting retry loop
+9. Structured content tables provide reliable, consistent curriculum data — eliminates RAG hallucination risk for core exercise content
+10. Premade workbook exercises provide instant, LLM-free practice — reducing costs and latency for users
 
 **Areas for Future Enhancement:**
 1. Database schema refinement based on usage patterns
@@ -1350,6 +2717,7 @@ All 31 NFRs addressed architecturally:
 3. E2E testing infrastructure
 4. Performance monitoring integration
 5. Supabase RPC function for weakness profile aggregation (if direct SQL queries become slow)
+6. Extend structured content to Books 5-6 (data sources available)
 
 ### Implementation Handoff
 
@@ -1371,10 +2739,18 @@ pip install -U "langgraph-cli[inmem]"
 langgraph new --template=new-langgraph-project-python dangdai-api
 
 # 3. Set up Supabase schema
-# (Create tables: users, quiz_attempts, question_results, exercise_type_progress, chapter_progress, daily_activity)
+# User data tables: users, quiz_attempts, question_results, exercise_type_progress, chapter_progress, daily_activity, paused_quizzes
+# Structured content tables: vocabulary, dialogues, grammar_points, premade_exercises
 # (Add indexes on question_results for weakness profile queries)
+# (Add indexes on structured content tables for chapter-based lookups)
 
-# 4. Configure Azure infrastructure
+# 4. Content seeding (run once after schema creation)
+# Parse Flash-card.tsv → vocabulary table (~3,000 items for Books 1-4)
+# Extract grammar from textbook chunks/PDFs → grammar_points table
+# Extract dialogues from textbook chunks/PDFs → dialogues table
+# Restructure workbook chunks → premade_exercises table
+
+# 5. Configure Azure infrastructure
 cd terraform && terraform init && terraform plan
 ```
 
