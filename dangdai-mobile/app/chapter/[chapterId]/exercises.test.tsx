@@ -3,9 +3,11 @@
  *
  * Integration tests for the exercises screen.
  * Tests: all 8 AI cards rendered, premade section visibility,
- * navigation calls, progress indicators, Mixed card styling.
+ * navigation calls, progress indicators, Mixed card styling,
+ * conditional browse button visibility based on content availability.
  *
  * Story 3.5: Exercise Type Selection Screen — Task 6
+ * Story 3.7: Wire Browse Screen Navigation — conditional visibility tests
  */
 
 import React from 'react'
@@ -84,6 +86,25 @@ const mockUsePremadeExercises = jest.fn()
 jest.mock('../../../hooks/usePremadeExercises', () => ({
   usePremadeExercises: (bookId: number, lessonId: number) =>
     mockUsePremadeExercises(bookId, lessonId),
+}))
+
+// Mock count hooks for conditional browse button visibility (Story 3.7)
+const mockUseVocabularyCount = jest.fn()
+jest.mock('../../../hooks/useVocabulary', () => ({
+  useVocabularyCount: (bookId: number, lessonId: number) =>
+    mockUseVocabularyCount(bookId, lessonId),
+}))
+
+const mockUseGrammarPointsCount = jest.fn()
+jest.mock('../../../hooks/useGrammarPoints', () => ({
+  useGrammarPointsCount: (bookId: number, lessonId: number) =>
+    mockUseGrammarPointsCount(bookId, lessonId),
+}))
+
+const mockUseDialoguesCount = jest.fn()
+jest.mock('../../../hooks/useDialogues', () => ({
+  useDialoguesCount: (bookId: number, lessonId: number) =>
+    mockUseDialoguesCount(bookId, lessonId),
 }))
 
 // Mock useChapters
@@ -179,6 +200,10 @@ describe('ExercisesScreen', () => {
     mockUseLocalSearchParams.mockReturnValue({ chapterId: '101' })
     mockUseExerciseTypeProgress.mockReturnValue({ data: [] })
     mockUsePremadeExercises.mockReturnValue({ data: [] })
+    // Default: all content exists (browse buttons visible) — preserves existing test behavior
+    mockUseVocabularyCount.mockReturnValue({ data: true })
+    mockUseGrammarPointsCount.mockReturnValue({ data: true })
+    mockUseDialoguesCount.mockReturnValue({ data: true })
   })
 
   describe('screen rendering (AC #1)', () => {
@@ -301,6 +326,7 @@ describe('ExercisesScreen', () => {
         pathname: '/quiz/premade',
         params: {
           chapterId: '101',
+          bookId: '1',
           exerciseId: 'ex-1',
         },
       })
@@ -342,11 +368,89 @@ describe('ExercisesScreen', () => {
   })
 
   describe('browse buttons (Stories 11.5, 11.6, 11.7)', () => {
-    it('renders all three browse buttons', () => {
+    it('renders all three browse buttons when all content exists', () => {
+      // Default beforeEach: all count hooks return { data: true }
       const { getByTestId } = render(<ExercisesScreen />)
       expect(getByTestId('browse-vocabulary-button')).toBeTruthy()
       expect(getByTestId('browse-grammar-button')).toBeTruthy()
       expect(getByTestId('browse-dialogues-button')).toBeTruthy()
+    })
+  })
+
+  describe('conditional browse button visibility (Story 3.7 — AC #1, #5)', () => {
+    it('hides vocabulary button when useVocabularyCount returns false', () => {
+      mockUseVocabularyCount.mockReturnValue({ data: false })
+      const { queryByTestId } = render(<ExercisesScreen />)
+      expect(queryByTestId('browse-vocabulary-button')).toBeNull()
+      // Grammar and dialogues still visible
+      expect(queryByTestId('browse-grammar-button')).toBeTruthy()
+      expect(queryByTestId('browse-dialogues-button')).toBeTruthy()
+    })
+
+    it('hides grammar button when useGrammarPointsCount returns false', () => {
+      mockUseGrammarPointsCount.mockReturnValue({ data: false })
+      const { queryByTestId } = render(<ExercisesScreen />)
+      expect(queryByTestId('browse-grammar-button')).toBeNull()
+      // Vocabulary and dialogues still visible
+      expect(queryByTestId('browse-vocabulary-button')).toBeTruthy()
+      expect(queryByTestId('browse-dialogues-button')).toBeTruthy()
+    })
+
+    it('hides dialogues button when useDialoguesCount returns false', () => {
+      mockUseDialoguesCount.mockReturnValue({ data: false })
+      const { queryByTestId } = render(<ExercisesScreen />)
+      expect(queryByTestId('browse-dialogues-button')).toBeNull()
+      // Vocabulary and grammar still visible
+      expect(queryByTestId('browse-vocabulary-button')).toBeTruthy()
+      expect(queryByTestId('browse-grammar-button')).toBeTruthy()
+    })
+
+    it('hides vocabulary button when useVocabularyCount returns undefined (loading)', () => {
+      mockUseVocabularyCount.mockReturnValue({ data: undefined })
+      const { queryByTestId } = render(<ExercisesScreen />)
+      expect(queryByTestId('browse-vocabulary-button')).toBeNull()
+    })
+
+    it('hides grammar button when useGrammarPointsCount returns undefined (loading)', () => {
+      mockUseGrammarPointsCount.mockReturnValue({ data: undefined })
+      const { queryByTestId } = render(<ExercisesScreen />)
+      expect(queryByTestId('browse-grammar-button')).toBeNull()
+    })
+
+    it('hides dialogues button when useDialoguesCount returns undefined (loading)', () => {
+      mockUseDialoguesCount.mockReturnValue({ data: undefined })
+      const { queryByTestId } = render(<ExercisesScreen />)
+      expect(queryByTestId('browse-dialogues-button')).toBeNull()
+    })
+
+    it('hides browse-buttons container when all three counts are false', () => {
+      mockUseVocabularyCount.mockReturnValue({ data: false })
+      mockUseGrammarPointsCount.mockReturnValue({ data: false })
+      mockUseDialoguesCount.mockReturnValue({ data: false })
+      const { queryByTestId } = render(<ExercisesScreen />)
+      expect(queryByTestId('browse-buttons')).toBeNull()
+      expect(queryByTestId('browse-vocabulary-button')).toBeNull()
+      expect(queryByTestId('browse-grammar-button')).toBeNull()
+      expect(queryByTestId('browse-dialogues-button')).toBeNull()
+    })
+
+    it('hides browse-buttons container when all three counts are undefined (loading)', () => {
+      mockUseVocabularyCount.mockReturnValue({ data: undefined })
+      mockUseGrammarPointsCount.mockReturnValue({ data: undefined })
+      mockUseDialoguesCount.mockReturnValue({ data: undefined })
+      const { queryByTestId } = render(<ExercisesScreen />)
+      expect(queryByTestId('browse-buttons')).toBeNull()
+    })
+
+    it('shows browse-buttons container when at least one count is true', () => {
+      mockUseVocabularyCount.mockReturnValue({ data: false })
+      mockUseGrammarPointsCount.mockReturnValue({ data: true })
+      mockUseDialoguesCount.mockReturnValue({ data: false })
+      const { getByTestId, queryByTestId } = render(<ExercisesScreen />)
+      expect(getByTestId('browse-buttons')).toBeTruthy()
+      expect(queryByTestId('browse-vocabulary-button')).toBeNull()
+      expect(getByTestId('browse-grammar-button')).toBeTruthy()
+      expect(queryByTestId('browse-dialogues-button')).toBeNull()
     })
   })
 })

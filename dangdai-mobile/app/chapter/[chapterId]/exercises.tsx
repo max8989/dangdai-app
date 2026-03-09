@@ -10,10 +10,14 @@
  * - Premade exercise tap → /quiz/premade (placeholder for Epic 11)
  * - Browse buttons → /chapter/[chapterId]/vocabulary|grammar|dialogues
  *
+ * Browse buttons are conditionally shown based on content availability.
+ * Buttons hidden during loading (undefined = falsy) — no flash of content.
+ *
  * Open Navigation: No gates, no locks — all exercise types accessible.
  *
  * Story 3.5: Exercise Type Selection Screen
- * Stories 11.5, 11.6, 11.7: Navigation wired up here (deferred tasks)
+ * Story 3.7: Wire Browse Screen Navigation — conditional browse button visibility
+ * Stories 11.5, 11.6, 11.7: Navigation wired up here
  */
 
 import { ScrollView } from 'react-native'
@@ -36,6 +40,9 @@ import { PremadeExerciseCard } from '../../../components/chapter/PremadeExercise
 import { useExerciseTypeProgress } from '../../../hooks/useExerciseTypeProgress'
 import { usePremadeExercises } from '../../../hooks/usePremadeExercises'
 import { useChapter } from '../../../hooks/useChapters'
+import { useVocabularyCount } from '../../../hooks/useVocabulary'
+import { useGrammarPointsCount } from '../../../hooks/useGrammarPoints'
+import { useDialoguesCount } from '../../../hooks/useDialogues'
 import { BOOKS } from '../../../constants/books'
 import type { ExerciseType } from '../../../types/quiz'
 import type { ExerciseTypeProgress } from '../../../components/chapter/ExerciseTypeCard'
@@ -100,6 +107,15 @@ export default function ExercisesScreen() {
   // Hook is disabled when bookId=0 or lessonId=0 via its own `enabled` guard
   const { data: premadeExercises } = usePremadeExercises(bookId, lessonId)
   const hasPremadeExercises = (premadeExercises?.length ?? 0) > 0
+
+  // Fetch content availability for conditional browse button visibility (Story 3.7)
+  // Always called unconditionally (Rules of Hooks); disabled when bookId=0 or lessonId=0
+  // Undefined during loading = falsy = buttons hidden (correct UX — no flash)
+  const { data: hasVocabulary } = useVocabularyCount(bookId, lessonId)
+  const { data: hasGrammar } = useGrammarPointsCount(bookId, lessonId)
+  const { data: hasDialogues } = useDialoguesCount(bookId, lessonId)
+
+  const hasBrowseContent = hasVocabulary || hasGrammar || hasDialogues
 
   // Invalid chapterId state — render after all hooks are called
   if (!isValidChapterId || !chapter) {
@@ -188,42 +204,50 @@ export default function ExercisesScreen() {
             </Text>
           </YStack>
 
-          {/* Browse Content Buttons (Stories 11.5, 11.6, 11.7 deferred navigation) */}
-          <XStack gap="$2" testID="browse-buttons">
-            <Button
-              flex={1}
-              size="$3"
-              icon={<BookOpen size={16} />}
-              onPress={() => router.push(`/chapter/${chapterIdNum}/vocabulary`)}
-              testID="browse-vocabulary-button"
-              chromeless
-              bordered
-            >
-              Vocabulary
-            </Button>
-            <Button
-              flex={1}
-              size="$3"
-              icon={<MessageSquare size={16} />}
-              onPress={() => router.push(`/chapter/${chapterIdNum}/grammar`)}
-              testID="browse-grammar-button"
-              chromeless
-              bordered
-            >
-              Grammar
-            </Button>
-            <Button
-              flex={1}
-              size="$3"
-              icon={<MessageCircle size={16} />}
-              onPress={() => router.push(`/chapter/${chapterIdNum}/dialogues`)}
-              testID="browse-dialogues-button"
-              chromeless
-              bordered
-            >
-              Dialogues
-            </Button>
-          </XStack>
+          {/* Browse Content Buttons — conditionally shown based on content availability (Story 3.7) */}
+          {hasBrowseContent && (
+            <XStack gap="$2" testID="browse-buttons">
+              {hasVocabulary && (
+                <Button
+                  flex={1}
+                  size="$3"
+                  icon={<BookOpen size={16} />}
+                  onPress={() => router.push(`/chapter/${chapterIdNum}/vocabulary`)}
+                  testID="browse-vocabulary-button"
+                  chromeless
+                  bordered
+                >
+                  Vocabulary
+                </Button>
+              )}
+              {hasGrammar && (
+                <Button
+                  flex={1}
+                  size="$3"
+                  icon={<MessageSquare size={16} />}
+                  onPress={() => router.push(`/chapter/${chapterIdNum}/grammar`)}
+                  testID="browse-grammar-button"
+                  chromeless
+                  bordered
+                >
+                  Grammar
+                </Button>
+              )}
+              {hasDialogues && (
+                <Button
+                  flex={1}
+                  size="$3"
+                  icon={<MessageCircle size={16} />}
+                  onPress={() => router.push(`/chapter/${chapterIdNum}/dialogues`)}
+                  testID="browse-dialogues-button"
+                  chromeless
+                  bordered
+                >
+                  Dialogues
+                </Button>
+              )}
+            </XStack>
+          )}
 
           {/* Workbook Exercises Section — hidden when no premade exercises exist */}
           {hasPremadeExercises && (

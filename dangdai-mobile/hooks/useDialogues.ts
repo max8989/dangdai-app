@@ -11,6 +11,7 @@
  * Gracefully handles missing table (42P01) by returning an empty array.
  *
  * Story 11.7: Dialogue Browse Screen — Task 2
+ * Story 3.7: Wire Browse Screen Navigation — useDialoguesCount added
  */
 
 import { useQuery } from '@tanstack/react-query'
@@ -73,5 +74,42 @@ export function useDialogues(bookId: number, lessonId: number) {
     },
     enabled: !!bookId && !!lessonId,
     staleTime: 1000 * 60 * 30, // 30 minutes — dialogues are static textbook content
+  })
+}
+
+// ─── Count Hook ───────────────────────────────────────────────────────────────
+
+/**
+ * Checks whether dialogue content exists for a chapter.
+ *
+ * Uses a HEAD query (count only, no rows returned) for efficiency.
+ * Returns true if at least one dialogue exists, false otherwise.
+ * Gracefully handles missing table (42P01) by returning false.
+ *
+ * @param bookId - The book ID (1–4)
+ * @param lessonId - The lesson number within the book (1–15)
+ * @returns TanStack Query result with data as boolean
+ */
+export function useDialoguesCount(bookId: number, lessonId: number) {
+  return useQuery({
+    queryKey: queryKeys.dialoguesCount(bookId, lessonId),
+    queryFn: async (): Promise<boolean> => {
+      const { count, error } = await supabase
+        .from('dialogues')
+        .select('*', { count: 'exact', head: true })
+        .eq('book_id', bookId)
+        .eq('lesson_id', lessonId)
+
+      if (error) {
+        if (error.code === '42P01') {
+          console.warn('dialogues table not found - returning false')
+          return false
+        }
+        throw error
+      }
+      return (count ?? 0) > 0
+    },
+    enabled: !!bookId && !!lessonId,
+    staleTime: 1000 * 60 * 30, // 30 min — static textbook content
   })
 }

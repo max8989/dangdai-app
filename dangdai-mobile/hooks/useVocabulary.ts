@@ -10,6 +10,7 @@
  * Gracefully handles missing table (42P01) by returning empty sections.
  *
  * Story 11.5: Vocabulary Browse Screen — Task 2
+ * Story 3.7: Wire Browse Screen Navigation — useVocabularyCount added
  */
 
 import { useQuery } from '@tanstack/react-query'
@@ -99,5 +100,42 @@ export function useVocabulary(bookId: number, lessonId: number) {
     },
     enabled: !!bookId && !!lessonId,
     staleTime: 1000 * 60 * 30, // 30 minutes — vocabulary is static textbook content
+  })
+}
+
+// ─── Count Hook ───────────────────────────────────────────────────────────────
+
+/**
+ * Checks whether vocabulary content exists for a chapter.
+ *
+ * Uses a HEAD query (count only, no rows returned) for efficiency.
+ * Returns true if at least one vocabulary item exists, false otherwise.
+ * Gracefully handles missing table (42P01) by returning false.
+ *
+ * @param bookId - The book ID (1–4)
+ * @param lessonId - The lesson number within the book (1–15)
+ * @returns TanStack Query result with data as boolean
+ */
+export function useVocabularyCount(bookId: number, lessonId: number) {
+  return useQuery({
+    queryKey: queryKeys.vocabularyCount(bookId, lessonId),
+    queryFn: async (): Promise<boolean> => {
+      const { count, error } = await supabase
+        .from('vocabulary')
+        .select('*', { count: 'exact', head: true })
+        .eq('book_id', bookId)
+        .eq('lesson_id', lessonId)
+
+      if (error) {
+        if (error.code === '42P01') {
+          console.warn('vocabulary table not found - returning false')
+          return false
+        }
+        throw error
+      }
+      return (count ?? 0) > 0
+    },
+    enabled: !!bookId && !!lessonId,
+    staleTime: 1000 * 60 * 30, // 30 min — static textbook content
   })
 }
