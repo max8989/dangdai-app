@@ -1,6 +1,6 @@
 # Story 3.6: Expand Book Selection to Books 1-4
 
-Status: review
+Status: done
 
 ## Story
 
@@ -176,3 +176,57 @@ No debug issues encountered. All existing code was already correctly implemented
 - `dangdai-mobile/app/(tabs)/books.tsx` — Already renders from BOOKS constant
 - `dangdai-mobile/components/chapter/BookCard.tsx` — Already handles variable chapterCount
 - `dangdai-mobile/app/chapter/[bookId].tsx` — Already loads chapters dynamically
+
+## Senior Developer Review (AI)
+
+### Review Date
+
+2026-03-09
+
+### Reviewer
+
+claude-sonnet-4-6 (Review Agent)
+
+### Outcome
+
+✅ **APPROVED**
+
+### AC Verification
+
+| AC | Status | Notes |
+|----|--------|-------|
+| AC1: 4 book cards displayed | ✅ Pass | `BOOKS.map()` in `books.tsx`; tests assert `book-card-1` through `book-card-4` |
+| AC2: 15/12 lesson counts | ✅ Pass | `chapterCount` in constants correct; `BookCard` uses it dynamically; tests assert per-book |
+| AC3: Orange/purple colors | ✅ Pass (implicit) | `$orange9`/`$purple9` tokens in constants; `BookCard` applies via `coverColor`; no explicit test assertion but real constants used |
+| AC4: Navigation + 12-chapter list | ✅ Pass | `useChapters(bookIdNum)` fully dynamic; Story 3.6 test block covers Books 3 and 4 |
+
+### Key Findings
+
+1. **Constants correct**: All 4 books present with correct `chapterCount` (15/15/12/12) and Tamagui color tokens. Chapter IDs 301-312 and 401-412 verified. Chapter ID convention (`bookId * 100 + chapterNumber`) strictly followed.
+
+2. **No hardcoding**: `books.tsx` uses `BOOKS.map()`, `[bookId].tsx` uses `useChapters(bookIdNum)`. Anti-patterns from Dev Notes are all avoided.
+
+3. **Bug fix correct**: Chapter 105 title `'Beef Noodles Are Delicious'` matches `constants/chapters.ts` line 20. Fix is accurate.
+
+4. **Test quality**: 22 new tests in `books.test.tsx` cover AC1, AC2, AC4, plus loading/error/progress states. `[bookId].test.tsx` Story 3.6 block adds 5 targeted tests for Books 3/4. `useChapters.test.ts` now tests all 4 books explicitly.
+
+5. **Tamagui tokens over hex**: Implementation correctly uses `$orange9`/`$purple9` instead of hardcoded hex — aligns with the project's anti-pattern rule. The Dev Notes spec showing hex values was aspirational; the token approach is superior.
+
+### Minor Observations (Non-blocking)
+
+- **AC3 test gap**: `books.test.tsx` header documents AC3 but no `describe('AC #3')` block exists. Color correctness is implicitly validated via real constants, but an explicit assertion on `BOOKS[2].coverColor === '$orange9'` would be cleaner. Future improvement only.
+- **`BookCardSkeleton` mock** ignores `count` prop — no assertion that `count={4}` is passed during loading state. Non-blocking.
+- **Book 4 test coverage**: Only navigation for chapter 401 tested (not full 12-chapter render). Acceptable since Book 3 already covers the 12-chapter pattern.
+
+### Risk Assessment
+
+- 🟢 **Security**: None — static data, no user input, no API surface changes.
+- 🟢 **Performance**: `useMemo` on static data is correct and lightweight.
+- 🟢 **Regression**: Low — no production code changed; only tests added/fixed.
+
+## Change Log
+
+| Date | Version | Author | Changes |
+|------|---------|--------|---------|
+| 2026-03-09 | 1.0 | Dev Agent (claude-sonnet-4-6) | Initial implementation — verified constants, created books.test.tsx (22 tests), updated [bookId].test.tsx (5 tests), fixed useChapters.test.ts bug |
+| 2026-03-09 | 1.1 | Review Agent (claude-sonnet-4-6) | Senior developer review — APPROVED. Status updated to done. |
