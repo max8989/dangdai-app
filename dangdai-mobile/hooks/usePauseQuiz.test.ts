@@ -262,4 +262,113 @@ describe('usePauseQuiz — Story 4.10b (Task 3)', () => {
       })
     })
   })
+
+  // ─── Edge case: offline / network error ───────────────────────────────────
+
+  describe('edge case: offline pause attempt (network error)', () => {
+    /**
+     * Negative test — verifies that a network-level failure during pauseQuiz
+     * (e.g., device is offline) surfaces as a thrown error with a meaningful message.
+     * Objective: pauseQuiz must not silently swallow network errors.
+     */
+    it('throws with "Failed to pause quiz" when upsert rejects with a network error', async () => {
+      // Arrange: simulate a network error (Promise rejection, not a Supabase error object)
+      const upsertMock = jest.fn().mockRejectedValue(new Error('Network request failed'))
+      mockFrom.mockReturnValue({ upsert: upsertMock })
+      const { result } = renderHook(() => usePauseQuiz(), { wrapper: createWrapper() })
+
+      // Act + Assert: pauseQuiz should propagate the network error
+      await act(async () => {
+        await expect(
+          result.current.pauseQuiz({
+            chapterId: 101,
+            exerciseType: 'vocabulary',
+            quizState: mockPausedQuizState,
+          })
+        ).rejects.toThrow('Network request failed')
+      })
+    })
+
+    /**
+     * Negative test — verifies that a network-level failure during deletePausedQuiz
+     * (e.g., device is offline) surfaces as a thrown error.
+     * Objective: deletePausedQuiz must not silently swallow network errors.
+     */
+    it('throws when deletePausedQuiz rejects with a network error', async () => {
+      // Arrange: simulate a network error on delete
+      const eqMock3 = jest.fn().mockRejectedValue(new Error('Network request failed'))
+      const eqMock2 = jest.fn().mockReturnValue({ eq: eqMock3 })
+      const eqMock1 = jest.fn().mockReturnValue({ eq: eqMock2 })
+      const deleteMock = jest.fn().mockReturnValue({ eq: eqMock1 })
+      mockFrom.mockReturnValue({ delete: deleteMock })
+      const { result } = renderHook(() => usePauseQuiz(), { wrapper: createWrapper() })
+
+      // Act + Assert: deletePausedQuiz should propagate the network error
+      await act(async () => {
+        await expect(
+          result.current.deletePausedQuiz({
+            chapterId: 101,
+            exerciseType: 'vocabulary',
+          })
+        ).rejects.toThrow('Network request failed')
+      })
+    })
+  })
+
+  // ─── Edge case: corrupted quiz state recovery ─────────────────────────────
+
+  describe('edge case: corrupted quiz state recovery', () => {
+    /**
+     * Negative test — verifies that resumeQuiz handles a null quiz_state in the
+     * database row gracefully (returns null instead of crashing).
+     * Objective: corrupted/missing quiz_state must not crash the resume flow.
+     */
+    it('returns null when database row has null quiz_state (corrupted data)', async () => {
+      // Arrange: database returns a row but quiz_state is null (corrupted)
+      setupSelectMock({ quiz_state: null })
+      const { result } = renderHook(() => usePauseQuiz(), { wrapper: createWrapper() })
+
+      let resumedState: PausedQuizState | null = undefined as unknown as null
+
+      // Act: attempt to resume with corrupted state
+      await act(async () => {
+        resumedState = await result.current.resumeQuiz({
+          chapterId: 101,
+          exerciseType: 'vocabulary',
+        })
+      })
+
+      // Assert: returns null rather than crashing (null quiz_state → null return)
+      expect(resumedState).toBeNull()
+    })
+
+    /**
+     * Negative test — verifies that resumeQuiz propagates a Supabase error
+     * (non-null error object) as a thrown error, not a silent null return.
+     * Objective: real DB errors during resume must surface to the caller.
+     */
+    it('throws when resumeQuiz encounters a non-null Supabase error', async () => {
+      // Arrange: simulate a real Supabase error (not 42P01)
+      const maybeSingleMock = jest.fn().mockResolvedValue({
+        data: null,
+        error: { code: '23505', message: 'unique constraint violation' },
+      })
+      const eqMock3 = jest.fn().mockReturnValue({ maybeSingle: maybeSingleMock })
+      const eqMock2 = jest.fn().mockReturnValue({ eq: eqMock3 })
+      const eqMock1 = jest.fn().mockReturnValue({ eq: eqMock2 })
+      const selectMock = jest.fn().mockReturnValue({ eq: eqMock1 })
+      mockFrom.mockReturnValue({ select: selectMock })
+      const { result } = renderHook(() => usePauseQuiz(), { wrapper: createWrapper() })
+
+      // Act + Assert: resumeQuiz should throw with the Supabase error message
+      await act(async () => {
+        await expect(
+          result.current.resumeQuiz({
+            chapterId: 101,
+            exerciseType: 'vocabulary',
+          })
+        ).rejects.toThrow('Failed to resume quiz')
+      })
+    })
+  })
 })

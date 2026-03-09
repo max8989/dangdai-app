@@ -225,4 +225,109 @@ describe('usePausedQuiz — Story 4.10b (Task 4)', () => {
       expect(result.current.fetchStatus).toBe('idle')
     })
   })
+
+  // ─── Edge case: multiple paused quizzes ordering ──────────────────────────
+
+  describe('edge case: multiple paused quizzes ordering', () => {
+    /**
+     * Positive test — verifies that useAllPausedQuizzes returns quizzes in
+     * descending order by paused_at (most recent first), matching the Supabase
+     * .order('paused_at', { ascending: false }) call.
+     * Objective: dashboard continue card must show the MOST RECENT paused quiz.
+     */
+    it('returns multiple paused quizzes ordered most-recent-first', async () => {
+      // Arrange: two paused quizzes — newer one first (as Supabase would return)
+      const olderPausedQuiz: PausedQuiz = {
+        ...mockPausedQuiz,
+        id: 'pq-uuid-2',
+        chapter_id: 102,
+        exercise_type: 'grammar',
+        paused_at: '2026-03-08T08:00:00.000Z', // older
+      }
+      const newerPausedQuiz: PausedQuiz = {
+        ...mockPausedQuiz,
+        id: 'pq-uuid-1',
+        chapter_id: 101,
+        exercise_type: 'vocabulary',
+        paused_at: '2026-03-09T10:05:00.000Z', // newer
+      }
+      // Supabase returns them ordered by paused_at DESC (newer first)
+      setupSelectAllMock([newerPausedQuiz, olderPausedQuiz])
+
+      const { result } = renderHook(
+        () => useAllPausedQuizzes(),
+        { wrapper: createWrapper() }
+      )
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+      // Assert: two quizzes returned, most recent first
+      expect(result.current.data).toHaveLength(2)
+      expect(result.current.data?.[0].id).toBe('pq-uuid-1') // newer
+      expect(result.current.data?.[1].id).toBe('pq-uuid-2') // older
+    })
+  })
+
+  // ─── Edge case: non-42P01 error propagation ───────────────────────────────
+
+  describe('edge case: non-42P01 error propagation', () => {
+    /**
+     * Negative test — verifies that usePausedQuiz re-throws unknown Supabase
+     * errors (not the 42P01 "table not found" code) so TanStack Query can
+     * handle them (retry, error state, etc.).
+     * Objective: only 42P01 is swallowed; all other errors must propagate.
+     */
+    it('throws for non-42P01 Supabase errors in usePausedQuiz', async () => {
+      // Arrange: simulate a permission denied error (not 42P01)
+      const maybeSingleMock = jest.fn().mockResolvedValue({
+        data: null,
+        error: { code: '42501', message: 'permission denied for table paused_quizzes' },
+      })
+      const eqMock3 = jest.fn().mockReturnValue({ maybeSingle: maybeSingleMock })
+      const eqMock2 = jest.fn().mockReturnValue({ eq: eqMock3 })
+      const eqMock1 = jest.fn().mockReturnValue({ eq: eqMock2 })
+      const selectMock = jest.fn().mockReturnValue({ eq: eqMock1 })
+      mockFrom.mockReturnValue({ select: selectMock })
+
+      const { result } = renderHook(
+        () => usePausedQuiz(101, 'vocabulary'),
+        { wrapper: createWrapper() }
+      )
+
+      // Act: wait for the query to settle into error state
+      await waitFor(() => expect(result.current.isError).toBe(true))
+
+      // Assert: query is in error state (error was re-thrown, not swallowed)
+      expect(result.current.isError).toBe(true)
+      expect(result.current.data).toBeUndefined()
+    })
+
+    /**
+     * Negative test — verifies that useAllPausedQuizzes re-throws unknown
+     * Supabase errors (not 42P01) so TanStack Query can handle them.
+     * Objective: only 42P01 is swallowed; all other errors must propagate.
+     */
+    it('throws for non-42P01 Supabase errors in useAllPausedQuizzes', async () => {
+      // Arrange: simulate a connection error (not 42P01)
+      const orderMock = jest.fn().mockResolvedValue({
+        data: null,
+        error: { code: 'PGRST301', message: 'connection refused' },
+      })
+      const eqMock = jest.fn().mockReturnValue({ order: orderMock })
+      const selectMock = jest.fn().mockReturnValue({ eq: eqMock })
+      mockFrom.mockReturnValue({ select: selectMock })
+
+      const { result } = renderHook(
+        () => useAllPausedQuizzes(),
+        { wrapper: createWrapper() }
+      )
+
+      // Act: wait for the query to settle into error state
+      await waitFor(() => expect(result.current.isError).toBe(true))
+
+      // Assert: query is in error state (error was re-thrown, not swallowed)
+      expect(result.current.isError).toBe(true)
+      expect(result.current.data).toBeUndefined()
+    })
+  })
 })
