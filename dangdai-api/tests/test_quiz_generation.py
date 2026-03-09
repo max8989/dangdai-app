@@ -265,8 +265,9 @@ class TestParseEvaluationResponse:
 
 
 class TestRetrieveContentNode:
+    @pytest.mark.asyncio
     @patch("src.agent.nodes.RagService")
-    def test_retrieve_content_vocabulary(self, mock_rag_cls):
+    async def test_retrieve_content_vocabulary(self, mock_rag_cls):
         mock_instance = MagicMock()
         mock_instance.retrieve_content.return_value = [{"content": "test"}]
         mock_rag_cls.return_value = mock_instance
@@ -277,14 +278,15 @@ class TestRetrieveContentNode:
             "exercise_type": "vocabulary",
             "user_id": "user-1",
         }
-        result = retrieve_content(state)
+        result = await retrieve_content(state)
 
         assert "retrieved_content" in result
         assert len(result["retrieved_content"]) == 1
 
+    @pytest.mark.asyncio
     @patch("src.agent.nodes.RagService")
     @patch("src.agent.nodes.ChapterRepository")
-    def test_retrieve_content_mixed(self, mock_chapter_cls, mock_rag_cls):
+    async def test_retrieve_content_mixed(self, mock_chapter_cls, mock_rag_cls):
         mock_rag = MagicMock()
         mock_rag.retrieve_mixed_content.return_value = [{"content": "mixed"}]
         mock_rag_cls.return_value = mock_rag
@@ -304,7 +306,7 @@ class TestRetrieveContentNode:
             "exercise_type": "mixed",
             "user_id": "user-1",
         }
-        result = retrieve_content(state)
+        result = await retrieve_content(state)
 
         assert len(result["retrieved_content"]) == 1
         mock_rag.retrieve_mixed_content.assert_called_once()

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from src.api.dependencies import get_current_user
 from src.api.schemas import (
@@ -40,32 +40,40 @@ _validation_service = ValidationService()
     },
 )
 async def generate_quiz(
-    request: QuizGenerateRequest,
+    request_body: QuizGenerateRequest,
+    http_request: Request,
     user_id: str = Depends(get_current_user),
 ) -> QuizGenerateResponse:
     """Generate a quiz for a chapter and exercise type.
 
     Requires a valid Supabase JWT in the Authorization header.
+    Checks for client disconnection before invoking LangGraph to avoid
+    wasting LLM API calls when the client has already navigated away.
 
     Args:
-        request: Quiz generation parameters.
+        request_body: Quiz generation parameters.
+        http_request: FastAPI Request object for disconnection detection.
         user_id: Authenticated user ID from JWT.
 
     Returns:
         QuizGenerateResponse with generated questions.
+
+    Raises:
+        asyncio.CancelledError: If client disconnects before generation starts.
+        HTTPException: On validation errors, timeouts, or unexpected failures.
     """
     logger.info(
         "generate_quiz called: user=%s chapter_id=%d book_id=%d exercise_type=%s",
         user_id,
-        request.chapter_id,
-        request.book_id,
-        request.exercise_type.value,
+        request_body.chapter_id,
+        request_body.book_id,
+        request_body.exercise_type.value,
     )
 
     # Validate chapter_id format (exercise_type is already validated by Pydantic)
-    if request.chapter_id < 100:
+    if request_body.chapter_id < 100:
         logger.warning(
-            "Invalid chapter_id=%d from user=%s", request.chapter_id, user_id
+            "Invalid chapter_id=%d from user=%s", request_body.chapter_id, user_id
         )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -73,7 +81,9 @@ async def generate_quiz(
         )
 
     try:
-        response = await _quiz_service.generate_quiz(request, user_id)
+        response = await _quiz_service.generate_quiz(
+            request_body, user_id, http_request
+        )
         logger.info(
             "Quiz generated successfully: quiz_id=%s questions=%d",
             response.quiz_id,
@@ -85,7 +95,7 @@ async def generate_quiz(
         logger.error(
             "Quiz generation TIMEOUT for user=%s chapter=%d: %s",
             user_id,
-            request.chapter_id,
+            request_body.chapter_id,
             e,
         )
         raise HTTPException(
@@ -98,7 +108,7 @@ async def generate_quiz(
         logger.error(
             "Quiz generation ValueError for user=%s chapter=%d: %s",
             user_id,
-            request.chapter_id,
+            request_body.chapter_id,
             error_msg,
         )
         if "no questions" in error_msg.lower() or "insufficient" in error_msg.lower():
@@ -115,8 +125,8 @@ async def generate_quiz(
         logger.exception(
             "Quiz generation UNEXPECTED ERROR for user=%s chapter=%d exercise_type=%s",
             user_id,
-            request.chapter_id,
-            request.exercise_type.value,
+            request_body.chapter_id,
+            request_body.exercise_type.value,
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -136,30 +146,38 @@ async def generate_quiz(
     },
 )
 async def validate_answer(
-    request: ValidationRequest,
+    request_body: ValidationRequest,
+    http_request: Request,
     user_id: str = Depends(get_current_user),
 ) -> ValidationResponse:
     """Validate an open-ended answer using LLM evaluation.
 
     Only supports sentence_construction and dialogue_completion exercise types,
     where multiple valid answers may exist. Requires a valid Supabase JWT.
+    Checks for client disconnection before invoking the LLM to avoid
+    wasting API calls when the client has already navigated away.
 
     Args:
-        request: Validation request with question, user_answer, correct_answer,
-                 and exercise_type.
+        request_body: Validation request with question, user_answer,
+                      correct_answer, and exercise_type.
+        http_request: FastAPI Request object for disconnection detection.
         user_id: Authenticated user ID from JWT.
 
     Returns:
         ValidationResponse with is_correct, explanation, and alternatives.
+
+    Raises:
+        asyncio.CancelledError: If client disconnects before validation starts.
+        HTTPException: On timeout or unexpected failures.
     """
     try:
-        return await _validation_service.validate_answer(request)
+        return await _validation_service.validate_answer(request_body, http_request)
 
     except TimeoutError as exc:
         logger.error(
             "Answer validation timeout for user=%s exercise_type=%s: %s",
             user_id,
-            request.exercise_type.value,
+            request_body.exercise_type.value,
             exc,
         )
         raise HTTPException(
@@ -171,7 +189,7 @@ async def validate_answer(
         logger.exception(
             "Unexpected error during answer validation for user=%s exercise_type=%s",
             user_id,
-            request.exercise_type.value,
+            request_body.exercise_type.value,
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

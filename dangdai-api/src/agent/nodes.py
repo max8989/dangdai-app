@@ -10,6 +10,7 @@ Implement nodes for the quiz generation graph:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import Any
@@ -35,14 +36,20 @@ logger = logging.getLogger(__name__)
 MAX_RETRIES = 2
 
 
-def retrieve_content(state: QuizGenerationState) -> dict[str, Any]:
+async def retrieve_content(state: QuizGenerationState) -> dict[str, Any]:
     """Retrieve chapter content via RAG service with fallback strategy.
+
+    Checks for client disconnection before executing the RAG database query
+    to avoid wasting resources when the client has already navigated away.
 
     Args:
         state: Current graph state with chapter_id, book_id, exercise_type.
 
     Returns:
         State update with retrieved_content.
+
+    Raises:
+        asyncio.CancelledError: If client disconnects before the database query.
     """
     import time
 
@@ -57,6 +64,12 @@ def retrieve_content(state: QuizGenerationState) -> dict[str, Any]:
         chapter_id,
         exercise_type,
     )
+
+    # Check for client disconnection before the RAG database query
+    request = state.get("request")
+    if request and await request.is_disconnected():
+        logger.info("[Node:retrieve_content] Client disconnected, aborting RAG query")
+        raise asyncio.CancelledError("Client disconnected")
 
     _, lesson = ChapterRepository.parse_chapter_id(chapter_id)
 
@@ -85,16 +98,30 @@ def retrieve_content(state: QuizGenerationState) -> dict[str, Any]:
     return {"retrieved_content": chunks}
 
 
-def query_weakness(state: QuizGenerationState) -> dict[str, Any]:
+async def query_weakness(state: QuizGenerationState) -> dict[str, Any]:
     """Query user weakness profile for adaptive quiz generation.
+
+    Checks for client disconnection before executing the database query
+    to avoid wasting resources when the client has already navigated away.
 
     Args:
         state: Current graph state with user_id.
 
     Returns:
         State update with weakness_profile.
+
+    Raises:
+        asyncio.CancelledError: If client disconnects before the database query.
     """
     user_id = state.get("user_id", "")
+
+    # Check for client disconnection before the weakness profile database query
+    request = state.get("request")
+    if request and await request.is_disconnected():
+        logger.info(
+            "[Node:query_weakness] Client disconnected, aborting weakness profile query"
+        )
+        raise asyncio.CancelledError("Client disconnected")
 
     weakness_service = WeaknessService()
     profile = weakness_service.get_weakness_profile(user_id)
@@ -107,12 +134,18 @@ def query_weakness(state: QuizGenerationState) -> dict[str, Any]:
 async def generate_quiz(state: QuizGenerationState) -> dict[str, Any]:
     """Generate quiz questions using LLM with structured output.
 
+    Checks for client disconnection before making the LLM call to avoid
+    wasting API costs when the client has already navigated away.
+
     Args:
         state: Current graph state with retrieved_content, exercise_type,
                weakness_profile.
 
     Returns:
         State update with questions list.
+
+    Raises:
+        asyncio.CancelledError: If client disconnects before the LLM call.
     """
     import time
 
@@ -198,6 +231,12 @@ async def generate_quiz(state: QuizGenerationState) -> dict[str, Any]:
             "- Pinyin MUST use tone diacritics (nǐ, xué) — NEVER tone numbers\n"
             "- question_text MUST be in English — NEVER in Chinese\n"
         )
+
+    # Check for client disconnection before the expensive LLM call
+    request = state.get("request")
+    if request and await request.is_disconnected():
+        logger.info("[Node:generate_quiz] Client disconnected, aborting LLM call")
+        raise asyncio.CancelledError("Client disconnected")
 
     # Call LLM asynchronously
     llm = get_llm()
@@ -368,6 +407,8 @@ async def evaluate_content(state: QuizGenerationState) -> dict[str, Any]:
 
     On failure, sets evaluator_feedback for the generator to self-correct.
     If the evaluator LLM itself fails, defaults to pass (don't block the quiz).
+    Checks for client disconnection before the evaluator LLM call to avoid
+    wasting API costs when the client has already navigated away.
 
     Performance Budget:
     - Latency: ~1-2 seconds per evaluation (LLM call)
@@ -381,6 +422,9 @@ async def evaluate_content(state: QuizGenerationState) -> dict[str, Any]:
     Returns:
         State update with validation_errors, evaluator_feedback,
         retry_count, and quiz_payload.
+
+    Raises:
+        asyncio.CancelledError: If client disconnects before the evaluator LLM call.
     """
     import time
 
@@ -399,6 +443,12 @@ async def evaluate_content(state: QuizGenerationState) -> dict[str, Any]:
         len(questions),
         retry_count,
     )
+
+    # Check for client disconnection before the evaluator LLM call
+    request = state.get("request")
+    if request and await request.is_disconnected():
+        logger.info("[Node:evaluate_content] Client disconnected, skipping evaluation")
+        raise asyncio.CancelledError("Client disconnected")
 
     try:
         questions_json = json.dumps(questions, ensure_ascii=False, indent=2)

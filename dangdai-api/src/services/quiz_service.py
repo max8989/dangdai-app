@@ -11,6 +11,7 @@ import uuid
 from typing import Any
 
 from pydantic import ValidationError
+from starlette.requests import Request
 
 from src.agent.graph import graph
 from src.api.schemas import QuizGenerateRequest, QuizGenerateResponse
@@ -30,17 +31,27 @@ class QuizService:
         self,
         request: QuizGenerateRequest,
         user_id: str,
+        http_request: Request | None = None,
     ) -> QuizGenerateResponse:
         """Generate a quiz by invoking the LangGraph agent.
+
+        Checks for client disconnection before invoking LangGraph to avoid
+        wasting LLM API calls when the client has already navigated away.
+        The http_request object is also passed into the graph state so that
+        individual nodes can check disconnection before expensive operations.
 
         Args:
             request: Quiz generation request with chapter_id, book_id, exercise_type.
             user_id: Authenticated user's UUID.
+            http_request: Optional FastAPI Request for disconnection detection.
+                          When provided, checks is_disconnected() before invoking
+                          LangGraph and passes it to graph nodes for mid-graph checks.
 
         Returns:
             QuizGenerateResponse with generated questions.
 
         Raises:
+            asyncio.CancelledError: If client disconnects before or during generation.
             TimeoutError: If generation exceeds timeout.
             ValueError: If generation produces no valid questions.
         """
@@ -48,13 +59,24 @@ class QuizService:
 
         quiz_id = str(uuid.uuid4())
 
-        # Prepare graph input state
+        # Check for client disconnection before starting expensive LangGraph invocation
+        if http_request and await http_request.is_disconnected():
+            logger.info(
+                "[QuizService] Client disconnected before graph start for chapter=%d user=%s",
+                request.chapter_id,
+                user_id,
+            )
+            raise asyncio.CancelledError("Client disconnected")
+
+        # Prepare graph input state — include request for mid-graph disconnection checks
         graph_input: dict[str, Any] = {
             "chapter_id": request.chapter_id,
             "book_id": request.book_id,
             "exercise_type": request.exercise_type.value,
             "user_id": user_id,
         }
+        if http_request is not None:
+            graph_input["request"] = http_request
 
         logger.info(
             "[QuizService] Starting graph for quiz_id=%s chapter=%d type=%s timeout=%ds",
@@ -71,6 +93,16 @@ class QuizService:
                 graph.ainvoke(graph_input),  # type: ignore[arg-type]
                 timeout=GENERATION_TIMEOUT_SECONDS,
             )
+        except asyncio.CancelledError:
+            elapsed = time.perf_counter() - start
+            logger.info(
+                "[QuizService] Quiz generation cancelled by client disconnect "
+                "(chapter=%d user=%s elapsed=%.1fs)",
+                request.chapter_id,
+                user_id,
+                elapsed,
+            )
+            raise  # Let FastAPI handle it (closes connection silently)
         except asyncio.TimeoutError:
             elapsed = time.perf_counter() - start
             logger.error(

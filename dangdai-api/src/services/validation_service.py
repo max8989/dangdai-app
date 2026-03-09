@@ -11,6 +11,7 @@ import json
 import logging
 
 from langchain_core.messages import HumanMessage, SystemMessage
+from starlette.requests import Request
 
 from src.agent.prompts import (
     ANSWER_VALIDATION_PROMPT,
@@ -31,17 +32,25 @@ class ValidationService:
     async def validate_answer(
         self,
         request: ValidationRequest,
+        http_request: Request | None = None,
     ) -> ValidationResponse:
         """Validate a user's answer using LLM evaluation.
+
+        Checks for client disconnection before invoking the LLM to avoid
+        wasting API calls when the client has already navigated away.
 
         Args:
             request: Validation request with question, user_answer,
                      correct_answer, and exercise_type.
+            http_request: Optional FastAPI Request for disconnection detection.
+                          When provided, checks is_disconnected() before the
+                          LLM call and raises CancelledError if disconnected.
 
         Returns:
             ValidationResponse with is_correct, explanation, alternatives.
 
         Raises:
+            asyncio.CancelledError: If client disconnects before LLM call.
             TimeoutError: If LLM call exceeds 3 seconds.
             Exception: If LLM invocation fails.
         """
@@ -58,11 +67,27 @@ class ValidationService:
             HumanMessage(content=prompt_text),
         ]
 
+        # Check for client disconnection before making the LLM call
+        if http_request and await http_request.is_disconnected():
+            logger.info(
+                "[ValidationService] Client disconnected before LLM call "
+                "for exercise_type=%s — aborting validation",
+                request.exercise_type.value,
+            )
+            raise asyncio.CancelledError("Client disconnected")
+
         try:
             response = await asyncio.wait_for(
                 llm.ainvoke(messages),
                 timeout=VALIDATION_TIMEOUT_SECONDS,
             )
+        except asyncio.CancelledError:
+            logger.info(
+                "[ValidationService] Answer validation cancelled by client disconnect "
+                "(exercise_type=%s)",
+                request.exercise_type.value,
+            )
+            raise  # Let FastAPI handle it (closes connection silently)
         except asyncio.TimeoutError:
             logger.error(
                 "Answer validation timed out after %ds for exercise_type=%s",

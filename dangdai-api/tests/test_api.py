@@ -1,7 +1,8 @@
 """API endpoint tests."""
 
+import asyncio
 import time
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import jwt
 import pytest
@@ -413,3 +414,293 @@ class TestValidateAnswerEndpoint:
         # Flat structure — no wrapper keys like "data", "result", etc.
         assert set(data.keys()) == {"is_correct", "explanation", "alternatives"}
         assert data["is_correct"] is False
+
+
+class TestRequestCancellation:
+    """Tests for client disconnection detection and request cancellation.
+
+    Verifies that endpoints detect client disconnects and raise
+    asyncio.CancelledError before making expensive LLM/database calls.
+    """
+
+    def _auth_header(self, token=None):
+        if token is None:
+            token = _make_jwt()
+        return {"Authorization": f"Bearer {token}"}
+
+    @pytest.mark.asyncio
+    @patch("src.api.dependencies.settings")
+    async def test_quiz_generation_cancels_when_client_disconnects(self, mock_settings):
+        """Quiz generation raises CancelledError when client disconnects before LLM.
+
+        Verifies that QuizService.generate_quiz() checks is_disconnected()
+        before invoking LangGraph and raises asyncio.CancelledError immediately.
+        """
+        mock_settings.SUPABASE_JWT_SECRET = TEST_JWT_SECRET
+
+        # Create a mock HTTP request that reports as disconnected
+        mock_http_request = MagicMock()
+        mock_http_request.is_disconnected = AsyncMock(return_value=True)
+
+        from src.api.schemas import ExerciseType, QuizGenerateRequest
+        from src.services.quiz_service import QuizService
+
+        service = QuizService()
+        request_body = QuizGenerateRequest(
+            chapter_id=105, book_id=1, exercise_type=ExerciseType.VOCABULARY
+        )
+
+        with pytest.raises(asyncio.CancelledError):
+            await service.generate_quiz(request_body, TEST_USER_ID, mock_http_request)
+
+        # Verify is_disconnected was called
+        mock_http_request.is_disconnected.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch("src.api.dependencies.settings")
+    @patch("src.services.quiz_service.graph")
+    async def test_quiz_generation_completes_normally_when_connected(
+        self, mock_graph, mock_settings
+    ):
+        """Quiz generation completes normally when client stays connected.
+
+        Verifies that a connected client (is_disconnected=False) proceeds
+        through the full LangGraph invocation without cancellation.
+        """
+        mock_settings.SUPABASE_JWT_SECRET = TEST_JWT_SECRET
+
+        # Create a mock HTTP request that reports as connected
+        mock_http_request = MagicMock()
+        mock_http_request.is_disconnected = AsyncMock(return_value=False)
+
+        # Mock the graph to return a valid quiz payload
+        mock_graph.ainvoke = AsyncMock(
+            return_value={
+                "quiz_payload": {
+                    "questions": [
+                        {
+                            "question_id": "q1",
+                            "exercise_type": "vocabulary",
+                            "question_text": "What does 學 mean?",
+                            "correct_answer": "to study",
+                            "explanation": "test explanation",
+                            "source_citation": "Book 1, Ch 5",
+                            "character": "學",
+                            "pinyin": "xué",
+                            "meaning": "to study",
+                            "question_subtype": "char_to_meaning",
+                            "options": ["to study", "to eat", "to go", "to read"],
+                        }
+                    ]
+                },
+                "validation_errors": [],
+                "retry_count": 0,
+            }
+        )
+
+        from src.api.schemas import ExerciseType, QuizGenerateRequest
+        from src.services.quiz_service import QuizService
+
+        service = QuizService()
+        request_body = QuizGenerateRequest(
+            chapter_id=105, book_id=1, exercise_type=ExerciseType.VOCABULARY
+        )
+
+        result = await service.generate_quiz(
+            request_body, TEST_USER_ID, mock_http_request
+        )
+
+        assert result.quiz_id is not None
+        assert result.question_count == 1
+        # Verify is_disconnected was checked before graph invocation
+        mock_http_request.is_disconnected.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch("src.api.dependencies.settings")
+    async def test_answer_validation_cancels_when_client_disconnects(
+        self, mock_settings
+    ):
+        """Answer validation raises CancelledError when client disconnects before LLM.
+
+        Verifies that ValidationService.validate_answer() checks is_disconnected()
+        before invoking the LLM and raises asyncio.CancelledError immediately.
+        """
+        mock_settings.SUPABASE_JWT_SECRET = TEST_JWT_SECRET
+
+        # Create a mock HTTP request that reports as disconnected
+        mock_http_request = MagicMock()
+        mock_http_request.is_disconnected = AsyncMock(return_value=True)
+
+        from src.api.schemas import ValidationExerciseType, ValidationRequest
+        from src.services.validation_service import ValidationService
+
+        service = ValidationService()
+        request_body = ValidationRequest(
+            question="Arrange: 我 中文 學",
+            user_answer="我學中文",
+            correct_answer="我學中文",
+            exercise_type=ValidationExerciseType.SENTENCE_CONSTRUCTION,
+        )
+
+        with pytest.raises(asyncio.CancelledError):
+            await service.validate_answer(request_body, mock_http_request)
+
+        # Verify is_disconnected was called before LLM invocation
+        mock_http_request.is_disconnected.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch("src.api.dependencies.settings")
+    async def test_quiz_generation_logs_cancellation(self, mock_settings, caplog):
+        """Verify cancellation is logged at INFO level with chapter and user info.
+
+        Verifies that when a client disconnects, the service logs the cancellation
+        with the expected message format including chapter_id and user_id.
+        """
+        import logging
+
+        mock_settings.SUPABASE_JWT_SECRET = TEST_JWT_SECRET
+
+        mock_http_request = MagicMock()
+        mock_http_request.is_disconnected = AsyncMock(return_value=True)
+
+        from src.api.schemas import ExerciseType, QuizGenerateRequest
+        from src.services.quiz_service import QuizService
+
+        service = QuizService()
+        request_body = QuizGenerateRequest(
+            chapter_id=105, book_id=1, exercise_type=ExerciseType.VOCABULARY
+        )
+
+        with caplog.at_level(logging.INFO, logger="src.services.quiz_service"):
+            with pytest.raises(asyncio.CancelledError):
+                await service.generate_quiz(
+                    request_body, TEST_USER_ID, mock_http_request
+                )
+
+        # Verify the cancellation was logged
+        assert any(
+            "disconnected" in record.message.lower() for record in caplog.records
+        )
+
+    @pytest.mark.asyncio
+    @patch("src.api.dependencies.settings")
+    async def test_node_generate_quiz_cancels_when_disconnected(self, mock_settings):
+        """Verify generate_quiz node raises CancelledError when client disconnects.
+
+        Tests the LangGraph node directly to verify it checks disconnection
+        before the LLM call.
+        """
+        mock_settings.SUPABASE_JWT_SECRET = TEST_JWT_SECRET
+
+        mock_http_request = MagicMock()
+        mock_http_request.is_disconnected = AsyncMock(return_value=True)
+
+        from src.agent.nodes import generate_quiz as generate_quiz_node
+
+        state: dict = {
+            "book_id": 1,
+            "chapter_id": 105,
+            "exercise_type": "vocabulary",
+            "user_id": TEST_USER_ID,
+            "retrieved_content": [],
+            "weakness_profile": {},
+            "request": mock_http_request,
+        }
+
+        with pytest.raises(asyncio.CancelledError):
+            await generate_quiz_node(state)
+
+        mock_http_request.is_disconnected.assert_called()
+
+    @pytest.mark.asyncio
+    @patch("src.api.dependencies.settings")
+    async def test_node_evaluate_content_cancels_when_disconnected(self, mock_settings):
+        """Verify evaluate_content node raises CancelledError when client disconnects.
+
+        Tests the LangGraph node directly to verify it checks disconnection
+        before the evaluator LLM call.
+        """
+        mock_settings.SUPABASE_JWT_SECRET = TEST_JWT_SECRET
+
+        mock_http_request = MagicMock()
+        mock_http_request.is_disconnected = AsyncMock(return_value=True)
+
+        from src.agent.nodes import evaluate_content as evaluate_content_node
+
+        state: dict = {
+            "book_id": 1,
+            "chapter_id": 105,
+            "exercise_type": "vocabulary",
+            "user_id": TEST_USER_ID,
+            "questions": [
+                {
+                    "question_id": "q1",
+                    "exercise_type": "vocabulary",
+                    "question_text": "What does 學 mean?",
+                    "correct_answer": "to study",
+                    "explanation": "test",
+                    "source_citation": "Book 1, Ch 5",
+                }
+            ],
+            "validation_errors": [],
+            "retry_count": 0,
+            "request": mock_http_request,
+        }
+
+        with pytest.raises(asyncio.CancelledError):
+            await evaluate_content_node(state)
+
+        mock_http_request.is_disconnected.assert_called()
+
+    @pytest.mark.asyncio
+    @patch("src.api.dependencies.settings")
+    async def test_node_retrieve_content_cancels_when_disconnected(self, mock_settings):
+        """Verify retrieve_content node raises CancelledError when client disconnects.
+
+        Tests the LangGraph node directly to verify it checks disconnection
+        before the RAG database query.
+        """
+        mock_settings.SUPABASE_JWT_SECRET = TEST_JWT_SECRET
+
+        mock_http_request = MagicMock()
+        mock_http_request.is_disconnected = AsyncMock(return_value=True)
+
+        from src.agent.nodes import retrieve_content as retrieve_content_node
+
+        state: dict = {
+            "book_id": 1,
+            "chapter_id": 105,
+            "exercise_type": "vocabulary",
+            "user_id": TEST_USER_ID,
+            "request": mock_http_request,
+        }
+
+        with pytest.raises(asyncio.CancelledError):
+            await retrieve_content_node(state)
+
+        mock_http_request.is_disconnected.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch("src.api.dependencies.settings")
+    async def test_node_query_weakness_cancels_when_disconnected(self, mock_settings):
+        """Verify query_weakness node raises CancelledError when client disconnects.
+
+        Tests the LangGraph node directly to verify it checks disconnection
+        before the weakness profile database query.
+        """
+        mock_settings.SUPABASE_JWT_SECRET = TEST_JWT_SECRET
+
+        mock_http_request = MagicMock()
+        mock_http_request.is_disconnected = AsyncMock(return_value=True)
+
+        from src.agent.nodes import query_weakness as query_weakness_node
+
+        state: dict = {
+            "user_id": TEST_USER_ID,
+            "request": mock_http_request,
+        }
+
+        with pytest.raises(asyncio.CancelledError):
+            await query_weakness_node(state)
+
+        mock_http_request.is_disconnected.assert_called_once()

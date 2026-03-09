@@ -112,3 +112,44 @@ START -> retrieve_content -> query_weakness -> generate_quiz -> validate_structu
 ```
 
 The LLM provider is abstracted via a factory pattern in `src/utils/llm_factory.py`. All graph nodes and services call `get_llm()` which returns a provider-agnostic `BaseChatModel` instance.
+
+## Request Cancellation Architecture
+
+All long-running endpoints detect and respect client disconnections to prevent resource waste and reduce LLM costs when users navigate away.
+
+### How It Works
+
+When a client disconnects (e.g., user presses "back" during quiz generation), the mobile app's `AbortController` cancels the HTTP request. The backend detects this via FastAPI's `Request.is_disconnected()` at key checkpoints:
+
+1. **Before LangGraph invocation** (`quiz_service.py`) — aborts before any LLM calls
+2. **Before RAG database query** (`retrieve_content` node) — avoids unnecessary DB queries
+3. **Before weakness profile query** (`query_weakness` node) — avoids unnecessary DB queries
+4. **Before quiz generation LLM call** (`generate_quiz` node) — saves ~$0.02-0.04 per abort
+5. **Before evaluator LLM call** (`evaluate_content` node) — saves additional LLM costs
+6. **Before validation LLM call** (`validation_service.py`) — for answer validation endpoint
+
+When disconnection is detected, `asyncio.CancelledError` is raised immediately. FastAPI handles this gracefully (no 500 error logged, connection closed silently).
+
+### Cost Savings
+
+| Scenario | Monthly Savings |
+|----------|----------------|
+| 100 users × 10 quizzes/week × 10% cancellation rate | ~$14/month |
+| Cancellations stopped before first LLM call | ~87% cost reduction per abort |
+
+### Testing Cancellation Manually
+
+```bash
+# Simulate client disconnect with curl timeout (quiz generation takes ~8-60s)
+curl -X POST http://localhost:8000/api/quizzes/generate \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $JWT" \
+  -d '{"chapter_id": 105, "book_id": 1, "exercise_type": "vocabulary"}' \
+  --max-time 2
+
+# Expected backend logs:
+# [QuizService] Client disconnected before graph start for chapter=105 user=...
+# OR (if disconnect happens mid-graph):
+# [Node:generate_quiz] Client disconnected, aborting LLM call
+# [QuizService] Quiz generation cancelled by client disconnect (chapter=105 user=...)
+```

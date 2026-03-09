@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from typing import Any, TypedDict
 
+from starlette.requests import Request
+
 
 class QuizGenerationState(TypedDict, total=False):
     """State for the quiz generation graph.
@@ -16,7 +18,7 @@ class QuizGenerationState(TypedDict, total=False):
 
     Optional fields (populated by graph nodes):
         retrieved_content, weakness_profile, questions,
-        validation_errors, retry_count, quiz_payload
+        validation_errors, retry_count, quiz_payload, request
     """
 
     # Input (set at invocation)
@@ -24,6 +26,12 @@ class QuizGenerationState(TypedDict, total=False):
     book_id: int
     exercise_type: str  # one of 7 types or "mixed"
     user_id: str
+
+    # HTTP request object for client disconnection detection (optional).
+    # When present, graph nodes check request.is_disconnected() before
+    # expensive operations (LLM calls, database queries) to abort early
+    # if the client has navigated away.
+    request: Request
 
     # RAG output (set by retrieve_content node)
     retrieved_content: list[dict[str, Any]]

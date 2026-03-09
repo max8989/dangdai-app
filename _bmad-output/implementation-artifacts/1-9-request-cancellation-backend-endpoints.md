@@ -1,6 +1,6 @@
 # Story 1.9: Request Cancellation for Backend Endpoints
 
-Status: ready
+Status: review
 
 ## Story
 
@@ -54,61 +54,61 @@ So that orphaned LangGraph tasks are terminated when users navigate away, preven
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Update QuizGenerationState schema (AC: #1, #2)
-  - [ ] 1.1 Add `request: Request` field to `QuizGenerationState` in `src/agent/state.py`
-  - [ ] 1.2 Mark field as optional with `total=False` (existing graphs won't break)
+- [x] Task 1: Update QuizGenerationState schema (AC: #1, #2)
+  - [x] 1.1 Add `request: Request` field to `QuizGenerationState` in `src/agent/state.py`
+  - [x] 1.2 Mark field as optional with `total=False` (existing graphs won't break)
 
-- [ ] Task 2: Update quiz generation endpoint (AC: #1, #2, #6)
-  - [ ] 2.1 Add `request: Request` parameter to `generate_quiz` route handler in `src/api/routes/quizzes.py`
-  - [ ] 2.2 Pass `request` object to `QuizService.generate_quiz()` method
-  - [ ] 2.3 Update `QuizService.generate_quiz()` signature to accept `request: Request`
-  - [ ] 2.4 Check `await request.is_disconnected()` BEFORE invoking LangGraph in `quiz_service.py`
-  - [ ] 2.5 Raise `asyncio.CancelledError("Client disconnected")` if disconnected
-  - [ ] 2.6 Pass `request` object in `graph_input` dict when invoking LangGraph
+- [x] Task 2: Update quiz generation endpoint (AC: #1, #2, #6)
+  - [x] 2.1 Add `request: Request` parameter to `generate_quiz` route handler in `src/api/routes/quizzes.py`
+  - [x] 2.2 Pass `request` object to `QuizService.generate_quiz()` method
+  - [x] 2.3 Update `QuizService.generate_quiz()` signature to accept `request: Request`
+  - [x] 2.4 Check `await request.is_disconnected()` BEFORE invoking LangGraph in `quiz_service.py`
+  - [x] 2.5 Raise `asyncio.CancelledError("Client disconnected")` if disconnected
+  - [x] 2.6 Pass `request` object in `graph_input` dict when invoking LangGraph
 
-- [ ] Task 3: Update answer validation endpoint (AC: #4, #6)
-  - [ ] 3.1 Add `request: Request` parameter to `validate_answer` route handler in `src/api/routes/quizzes.py`
-  - [ ] 3.2 Pass `request` object to `ValidationService.validate_answer()` method
-  - [ ] 3.3 Update `ValidationService.validate_answer()` signature to accept `request: Request`
-  - [ ] 3.4 Check `await request.is_disconnected()` BEFORE invoking LLM in `validation_service.py`
-  - [ ] 3.5 Raise `asyncio.CancelledError("Client disconnected")` if disconnected
+- [x] Task 3: Update answer validation endpoint (AC: #4, #6)
+  - [x] 3.1 Add `request: Request` parameter to `validate_answer` route handler in `src/api/routes/quizzes.py`
+  - [x] 3.2 Pass `request` object to `ValidationService.validate_answer()` method
+  - [x] 3.3 Update `ValidationService.validate_answer()` signature to accept `request: Request`
+  - [x] 3.4 Check `await request.is_disconnected()` BEFORE invoking LLM in `validation_service.py`
+  - [x] 3.5 Raise `asyncio.CancelledError("Client disconnected")` if disconnected
 
-- [ ] Task 4: Add disconnection checks to LangGraph nodes (AC: #1, #2)
-  - [ ] 4.1 Update `generate_quiz` node in `src/agent/nodes.py` to check `state.get("request")` before LLM call
-  - [ ] 4.2 If `request and await request.is_disconnected()`, raise `asyncio.CancelledError("Client disconnected")`
-  - [ ] 4.3 Log at INFO level: `"[generate_quiz] Client disconnected, aborting LLM call"`
-  - [ ] 4.4 Update `evaluate_content` node to check disconnection before evaluator LLM call
-  - [ ] 4.5 Log at INFO level: `"[evaluate_content] Client disconnected, skipping evaluation"`
-  - [ ] 4.6 Update `retrieve_content` node to check disconnection before RAG database query
-  - [ ] 4.7 Update `query_weakness` node to check disconnection before weakness profile database query
+- [x] Task 4: Add disconnection checks to LangGraph nodes (AC: #1, #2)
+  - [x] 4.1 Update `generate_quiz` node in `src/agent/nodes.py` to check `state.get("request")` before LLM call
+  - [x] 4.2 If `request and await request.is_disconnected()`, raise `asyncio.CancelledError("Client disconnected")`
+  - [x] 4.3 Log at INFO level: `"[generate_quiz] Client disconnected, aborting LLM call"`
+  - [x] 4.4 Update `evaluate_content` node to check disconnection before evaluator LLM call
+  - [x] 4.5 Log at INFO level: `"[evaluate_content] Client disconnected, skipping evaluation"`
+  - [x] 4.6 Update `retrieve_content` node to check disconnection before RAG database query
+  - [x] 4.7 Update `query_weakness` node to check disconnection before weakness profile database query
 
-- [ ] Task 5: Add logging for cancellations (AC: #6, #7)
-  - [ ] 5.1 In `quiz_service.py`, catch `asyncio.CancelledError` and log at INFO level
-  - [ ] 5.2 Log message: `"[QuizService] Quiz generation cancelled by client disconnect (chapter=%d user=%s)"`
-  - [ ] 5.3 Re-raise `CancelledError` to let FastAPI handle it (do NOT return 500 error)
-  - [ ] 5.4 In `validation_service.py`, catch and log cancellations similarly
+- [x] Task 5: Add logging for cancellations (AC: #6, #7)
+  - [x] 5.1 In `quiz_service.py`, catch `asyncio.CancelledError` and log at INFO level
+  - [x] 5.2 Log message: `"[QuizService] Quiz generation cancelled by client disconnect (chapter=%d user=%s)"`
+  - [x] 5.3 Re-raise `CancelledError` to let FastAPI handle it (do NOT return 500 error)
+  - [x] 5.4 In `validation_service.py`, catch and log cancellations similarly
 
-- [ ] Task 6: Verify health endpoint unchanged (AC: #5)
-  - [ ] 6.1 Confirm `/health` endpoint in `src/api/routes/health.py` has NO cancellation checks
-  - [ ] 6.2 Endpoint should remain unchanged (it's instant, no long-running operations)
+- [x] Task 6: Verify health endpoint unchanged (AC: #5)
+  - [x] 6.1 Confirm `/health` endpoint in `src/api/routes/health.py` has NO cancellation checks
+  - [x] 6.2 Endpoint should remain unchanged (it's instant, no long-running operations)
 
-- [ ] Task 7: Add integration tests (AC: all)
-  - [ ] 7.1 Add test in `tests/test_api.py`: Mock disconnected request, verify `CancelledError` raised before LLM call
-  - [ ] 7.2 Add test: Quiz generation completes normally when client stays connected
-  - [ ] 7.3 Add test: Answer validation cancels when client disconnects before LLM call
-  - [ ] 7.4 Add test: Verify logging output for cancelled requests (check log messages)
-  - [ ] 7.5 Mock `request.is_disconnected()` to return `True` at different checkpoints
+- [x] Task 7: Add integration tests (AC: all)
+  - [x] 7.1 Add test in `tests/test_api.py`: Mock disconnected request, verify `CancelledError` raised before LLM call
+  - [x] 7.2 Add test: Quiz generation completes normally when client stays connected
+  - [x] 7.3 Add test: Answer validation cancels when client disconnects before LLM call
+  - [x] 7.4 Add test: Verify logging output for cancelled requests (check log messages)
+  - [x] 7.5 Mock `request.is_disconnected()` to return `True` at different checkpoints
 
-- [ ] Task 8: Update documentation (AC: #7)
-  - [ ] 8.1 Add docstring comments to all modified service methods explaining cancellation behavior
-  - [ ] 8.2 Update `README.md` in `dangdai-api/` with cancellation architecture section
-  - [ ] 8.3 Add curl example for testing cancellation: `curl --max-time 2 /api/quizzes/generate`
+- [x] Task 8: Update documentation (AC: #7)
+  - [x] 8.1 Add docstring comments to all modified service methods explaining cancellation behavior
+  - [x] 8.2 Update `README.md` in `dangdai-api/` with cancellation architecture section
+  - [x] 8.3 Add curl example for testing cancellation: `curl --max-time 2 /api/quizzes/generate`
 
-- [ ] Task 9: Verify ruff + mypy + tests pass (AC: all)
-  - [ ] 9.1 Run `ruff check src/ tests/` - zero errors
-  - [ ] 9.2 Run `mypy src/ --strict` - zero errors
-  - [ ] 9.3 Run `pytest tests/ -v` - all tests pass
-  - [ ] 9.4 Run integration test that simulates client disconnect mid-request
+- [x] Task 9: Verify ruff + mypy + tests pass (AC: all)
+  - [x] 9.1 Run `ruff check src/ tests/` - zero errors in modified files (1 pre-existing error in conftest.py)
+  - [x] 9.2 Run `mypy src/ --strict` - zero errors in modified files (6 pre-existing errors in middleware.py and seed scripts)
+  - [x] 9.3 Run `pytest tests/ -v` - all 373 tests pass
+  - [x] 9.4 Run integration test that simulates client disconnect mid-request
 
 ## Dev Notes
 
@@ -267,3 +267,37 @@ Before marking this story as done, verify:
 - FastAPI Request docs: https://fastapi.tiangolo.com/advanced/using-request-directly/
 - FastAPI `Request.is_disconnected()`: https://www.starlette.io/requests/#is_disconnected
 - Python `asyncio.CancelledError`: https://docs.python.org/3/library/asyncio-exceptions.html#asyncio.CancelledError
+
+## Dev Agent Record
+
+### Agent: Amelia (DEV)
+### Date: 2026-03-09
+### Implementation Summary
+
+Implemented server-side request cancellation detection for all long-running backend endpoints. Key decisions:
+
+1. **State schema**: Added `request: Request` field to `QuizGenerationState` using direct import of `starlette.requests.Request` (not TYPE_CHECKING) to avoid `NameError` when LangGraph calls `get_type_hints()` at runtime.
+
+2. **Route handler renaming**: Renamed `request` → `request_body` and `request` → `http_request` in route handlers to avoid naming conflicts between Pydantic request body and FastAPI `Request` object.
+
+3. **Node async conversion**: Converted `retrieve_content` and `query_weakness` nodes from sync to async to support `await request.is_disconnected()`. Updated existing tests to use `@pytest.mark.asyncio` and `await`.
+
+4. **Cancellation pattern**: Check `is_disconnected()` BEFORE each expensive operation (LLM call, DB query). Raise `asyncio.CancelledError` immediately. Catch in service layer to log, then re-raise for FastAPI to handle silently.
+
+5. **Test coverage**: Added 8 new tests in `TestRequestCancellation` class covering: service-level cancellation, normal completion, validation cancellation, logging verification, and all 4 LangGraph node cancellations.
+
+### Test Results
+- 373 tests passed, 0 failed
+- Pre-existing issues (not introduced): 1 ruff error in `conftest.py` (BaseExceptionGroup), 6 mypy errors in `middleware.py` and seed scripts
+
+## File List
+
+### Modified Files
+- `dangdai-api/src/agent/state.py` — Added `request: Request` field to `QuizGenerationState`
+- `dangdai-api/src/agent/nodes.py` — Converted `retrieve_content` and `query_weakness` to async; added disconnection checks to all 4 nodes before expensive operations
+- `dangdai-api/src/api/routes/quizzes.py` — Added `http_request: Request` param to both route handlers; renamed `request` → `request_body` to avoid naming conflict
+- `dangdai-api/src/services/quiz_service.py` — Added `http_request: Request | None` param; pre-graph disconnection check; CancelledError catch+log+re-raise; passes request in graph_input
+- `dangdai-api/src/services/validation_service.py` — Added `http_request: Request | None` param; pre-LLM disconnection check; CancelledError catch+log+re-raise
+- `dangdai-api/tests/test_api.py` — Added `TestRequestCancellation` class with 8 new tests; added `asyncio` and `MagicMock` imports
+- `dangdai-api/tests/test_quiz_generation.py` — Updated `TestRetrieveContentNode` tests to be async (node converted to async)
+- `dangdai-api/README.md` — Added "Request Cancellation Architecture" section with cost savings table and curl testing example
