@@ -2,8 +2,10 @@
 stepsCompleted: ['step-01-validate-prerequisites', 'step-02-design-epics', 'step-03-create-stories', 'step-04-final-validation']
 workflowComplete: true
 completedAt: 2026-02-15
-updatedAt: 2026-02-20
+updatedAt: 2026-03-08
 updateHistory:
+  - date: '2026-03-08'
+    changes: 'Structured content & premade exercises: Added FR51-FR58 (premade exercises, content browsing, grammar coverage). Added Epic 11 (Content Seeding & Structured Data Pipeline). Added new Stories 1.10 (structured content tables), 3.6 (Books 1-4 expansion), 4.14 (migrate quiz gen to structured content). Updated Story 3.5 for premade + AI exercise sections. Updated Epic 4 goal for structured content. Updated NFRs 13, 17, 27, 28 for structured content. Expanded content scope from Books 1-2 to Books 1-4 (54 lessons).'
   - date: '2026-02-20'
     changes: 'Added Story 1.1b (Tamagui Theme & Animation Configuration) and updated UX requirements to align with enriched UX Design Specification'
   - date: '2026-02-20'
@@ -22,7 +24,7 @@ This document provides the complete epic and story breakdown for dangdai-app, de
 
 ## Requirements Inventory
 
-### Functional Requirements (PRD v2.0)
+### Functional Requirements (PRD v3.0)
 
 **User Authentication & Identity:**
 - **FR1:** User can create account using email
@@ -33,15 +35,15 @@ This document provides the complete epic and story breakdown for dangdai-app, de
 - **FR6:** System persists identity across sessions
 
 **Content Navigation:**
-- **FR7:** User can view available textbooks (Books 1-2)
+- **FR7:** User can view available textbooks (Books 1-4)
 - **FR8:** User can view chapters within a book
 - **FR9:** User can select any chapter (open navigation, no gates)
 - **FR10:** User can see chapter completion status at a glance
 
-**RAG-Powered Quiz Generation:**
-- **FR11:** System retrieves chapter-specific content from vector DB filtered by book, lesson, and exercise type
-- **FR12:** System generates quiz questions via LangGraph agent using RAG-retrieved content
-- **FR13:** System validates generated questions for accuracy and curriculum alignment before presenting
+**Structured Content & Quiz Generation:**
+- **FR11:** System retrieves chapter-specific content from structured content tables (vocabulary, grammar_points, dialogues) as PRIMARY source. RAG chunks supplementary only.
+- **FR12:** System generates quiz questions via LangGraph agent using structured content, ensuring ALL grammar points for the chapter are represented
+- **FR13:** System validates generated questions for accuracy, curriculum alignment, and grammar coverage before presenting
 - **FR14:** System returns structured quiz with questions, answer options, correct answers, and source citations
 
 **Exercise Types (MVP - 7 Types):**
@@ -94,7 +96,21 @@ This document provides the complete epic and story breakdown for dangdai-app, de
 - **FR49:** User can quickly continue where they left off (last exercise type + chapter)
 - **FR50:** Dashboard highlights areas needing review based on weakness profile
 
-### NonFunctional Requirements (PRD v2.0)
+**Premade Workbook Exercises:**
+- **FR51:** User can view a list of premade workbook exercises per chapter with completion status
+- **FR52:** User can complete premade exercises directly with local validation (no LLM needed)
+- **FR53:** Premade exercise results tracked in same performance system as AI-generated quizzes
+- **FR54:** Chapter view displays both premade exercises and AI-generated exercise options
+
+**Content Browsing:**
+- **FR55:** User can browse vocabulary for a chapter (traditional, pinyin, English)
+- **FR56:** User can browse grammar points for a chapter (patterns, structures, examples)
+- **FR57:** User can browse dialogues for a chapter (traditional, simplified, pinyin, English)
+
+**Grammar Coverage:**
+- **FR58:** AI-generated quizzes MUST cover all grammar points for the chapter (enforced by validation node)
+
+### NonFunctional Requirements (PRD v3.0)
 
 **Performance:**
 - **NFR1:** RAG retrieval + LLM quiz generation completes within 8 seconds (10 questions), loading indicator with progress
@@ -113,13 +129,13 @@ This document provides the complete epic and story breakdown for dangdai-app, de
 - **NFR10:** Quiz progress saved after each answer (crash-safe)
 - **NFR11:** Progress and performance memory persist across app restarts and devices
 - **NFR12:** Data synced to server within 5 seconds of activity
-- **NFR13:** RAG retrieval returns relevant content for all 7 MVP exercise types per chapter
+- **NFR13:** Structured content tables contain complete data for all chapters in Books 1-4. No empty results.
 
 **Integration:**
 - **NFR14:** Supabase connection required for core functionality
 - **NFR15:** LLM API failures display user-friendly error with retry option
 - **NFR16:** Apple Sign-In available on iOS devices
-- **NFR17:** LangGraph agent gracefully degrades if RAG returns insufficient content (falls back to broader chapter content)
+- **NFR17:** LangGraph agent uses structured content as primary source (guaranteed). Graceful degradation for supplementary RAG only.
 
 **Offline Behavior:**
 - **NFR18:** "No connection" displayed immediately when offline
@@ -137,8 +153,8 @@ This document provides the complete epic and story breakdown for dangdai-app, de
 - **NFR26:** Chinese content unchanged regardless of UI language
 
 **AI & RAG Quality:**
-- **NFR27:** Generated quiz questions are curriculum-aligned: 90%+ use vocabulary/grammar from specified chapter
-- **NFR28:** RAG retrieval relevance: 90%+ of retrieved chunks match requested book, lesson, exercise type
+- **NFR27:** Generated quiz questions are curriculum-aligned: 100% use vocabulary/grammar from structured content tables
+- **NFR28:** Structured content coverage: 100% of chapters in Books 1-4 have vocabulary, grammar, and dialogues
 - **NFR29:** Adaptive quiz content: 30-50% of generated questions target documented weak areas
 - **NFR30:** Generated exercises follow workbook formatting patterns
 - **NFR31:** LLM cost per quiz generation stays under $0.05 per 10-question quiz
@@ -150,16 +166,18 @@ This document provides the complete epic and story breakdown for dangdai-app, de
 - Python Backend initialization: `langgraph new --template=new-langgraph-project-python dangdai-api`
 
 **From Architecture - Infrastructure:**
-- Supabase PostgreSQL for user data, progress, auth, performance memory
-- Supabase pgvector for Dangdai content embeddings (existing RAG system, filterable by exercise type)
-- Python backend (LangGraph + FastAPI) for RAG/quiz generation + hybrid answer validation
+- Supabase PostgreSQL for user data, progress, auth, performance memory, structured content
+- Structured content tables: `vocabulary`, `grammar_points`, `dialogues`, `premade_exercises` (PRIMARY source for quiz generation)
+- Supabase pgvector for Dangdai content embeddings (SUPPLEMENTARY — culture/pronunciation context only)
+- Python backend (LangGraph + FastAPI) for structured content quiz generation + hybrid answer validation
 - Azure Container Apps for Python backend hosting
 - Terraform for infrastructure as code
 - GitHub Actions for CI/CD
 
 **From Architecture - Data Architecture:**
 - Hybrid data modeling (normalized + aggregates + JSONB)
-- Tables: `users`, `quiz_attempts`, `question_results`, `exercise_type_progress`, `chapter_progress`, `daily_activity`
+- User data tables: `users`, `quiz_attempts`, `question_results`, `exercise_type_progress`, `chapter_progress`, `daily_activity`, `paused_quizzes`
+- Structured content tables: `vocabulary`, `dialogues`, `grammar_points`, `premade_exercises`
 - Cached aggregates on users table (total_points, current_streak, streak_updated_at)
 - Weakness profile computed on request from question_results (agent queries via service key)
 
@@ -185,7 +203,7 @@ This document provides the complete epic and story breakdown for dangdai-app, de
 - Custom error boundary for React components
 - Toast notifications for recoverable errors
 - Progressive quiz loading (show first question ASAP)
-- RAG insufficient content fallback to broader chapter content
+- Structured content guaranteed to exist for all chapters (no empty result risk)
 - LLM validation timeout fallback to local validation
 
 **From UX Design - UI/UX Requirements:**
@@ -243,9 +261,9 @@ This document provides the complete epic and story breakdown for dangdai-app, de
 | FR8 | Epic 3 | User can view chapters within a book |
 | FR9 | Epic 3 | User can select any chapter |
 | FR10 | Epic 3 | User can see chapter completion status (per-exercise-type indicators) |
-| FR11 | Epic 4 | System retrieves chapter content from vector DB filtered by exercise type |
-| FR12 | Epic 4 | System generates quiz via LangGraph agent using RAG content |
-| FR13 | Epic 4 | System validates generated questions (self-check node) |
+| FR11 | Epic 4 (Story 4.14) | System retrieves chapter content from structured content tables (PRIMARY) |
+| FR12 | Epic 4 (Story 4.14) | System generates quiz via LangGraph agent using structured content |
+| FR13 | Epic 4 (Story 4.14) | System validates generated questions (structure + grammar coverage) |
 | FR14 | Epic 4 | System returns structured quiz with explanations and source citations |
 | FR15 | Epic 4 | User can select exercise type per chapter (7 types + Mixed) |
 | FR16 | Epic 4 | Vocabulary Quiz |
@@ -283,13 +301,21 @@ This document provides the complete epic and story breakdown for dangdai-app, de
 | FR48 | Epic 8 | User can see streak and points on dashboard |
 | FR49 | Epic 8 | User can quickly continue (last exercise type + chapter) |
 | FR50 | Epic 8 | Dashboard highlights areas needing review |
+| FR51 | Epic 11 | User can view premade workbook exercises per chapter |
+| FR52 | Epic 11 | User can complete premade exercises with local validation |
+| FR53 | Epic 11 | Premade exercise results tracked in performance system |
+| FR54 | Epic 3 | Chapter view shows premade + AI-generated exercise options |
+| FR55 | Epic 11 | User can browse vocabulary for a chapter |
+| FR56 | Epic 11 | User can browse grammar points for a chapter |
+| FR57 | Epic 11 | User can browse dialogues for a chapter |
+| FR58 | Epic 4 (Story 4.14) | AI-generated quizzes MUST cover all grammar points (validation) |
 
 ## Epic List
 
 ### Epic 1: Project Foundation & Infrastructure
 **Goal:** Establish the complete technical foundation so that development teams can begin building user-facing features with all infrastructure, tooling, and base architecture in place.
 
-**User Outcome:** Development environment ready with mobile app scaffold, Python backend scaffold, Supabase database schema (6 tables), and deployment pipeline configured.
+**User Outcome:** Development environment ready with mobile app scaffold, Python backend scaffold, Supabase database schema (user data tables + structured content tables), and deployment pipeline configured.
 
 **FRs covered:** None directly (enables all FRs)
 **NFRs addressed:** NFR5, NFR7, NFR8, NFR14, NFR20, NFR21
@@ -307,21 +333,21 @@ This document provides the complete epic and story breakdown for dangdai-app, de
 ---
 
 ### Epic 3: Content Navigation & Book Selection
-**Goal:** Enable users to browse available Dangdai textbooks and chapters, selecting any chapter to study with per-exercise-type progress visibility.
+**Goal:** Enable users to browse available Dangdai textbooks and chapters, selecting any chapter to study with per-exercise-type progress visibility and premade exercise access.
 
-**User Outcome:** Users can view Books 1-2, see all chapters with per-exercise-type progress indicators, select any chapter freely (open navigation), and navigate to the exercise type selection screen.
+**User Outcome:** Users can view Books 1-4, see all chapters with per-exercise-type progress indicators, see premade workbook exercises per chapter, select any chapter freely (open navigation), and navigate to the exercise type selection screen.
 
-**FRs covered:** FR7, FR8, FR9, FR10, FR15
+**FRs covered:** FR7, FR8, FR9, FR10, FR15, FR54
 **NFRs addressed:** NFR2
 
 ---
 
 ### Epic 4: Quiz Experience & Exercise Types
-**Goal:** Enable users to take 7 types of AI-generated exercises with RAG-powered content, hybrid answer validation, pre-generated explanations, and satisfying feedback.
+**Goal:** Enable users to take 7 types of AI-generated exercises with hybrid answer validation, pre-generated explanations, and satisfying feedback. Story 4.14 migrates quiz generation from RAG-only to structured content tables as the primary source, with grammar coverage enforcement.
 
-**User Outcome:** Users can select exercise types, take Vocabulary/Grammar/Fill-in-the-Blank/Matching/Dialogue Completion/Sentence Construction/Reading Comprehension quizzes, receive immediate feedback with explanations and source citations, and see results with per-question breakdown.
+**User Outcome:** Users can select exercise types, take Vocabulary/Grammar/Fill-in-the-Blank/Matching/Dialogue Completion/Sentence Construction/Reading Comprehension quizzes, receive immediate feedback with explanations and source citations, and see results with per-question breakdown. After Story 4.14, all grammar points per chapter are guaranteed to be covered.
 
-**FRs covered:** FR11, FR12, FR13, FR14, FR15, FR16, FR17, FR18, FR19, FR20, FR21, FR22, FR23, FR24, FR25, FR26
+**FRs covered:** FR11, FR12, FR13, FR14, FR15, FR16, FR17, FR18, FR19, FR20, FR21, FR22, FR23, FR24, FR25, FR26, FR58
 **NFRs addressed:** NFR1, NFR2, NFR10, NFR13, NFR15, NFR17, NFR27, NFR28, NFR30, NFR31
 
 ---
@@ -383,6 +409,16 @@ This document provides the complete epic and story breakdown for dangdai-app, de
 
 **FRs covered:** FR31, FR32, FR33, FR34, FR35, FR36
 **NFRs addressed:** NFR4, NFR9, NFR22, NFR29
+
+---
+
+### Epic 11: Content Seeding & Structured Data Pipeline
+**Goal:** Populate the structured content tables with curriculum data from source files, enabling structured content-based quiz generation and premade workbook exercises.
+
+**User Outcome:** All vocabulary, grammar points, dialogues, and premade workbook exercises for Books 1-4 are available in the app. Users can browse chapter content, complete premade exercises without LLM latency, and AI-generated quizzes use accurate structured curriculum data.
+
+**FRs covered:** FR51, FR52, FR53, FR55, FR56, FR57
+**NFRs addressed:** NFR13, NFR27, NFR28
 
 ---
 
@@ -561,6 +597,30 @@ So that code quality is validated and deployments are automated.
 **And** Python backend deployment workflow triggers on main branch
 **And** EAS Build workflow is configured for mobile app builds
 **And** all workflows pass on a clean commit
+
+---
+
+### Story 1.10: Create Structured Content Tables and Additional Schema
+
+As a developer,
+I want to add structured content tables and missing user data tables to the Supabase schema,
+So that curriculum data can be seeded and quiz generation can use structured content as the primary source.
+
+**Acceptance Criteria:**
+
+**Given** the Supabase project has the base schema from Story 1.3
+**When** I apply the structured content migration
+**Then** the following **structured content tables** are created:
+- `vocabulary` - id, book_id, lesson_id, vocab_section, traditional, pinyin, english, part_of_speech, is_name, sort_order
+- `dialogues` - id, book_id, lesson_id, dialogue_number, title_traditional, title_english, lines (JSONB array of `{ speaker, traditional, simplified, pinyin, english }`)
+- `grammar_points` - id, book_id, lesson_id, grammar_order, title_english, title_chinese, function_description, structure_pattern, usage_notes, examples (JSONB array of `{ traditional, pinyin, english }`), sort_order
+- `premade_exercises` - id, book_id, lesson_id, exercise_type, exercise_order, title, instructions, content (JSONB — exercise-type-specific), difficulty, source_page_range
+**And** the following **additional user data tables** are created (if not already existing):
+- `paused_quizzes` - id, user_id, chapter_id, exercise_type, quiz_state (JSONB), paused_at, expires_at
+- `daily_activity` - id, user_id, activity_date, quizzes_completed, points_earned (if not created in 1.3)
+**And** indexes are created: vocabulary(book_id, lesson_id), grammar_points(book_id, lesson_id), dialogues(book_id, lesson_id), premade_exercises(book_id, lesson_id, exercise_type)
+**And** Row Level Security (RLS) is enabled on structured content tables: read-only for all authenticated users (content is not user-specific)
+**And** RLS is enabled on paused_quizzes: users read/write own data only
 
 ---
 
@@ -779,22 +839,28 @@ So that I can study the content that matches my current learning needs.
 
 ---
 
-### Story 3.5: Exercise Type Selection Screen
+### Story 3.5: Exercise Type Selection Screen (Premade + AI-Generated)
 
 As a user,
-I want to see all exercise types for a chapter with per-type progress and select one to start,
-So that I can choose the type of practice I want or let the AI pick for me.
+I want to see premade workbook exercises and all AI exercise types for a chapter with per-type progress,
+So that I can choose instant workbook practice or AI-generated exercises.
 
 **Acceptance Criteria:**
 
 **Given** I have selected a chapter
 **When** the Exercise Type Selection screen loads
-**Then** I see a 2-column grid of 8 cards: "Mixed" + 7 exercise types (Vocabulary, Grammar, Fill-in-the-Blank, Matching, Dialogue Completion, Sentence Construction, Reading Comprehension)
-**And** each card shows: exercise type icon, label, and progress indicator (%, "New", or checkmark)
+**Then** I see two sections:
+  1. **"Workbook Exercises" section** (if premade exercises exist for this chapter): A list of premade exercise cards showing title, exercise type, and completion status (done/not done)
+  2. **"AI-Generated Exercises" section**: A 2-column grid of 8 cards: "Mixed" + 7 exercise types (Vocabulary, Grammar, Fill-in-the-Blank, Matching, Dialogue Completion, Sentence Construction, Reading Comprehension)
+**And** each AI exercise card shows: exercise type icon, label, and progress indicator (%, "New", or checkmark)
 **And** the "Mixed" card is at top-left with distinct primary theme styling and subtitle "AI picks exercises based on your weak areas"
-**And** progress data is fetched from `exercise_type_progress` for this chapter
+**And** premade exercises are fetched from `premade_exercises` table, progress from `exercise_type_progress`
 
-**Given** I tap an exercise type card
+**Given** I tap a premade exercise card
+**When** the selection is registered
+**Then** I am taken to the premade exercise screen with exercises rendered locally (no LLM call, FR52)
+
+**Given** I tap an AI exercise type card
 **When** the selection is registered
 **Then** quiz generation starts for that chapter + exercise type
 **And** I see the loading screen with progressive loading
@@ -805,9 +871,27 @@ So that I can choose the type of practice I want or let the AI pick for me.
 
 ---
 
+### Story 3.6: Expand Book Selection to Books 1-4
+
+As a user,
+I want the book selection screen to display Books 1-4 (instead of just Books 1-2),
+So that I can access all available Dangdai textbook content.
+
+**Acceptance Criteria:**
+
+**Given** I am authenticated and on the Books tab
+**When** the screen loads
+**Then** I see Books 1, 2, 3, and 4 displayed as cards
+**And** each book card shows the book title, cover image, lesson count (Books 1-2: 15 lessons, Books 3-4: 12 lessons), and progress summary
+**And** Books 3 and 4 use distinct cover colors (orange, purple) as defined in `constants/books.ts`
+
+**Note:** The `constants/books.ts` and `constants/chapters.ts` files already contain Books 1-4 data. This story ensures the UI displays all 4 books and handles the different lesson counts (12 vs 15) correctly.
+
+---
+
 ## Epic 4: Quiz Experience & Exercise Types
 
-**Goal:** Enable users to take 7 types of AI-generated exercises with RAG-powered content, hybrid answer validation, pre-generated explanations, and satisfying feedback across all interaction patterns.
+**Goal:** Enable users to take 7 types of AI-generated exercises with hybrid answer validation, pre-generated explanations, and satisfying feedback across all interaction patterns. Quiz generation uses structured content tables as the primary source (see Story 4.14).
 
 ### Story 4.1: Quiz Generation API Endpoint (All Exercise Types)
 
@@ -1127,6 +1211,40 @@ So that I can practice recall without multiple choice hints.
 **When** the answer is validated locally against the answer key
 **Then** correct/incorrect feedback is shown with the same visual/audio patterns + explanation
 **And** for incorrect answers, the correct answer is displayed
+
+---
+
+### Story 4.14: Migrate Quiz Generation to Structured Content
+
+As a developer,
+I want to replace the RAG-only `retrieve_content` node with a `retrieve_structured_content` node that queries vocabulary, grammar_points, and dialogues tables as the primary source for quiz generation,
+So that generated quizzes are guaranteed to use accurate curriculum data with complete grammar coverage per chapter.
+
+**Acceptance Criteria:**
+
+**Given** the Python backend is running and structured content tables are populated (Stories 11.1-11.3)
+**When** a POST request is made to `/api/quizzes/generate` with `{ "chapter_id": 12, "book_id": 2, "exercise_type": "matching" }`
+**Then** the `retrieve_structured_content` node queries:
+  - `vocabulary` table: all vocab items for this chapter (and optionally previous chapters for cumulative review)
+  - `grammar_points` table: all grammar points for this chapter
+  - `dialogues` table: dialogue lines for this chapter (for Reading Comprehension, Dialogue Completion)
+  - (Optional) `dangdai_chunks`: supplementary culture/pronunciation context via existing RAG
+**And** the existing `generate_quiz` node receives structured content objects instead of raw RAG text chunks
+**And** ALL grammar points for the chapter are represented in generated questions (FR58)
+**And** the `validate_structure` node additionally verifies grammar coverage: every grammar_point for the chapter has at least one question targeting it
+**And** the response format is unchanged (backward-compatible with mobile app)
+**And** quiz generation never returns empty results because structured content is guaranteed to exist (NFR13)
+
+**Given** the structured content retrieval is complete
+**When** I compare quiz quality to the RAG-only approach
+**Then** curriculum alignment improves to ~100% (all vocab/grammar from actual textbook tables)
+**And** no hallucinated vocabulary or grammar patterns appear in generated questions
+
+**Implementation notes:**
+- Add `repositories/content_repo.py` for structured content table queries
+- Add `services/content_service.py` for content retrieval orchestration
+- Modify `agent/nodes.py`: replace `retrieve_content` with `retrieve_structured_content`
+- Keep existing RAG retrieval as fallback/supplementary in `services/rag_service.py`
 
 ---
 
@@ -1505,8 +1623,8 @@ So that I can track my overall journey.
 
 **Given** I am on the dashboard
 **When** I view the progress section
-**Then** I see progress for Book 1 and Book 2
-**And** each book shows chapters completed (e.g., "Book 1: 8/15 chapters")
+**Then** I see progress for Books 1-4
+**And** each book shows chapters completed (e.g., "Book 1: 8/15 chapters", "Book 3: 3/12 chapters")
 **And** a visual progress bar indicates completion percentage
 
 ---
@@ -1681,11 +1799,11 @@ So that I can target specific weaknesses with dedicated practice.
 **Given** I am on the Weakness Dashboard
 **When** I tap a weak vocabulary item (e.g., "會 vs 可以")
 **Then** the AI generates a 10-question focused drill targeting that specific item
-**And** the drill uses RAG retrieval filtered to chapters where the item was weak
+**And** the drill uses structured content retrieval from chapters where the item was weak
 
 **Given** I tap a weak exercise type (e.g., "Sentence Construction - 40%")
 **When** the drill loads
-**Then** the AI generates a 10-question exercise of that type from my weakest chapters
+**Then** the AI generates a 10-question exercise of that type from my weakest chapters using structured content
 
 **Given** I complete a focused drill
 **When** the results are shown
@@ -1737,3 +1855,165 @@ So that the weakness dashboard and adaptive system focus on real weaknesses, not
 **When** it biases toward weak areas
 **Then** it only targets items with actual attempt history and low accuracy (FR36)
 **And** "never practiced" items are not treated as weaknesses
+
+---
+
+## Epic 11: Content Seeding & Structured Data Pipeline
+
+**Goal:** Populate the structured content tables with curriculum data from source files, enabling structured content-based quiz generation, premade workbook exercises, and content browsing.
+
+### Story 11.1: Vocabulary Seeding from Flash-card.tsv
+
+As a developer,
+I want to parse Flash-card.tsv and populate the `vocabulary` table for Books 1-4,
+So that quiz generation has accurate vocabulary data for all chapters.
+
+**Acceptance Criteria:**
+
+**Given** the `vocabulary` table exists (Story 1.3)
+**When** I run the vocabulary seeding script with `/home/maxime/Downloads/Flash-card.tsv` as input
+**Then** all vocabulary items for Books 1-4 are inserted (~3,000 items)
+**And** header lines (`//當代中文/Book N/LXX-I` or `LXX-II`) are parsed to set `book_id`, `lesson_id`, `vocab_section` (I or II)
+**And** data lines are parsed as `traditional\tpinyin\tenglish(POS)` where POS is extracted from parentheses
+**And** `is_name` is set to true for entries that are proper nouns (e.g., personal names)
+**And** `sort_order` preserves the original ordering from the TSV file
+**And** each item is idempotent (re-running does not create duplicates)
+**And** verification query: `SELECT book_id, COUNT(*) FROM vocabulary GROUP BY book_id` returns expected counts per book
+
+---
+
+### Story 11.2: Grammar Points Extraction and Seeding
+
+As a developer,
+I want to extract grammar points from textbook chunks and/or PDFs and populate the `grammar_points` table for Books 1-4,
+So that quiz generation can enforce complete grammar coverage per chapter.
+
+**Acceptance Criteria:**
+
+**Given** the `grammar_points` table exists (Story 1.3)
+**When** I run the grammar extraction script with `dangdai-rag/output_chunks/book{1-4}_chunks.json` as input
+**Then** grammar points are extracted from vocabulary-section chunks containing "Function:", "Structure:", "Usage:", "Grammar", or "文法" markers
+**And** each grammar point has: `title_english`, `title_chinese`, `function_description`, `structure_pattern`, `usage_notes`, `examples` (JSONB array)
+**And** approximately 4-6 grammar points per lesson are extracted
+**And** supplementary extraction from PDFs at `/home/maxime/Documents/NTNU Book/` if chunk content is unclear or incomplete
+**And** `grammar_order` preserves the original order within each lesson
+**And** verification query: `SELECT book_id, lesson_id, COUNT(*) FROM grammar_points GROUP BY book_id, lesson_id` shows coverage for all 54 lessons
+
+---
+
+### Story 11.3: Dialogue Extraction and Seeding
+
+As a developer,
+I want to extract dialogues from textbook chunks and/or PDFs and populate the `dialogues` table for Books 1-4,
+So that reading comprehension and dialogue completion exercises have accurate dialogue content.
+
+**Acceptance Criteria:**
+
+**Given** the `dialogues` table exists (Story 1.3)
+**When** I run the dialogue extraction script
+**Then** dialogues are extracted for all 54 lessons with each lesson having typically 2 dialogues (Dialogue I and II)
+**And** each dialogue has `lines` JSONB array with: `{ speaker, traditional, simplified, pinyin, english }` per line
+**And** `title_traditional` and `title_english` are set for each dialogue
+**And** dialogues include all three Chinese variants: traditional (primary), simplified, and pinyin
+**And** verification query: `SELECT book_id, lesson_id, COUNT(*) FROM dialogues GROUP BY book_id, lesson_id` shows coverage for all 54 lessons
+
+---
+
+### Story 11.4: Premade Workbook Exercise Seeding
+
+As a developer,
+I want to restructure workbook chunks into proper exercise format and populate the `premade_exercises` table for Books 1-4,
+So that users can complete workbook exercises directly without LLM generation.
+
+**Acceptance Criteria:**
+
+**Given** the `premade_exercises` table exists (Story 1.3)
+**When** I run the exercise restructuring script with `dangdai-rag/output_chunks/workbook{1-4}_chunks.json` as input
+**Then** workbook chunks are restructured into exercise format with `content` JSONB matching the type-specific schemas defined in architecture:
+  - Fill-in-the-blank: `{ sentences: [{ text_with_blanks, word_bank, correct_answers }] }`
+  - Matching / Dialogue completion: `{ pairs: [{ prompt, response }] }`
+  - Sentence construction: `{ sentences: [{ scrambled_words, correct_order }] }`
+  - Reading comprehension: `{ passage, questions: [{ question, options, correct_answer }] }`
+  - Listening (converted to reading): `{ sentences: [{ pinyin, expected_chinese }] }`
+  - Composition: `{ prompt, word_count, suggested_vocabulary }`
+**And** `exercise_type` is set based on workbook chunk classification
+**And** `exercise_order` preserves the original order within each lesson
+**And** exercises that are too ambiguous or require audio are flagged for manual review
+**And** verification query: `SELECT book_id, lesson_id, exercise_type, COUNT(*) FROM premade_exercises GROUP BY book_id, lesson_id, exercise_type` shows coverage
+
+---
+
+### Story 11.5: Vocabulary Browse Screen
+
+As a user,
+I want to browse vocabulary for a chapter showing traditional characters, pinyin, and English definitions,
+So that I can study and review vocabulary outside of quiz mode.
+
+**Acceptance Criteria:**
+
+**Given** I am on the Exercise Type Selection screen for a chapter
+**When** I tap "View Vocabulary" (or a vocabulary icon)
+**Then** I see a scrollable list of all vocabulary items for this chapter from the `vocabulary` table
+**And** each item shows: traditional character (large font), pinyin, English definition, part of speech
+**And** items are grouped by vocabulary section (Vocab I, Vocab II) with section headers
+**And** items are sorted by `sort_order` (original textbook order)
+
+---
+
+### Story 11.6: Grammar Points Browse Screen
+
+As a user,
+I want to browse grammar points for a chapter showing patterns, structures, and examples,
+So that I can study grammar rules before or after exercising.
+
+**Acceptance Criteria:**
+
+**Given** I am on the Exercise Type Selection screen for a chapter
+**When** I tap "View Grammar" (or a grammar icon)
+**Then** I see a scrollable list of all grammar points for this chapter from the `grammar_points` table
+**And** each grammar point shows: title (English + Chinese), function description, structure pattern, usage notes
+**And** examples are shown below each point with traditional Chinese, pinyin, and English translation
+**And** points are sorted by `grammar_order` (original textbook order)
+
+---
+
+### Story 11.7: Dialogue Browse Screen
+
+As a user,
+I want to browse dialogues for a chapter showing traditional, simplified, pinyin, and English,
+So that I can read and study conversations from the textbook.
+
+**Acceptance Criteria:**
+
+**Given** I am on the Exercise Type Selection screen for a chapter
+**When** I tap "View Dialogues" (or a dialogue icon)
+**Then** I see the dialogue(s) for this chapter from the `dialogues` table
+**And** each dialogue shows conversation lines in a chat-bubble layout with speaker labels
+**And** each line shows: traditional Chinese (primary, large font), with toggleable simplified, pinyin, and English below
+**And** a toggle allows showing/hiding pinyin and English translations
+**And** dialogues are numbered (Dialogue I, Dialogue II)
+
+---
+
+### Story 11.8: Premade Exercise Completion Flow
+
+As a user,
+I want to complete premade workbook exercises with local validation and progress tracking,
+So that I can practice official workbook content instantly without waiting for AI generation.
+
+**Acceptance Criteria:**
+
+**Given** I tap a premade exercise from the Exercise Type Selection screen
+**When** the premade exercise screen loads
+**Then** exercises are rendered locally from the `content` JSONB stored in `premade_exercises`
+**And** the same exercise UI components are used as AI-generated exercises (fill-in-blank, matching, sentence construction, etc.)
+**And** answers are validated locally against stored correct answers (no LLM call needed)
+**And** the same correct/incorrect feedback patterns apply (visual + sound + explanation)
+**And** per-question results are saved to `question_results` (FR53)
+**And** `exercise_type_progress` is updated upon completion
+**And** the completion screen shows score and chapter progress update
+
+**Given** the premade exercise has been completed before
+**When** I view it in the Exercise Type Selection screen
+**Then** the exercise card shows a completion indicator (e.g., checkmark, "Done")
+**And** I can retake it to improve my score

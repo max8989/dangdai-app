@@ -52,6 +52,7 @@ development_status:
   1-7-configure-ci-cd-with-github-actions: done
   1-8-configurable-llm-provider-azure-openai: review
   1-9-request-cancellation-backend-endpoints: ready-for-dev
+  1-10-create-structured-content-tables: backlog
   epic-1-retrospective: optional
 
   # Epic 2: User Authentication & Identity
@@ -70,6 +71,8 @@ development_status:
   3-2-chapter-list-screen: done
   3-3-chapter-completion-status-display: done
   3-4-open-chapter-navigation-no-gates: done
+  3-5-exercise-type-selection-screen: backlog
+  3-6-expand-book-selection-to-books-1-4: backlog
   epic-3-retrospective: optional
 
   # Epic 4: Quiz Experience & Exercise Types
@@ -89,6 +92,7 @@ development_status:
   4-11-quiz-results-screen: done
   4-12-text-input-answer-type: done
   4-13-evaluator-optimizer-quiz-validation: done
+  4-14-migrate-quiz-generation-to-structured-content: backlog
   epic-4-retrospective: optional
 
   # Epic 5: Chapter Assessment & Mastery
@@ -133,3 +137,25 @@ development_status:
   9-4-quiz-instructions-localization: backlog
   9-5-sound-and-theme-settings: backlog
   epic-9-retrospective: optional
+
+  # Epic 10: Performance Memory & Adaptive Learning
+  epic-10: backlog
+  10-1-weakness-profile-query-service: backlog
+  10-2-adaptive-quiz-biasing: backlog
+  10-3-weakness-dashboard-screen: backlog
+  10-4-focused-drill-from-weakness-dashboard: backlog
+  10-5-weakness-profile-real-time-updates: backlog
+  10-6-never-practiced-vs-practiced-but-weak: backlog
+  epic-10-retrospective: optional
+
+  # Epic 11: Content Seeding & Structured Data Pipeline
+  epic-11: backlog
+  11-1-vocabulary-seeding-from-flash-card-tsv: backlog
+  11-2-grammar-points-extraction-and-seeding: backlog
+  11-3-dialogue-extraction-and-seeding: backlog
+  11-4-premade-workbook-exercise-seeding: backlog
+  11-5-vocabulary-browse-screen: backlog
+  11-6-grammar-points-browse-screen: backlog
+  11-7-dialogue-browse-screen: backlog
+  11-8-premade-exercise-completion-flow: backlog
+  epic-11-retrospective: optional

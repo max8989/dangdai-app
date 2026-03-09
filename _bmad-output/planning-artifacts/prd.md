@@ -24,8 +24,10 @@ classification:
   projectContext: brownfield
   quizGeneration: ai_dynamic_rag_adaptive
   initialScope: friends_group
-lastEdited: 'Thu Feb 20 2026'
+lastEdited: 'Sun Mar 08 2026'
 editHistory:
+  - date: 'Sun Mar 08 2026'
+    changes: 'Structured content architecture: Added structured content tables (vocabulary, dialogues, grammar_points) as primary source for quiz generation, replacing RAG-only approach. Added premade workbook exercises (premade_exercises table). Expanded content scope from Books 1-2 to Books 1-4. Added FR51-FR58 for premade exercises, content browsing, and grammar coverage. Updated NFRs for structured content reliability. Chapter view redesigned to show premade + custom AI exercises.'
   - date: 'Thu Feb 20 2026'
     changes: 'Major expansion: Added 10 workbook exercise types, RAG-powered quiz generation, agentic adaptive learning with performance memory, weakness profiles. FR count expanded from 35 to 50, NFR count from 21 to 31.'
 ---
@@ -33,8 +35,8 @@ editHistory:
 # Product Requirements Document - dangdai-app
 
 **Author:** Maxime  
-**Date:** Thu Feb 20 2026  
-**Version:** 2.0 (Edit: Expanded quiz types, RAG generation, adaptive learning)
+**Date:** Sun Mar 08 2026  
+**Version:** 3.0 (Edit: Structured content tables, premade exercises, Books 1-4)
 
 ## Executive Summary
 
@@ -48,7 +50,9 @@ editHistory:
 
 **Differentiator:** Unlike generic Chinese learning apps, Dangdai App:
 - Follows the exact NTNU curriculum structure - same vocabulary, grammar patterns, and chapter progression
-- Generates **10 workbook-style exercise types** on the fly using RAG retrieval from the actual textbook/workbook content stored in a vector database
+- Uses **structured content tables** (vocabulary, grammar, dialogues) from the actual textbooks as the primary source for AI quiz generation — no hallucinated content
+- Provides **premade workbook exercises** from the official workbook for instant practice without LLM latency or cost
+- Generates **7 workbook-style exercise types** on the fly using structured content + AI, ensuring ALL grammar points per chapter are covered
 - Features an **agentic AI teacher with memory** that tracks learner performance across sessions and adaptively focuses on weak areas
 
 **Core Value Proposition:** "Continue your NTNU Chinese journey, anywhere in the world - with an AI teacher that knows exactly what you need to practice."
@@ -78,11 +82,12 @@ editHistory:
 
 ### Technical Success
 
-- AI-generated quizzes match NTNU workbook quality across all 10 exercise types
-- RAG system accurately retrieves chapter-specific content filtered by exercise type
+- AI-generated quizzes match NTNU workbook quality across all 7 exercise types
+- Structured content tables provide accurate, complete curriculum data for quiz generation
+- Premade workbook exercises work instantly without LLM dependency
 - Adaptive learning system correctly identifies weak areas and adjusts quiz content
 - User progress and performance memory persist reliably across sessions
-- Quiz generation produces valid, curriculum-aligned exercises for each workbook exercise type
+- Quiz generation produces valid, curriculum-aligned exercises covering ALL grammar points per chapter
 
 ### Measurable Outcomes
 
@@ -94,8 +99,8 @@ editHistory:
 | Session duration | 15+ minutes |
 | Chapter mastery threshold | 80%+ quiz scores |
 | Retention (week-over-week) | 70%+ |
-| Exercise type coverage | All 10 workbook types available per chapter |
-| RAG retrieval relevance | 90%+ of retrieved chunks match requested chapter + exercise type |
+| Exercise type coverage | All 7 MVP types available per chapter + premade workbook exercises |
+| Content accuracy | 100% of generated quiz content sourced from structured content tables (no hallucination) |
 | Adaptive quiz accuracy | 70%+ of adaptive questions target documented weak areas |
 | Weak area improvement | Users improve weak-area scores by 20%+ over 5 sessions |
 
@@ -108,10 +113,13 @@ editHistory:
 | Feature | Description |
 |---------|-------------|
 | User Authentication | Email + Apple Sign-In via Supabase |
-| Book/Chapter Selection | Browse Books 1-2, open navigation |
-| RAG-Powered Quiz Engine | On-the-fly quiz generation using vector DB retrieval of textbook/workbook content |
+| Book/Chapter Selection | Browse Books 1-4, open navigation (54 lessons: 15+15+12+12) |
+| Structured Content Database | Vocabulary, grammar points, and dialogues stored in structured tables from official textbooks |
+| Premade Workbook Exercises | Pre-existing workbook exercises available per chapter — instant practice, no LLM needed |
+| AI-Powered Quiz Engine | On-the-fly quiz generation using structured content tables as primary source (vocabulary, grammar, dialogues) |
 | Multiple Exercise Types (MVP set) | Vocabulary (character/pinyin/meaning), Grammar (sentence completion, pattern recognition), Fill-in-the-Blank, Matching, Dialogue Completion, Sentence Construction, Reading Comprehension |
-| Exercise Type Selection | User chooses exercise type per chapter, or "Mixed" for variety |
+| Exercise Type Selection | User chooses exercise type per chapter, or "Mixed" for variety. Chapter view shows both premade exercises and AI-generated options |
+| Grammar Coverage | AI-generated quizzes guarantee ALL grammar points for a chapter are covered |
 | Scoring & Feedback | Immediate per-answer feedback, points per correct answer, explanations citing textbook source |
 | Performance Memory | Per-question results saved (correct/incorrect, exercise type, vocabulary item, time spent) |
 | Adaptive Quiz Generation | AI uses learner weakness profile to bias quiz content toward weak areas |
@@ -128,7 +136,7 @@ editHistory:
 - Pronunciation practice with microphone
 - Character handwriting input
 - Composition/essay exercises (requires free-text AI grading)
-- Books 3-6 content
+- Books 5-6 content
 
 ### Phase 2: Growth (Month 3-6)
 
@@ -137,7 +145,7 @@ editHistory:
 - Spaced repetition algorithm integrated with performance memory
 - Pronunciation/tone exercises (with audio playback, no mic yet)
 - Character writing exercises (typed input, stroke order display)
-- Books 3-4 content expansion
+- Books 5-6 content expansion (data sources already available)
 - Enhanced AI teacher: proactive learning suggestions ("You should review Chapter 3 grammar")
 
 ### Phase 3: Vision (Month 6-12)
@@ -146,7 +154,6 @@ editHistory:
 - Pronunciation practice with microphone input
 - Character handwriting recognition (camera/touch)
 - Composition exercises with AI grading
-- Books 5-6 content
 - Community features (study groups)
 - Web app companion
 - Export learning data / progress reports
@@ -242,10 +249,12 @@ Pierre logs in that evening. Friend group stays engaged.
 
 | Capability | Journey | MVP? |
 |------------|---------|------|
-| Book/chapter selection | All | Yes |
+| Book/chapter selection (Books 1-4) | All | Yes |
 | Multiple exercise types (7 types) | All | Yes |
-| RAG-powered quiz generation | All | Yes |
+| AI quiz generation (structured content) | All | Yes |
+| Premade workbook exercises | 1, 2, 3 | Yes |
 | Exercise type selection | 1, 2 | Yes |
+| Content browsing (vocab, grammar, dialogues) | 1, 2 | Yes |
 | Performance memory (per-question tracking) | All | Yes |
 | Adaptive quiz generation (weakness-biased) | 2, 3 | Yes |
 | Weakness dashboard | 2 | Yes |
@@ -315,10 +324,10 @@ Pierre logs in that evening. Friend group stays engaged.
 ### Technical Infrastructure
 
 - **Database:** Supabase (PostgreSQL)
-- **Vector storage:** Supabase pgvector (`dangdai_chunks` table with 1536-dim embeddings, filterable by `book`, `lesson`, `content_type`, `exercise_type`)
-- **RAG pipeline:** Semantic retrieval via `dangdai_search` RPC function, filtered by chapter and exercise type
-- **LLM:** External API for quiz generation via LangGraph agent (monitor costs)
-- **Content coverage:** Textbook chunks (dialogue, vocabulary, grammar, culture, activities) + Workbook chunks (10 exercise types: listening, pronunciation, reading, fill_in_blank, matching, dialogue_completion, sentence_construction, character_writing, composition, vocabulary)
+- **Structured content tables (PRIMARY):** `vocabulary` (~3,000 items), `grammar_points` (~200-300 points), `dialogues` (~108 dialogues), `premade_exercises` (~375 exercises) — covering Books 1-4 (54 lessons)
+- **Vector storage (SUPPLEMENTARY):** Supabase pgvector (`dangdai_chunks` table with embeddings) — used only for culture notes, pronunciation context, not for primary exercise generation
+- **LLM:** External API (Azure OpenAI gpt-4o) for quiz generation via LangGraph agent (monitor costs)
+- **Content coverage:** Books 1-4 with structured vocabulary, grammar, dialogues, and premade workbook exercises. Content seeded from Flash-card.tsv, textbook chunks/PDFs, and workbook chunks.
 
 ### Adaptive Learning Infrastructure
 
@@ -331,7 +340,7 @@ Pierre logs in that evening. Friend group stays engaged.
 
 | Risk Type | Risk | Mitigation |
 |-----------|------|------------|
-| Technical | Quiz quality depends on LLM + RAG | Test generation with real content before UI; iterate prompts |
+| Technical | Quiz quality depends on LLM + structured content | Structured content tables eliminate hallucination risk; premade exercises provide LLM-free fallback; evaluator-optimizer pattern catches quality issues |
 | Market | Friends may not engage | Weekly check-ins during beta; adjust based on usage |
 | Resource | Solo developer capacity | Strict MVP scope; Expo + Supabase reduce complexity |
 
@@ -348,16 +357,16 @@ Pierre logs in that evening. Friend group stays engaged.
 
 ### Content Navigation
 
-- **FR7:** User can view available textbooks (Books 1-2)
+- **FR7:** User can view available textbooks (Books 1-4)
 - **FR8:** User can view chapters within a book
 - **FR9:** User can select any chapter (open navigation, no gates)
 - **FR10:** User can see chapter completion status at a glance
 
-### RAG-Powered Quiz Generation
+### Structured Content & Quiz Generation
 
-- **FR11:** System retrieves chapter-specific content from vector DB (`dangdai_chunks`) filtered by book, lesson, and exercise type
-- **FR12:** System generates quiz questions via LangGraph agent using RAG-retrieved content as context
-- **FR13:** System validates generated questions for accuracy and curriculum alignment before presenting to user
+- **FR11:** System retrieves chapter-specific content from structured content tables (vocabulary, grammar_points, dialogues) as the PRIMARY source for quiz generation. RAG chunks used only as supplementary context (culture, pronunciation).
+- **FR12:** System generates quiz questions via LangGraph agent using structured content as context, ensuring ALL grammar points for the chapter are represented in the generated quiz
+- **FR13:** System validates generated questions for accuracy, curriculum alignment, and grammar coverage before presenting to user
 - **FR14:** System returns structured quiz with questions, answer options, correct answers, and source citations (book/lesson/section)
 
 ### Exercise Types (MVP - 7 Types)
@@ -417,6 +426,23 @@ Pierre logs in that evening. Friend group stays engaged.
 - **FR49:** User can quickly continue where they left off (last exercise type and chapter)
 - **FR50:** Dashboard highlights areas needing review based on weakness profile
 
+### Premade Workbook Exercises
+
+- **FR51:** User can view a list of premade workbook exercises for each chapter, with completion status per exercise
+- **FR52:** User can complete premade workbook exercises directly (fill-in-blank, matching, dialogue completion, sentence construction, reading comprehension) with local validation against stored correct answers — no LLM or API call needed
+- **FR53:** Premade exercise results are tracked in the same performance system as AI-generated quizzes (question_results, exercise_type_progress)
+- **FR54:** Chapter view displays both premade exercises (with individual completion status) and an option to generate custom AI exercises
+
+### Content Browsing
+
+- **FR55:** User can browse vocabulary for a chapter, seeing traditional characters, pinyin, and English definitions
+- **FR56:** User can browse grammar points for a chapter, seeing pattern descriptions, structures, and examples
+- **FR57:** User can browse dialogues for a chapter, seeing traditional, simplified, pinyin, and English translations
+
+### Grammar Coverage
+
+- **FR58:** AI-generated quizzes for a chapter MUST cover all grammar points listed in the grammar_points table for that chapter — the structure validation node enforces this before returning the quiz
+
 ## Non-Functional Requirements
 
 ### Performance
@@ -439,14 +465,14 @@ Pierre logs in that evening. Friend group stays engaged.
 - **NFR10:** Quiz progress saved after each answer (crash-safe)
 - **NFR11:** Progress and performance memory persist across app restarts and devices
 - **NFR12:** Data synced to server within 5 seconds of activity
-- **NFR13:** RAG retrieval returns relevant content for all 7 MVP exercise types per chapter (no empty results)
+- **NFR13:** Structured content tables contain complete vocabulary, grammar, and dialogue data for all chapters in Books 1-4. Quiz generation never returns empty results because structured content is guaranteed to exist for every chapter.
 
 ### Integration
 
 - **NFR14:** Supabase connection required for core functionality
 - **NFR15:** LLM API failures display user-friendly error with option to retry
 - **NFR16:** Apple Sign-In available on iOS devices
-- **NFR17:** LangGraph agent gracefully degrades if RAG retrieval returns insufficient content (falls back to broader chapter content)
+- **NFR17:** LangGraph agent uses structured content tables as primary source (guaranteed to have content). RAG chunks used only as supplementary context. Graceful degradation if supplementary RAG retrieval returns insufficient content.
 
 ### Offline Behavior
 
@@ -468,8 +494,8 @@ Pierre logs in that evening. Friend group stays engaged.
 
 ### AI & RAG Quality
 
-- **NFR27:** Generated quiz questions are curriculum-aligned: 90%+ of questions use vocabulary/grammar from the specified chapter
-- **NFR28:** RAG retrieval relevance: 90%+ of retrieved chunks match the requested book, lesson, and exercise type
+- **NFR27:** Generated quiz questions are curriculum-aligned: 100% of questions use vocabulary/grammar from the structured content tables for the specified chapter
+- **NFR28:** Structured content coverage: 100% of chapters in Books 1-4 have vocabulary, grammar points, and dialogues in the structured content tables
 - **NFR29:** Adaptive quiz content: when weakness profile is available, 30-50% of generated questions target documented weak areas
 - **NFR30:** Generated exercises follow workbook formatting patterns (matching, fill-in-blank structure, dialogue format)
 - **NFR31:** LLM cost per quiz generation stays under $0.05 per 10-question quiz

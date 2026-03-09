@@ -17,6 +17,8 @@ updateHistory:
     changes: 'Added Quiz Pause/Resume Architecture: Allows users to pause in-progress quizzes and resume later with full state restoration. Paused quizzes stored in Supabase paused_quizzes table with JSONB state. Exit modal updated with Pause/Cancel options. Improves UX by preventing accidental quiz loss.'
   - date: 'Sat Feb 21 2026'
     changes: 'Added Request Cancellation Architecture: Server-side cancellation via FastAPI Request.is_disconnected() to prevent orphaned LangGraph executions when users navigate away during quiz generation. Reduces cost waste by 70-90% on abandoned requests (~$16/month savings). Added enforcement guidelines for all backend endpoints.'
+  - date: 'Sun Mar 08 2026'
+    changes: 'Major architecture update: Structured Content Tables. Replaced RAG-only quiz generation with structured content approach. Added 4 new tables (vocabulary, dialogues, grammar_points, premade_exercises). Quiz generation now uses structured tables as primary source. Added premade workbook exercises per chapter. Updated chapter view to show premade + custom AI exercises. Expanded content scope to Books 1-4.'
   - date: '2026-02-21'
     changes: 'Added configurable LLM provider architecture with Azure OpenAI GPT-4o as default. Supports switching between Azure OpenAI, OpenAI, and other providers via environment configuration. Updated cost estimates for Azure pricing model.'
   - date: '2026-02-21'
@@ -83,23 +85,30 @@ _This document builds collaboratively through step-by-step discovery. Sections a
 
 ```
 Mobile App (Expo) ──┬──▶ Supabase (Auth, Progress, User Data, Performance Memory)
+                    │     ├──▶ Structured Content (vocabulary, dialogues, grammar_points)
+                    │     └──▶ Premade Exercises (premade_exercises — direct read, no LLM)
                     │
                     └──▶ Python Backend (FastAPI + LangGraph)
                               │
-                              ├──▶ Supabase pgvector (RAG retrieval by chapter + exercise type)
+                              ├──▶ Supabase Structured Content (vocabulary, grammar_points, dialogues — PRIMARY source)
+                              ├──▶ Supabase pgvector (RAG retrieval — SUPPLEMENTARY, culture/pronunciation context)
                               ├──▶ Supabase question_results (weakness profile query)
                               ├──▶ LLM API - Azure OpenAI gpt-4o (quiz generation + complex answer validation)
                               ├──▶ LangGraph Structure Validation Node (rule-based self-check)
                               └──▶ LangGraph Content Evaluator Node (LLM-based quality gate)
 ```
 
-**Quiz Generation Flow (Detailed) -- Evaluator-Optimizer Pattern:**
+**Quiz Generation Flow (Detailed) -- Structured Content + Evaluator-Optimizer Pattern:**
 ```
-1. Mobile: POST /api/quizzes { chapter_id, exercise_type, user_jwt }
+1. Mobile: POST /api/quizzes/generate { chapter_id, exercise_type, user_jwt }
 2. Agent: Verify JWT → Query weakness profile from question_results (aggregation)
-3. Agent: RAG retrieve from pgvector filtered by (book, lesson, exercise_type)
-4. Agent: LLM (Azure OpenAI gpt-4o) generates quiz with pre-generated explanations, biased 30-50% toward weak areas
-5. Agent: Structure validation node (rule-based: correct answers exist, options distinct, required fields)
+3. Agent: Retrieve structured content from Supabase:
+   a. vocabulary table: all vocab for this chapter (+ optionally previous chapters for cumulative review)
+   b. grammar_points table: all grammar points for this chapter (MUST cover all grammar points)
+   c. dialogues table: dialogue lines for this chapter (for Reading Comprehension, Dialogue Completion)
+   d. (Optional) dangdai_chunks: culture/pronunciation context if needed
+4. Agent: LLM (Azure OpenAI gpt-4o) generates quiz using structured content as context, with pre-generated explanations, biased 30-50% toward weak areas, ensuring ALL grammar points are covered
+5. Agent: Structure validation node (rule-based: correct answers exist, options distinct, required fields, all grammar points represented)
 6. Agent: Content evaluator node (LLM-based: Traditional Chinese compliance, pinyin diacritics, 
           question text in UI language, curriculum alignment, pedagogical quality)
    - If evaluator fails: structured feedback → retry generate_quiz (max 2 retries)
@@ -108,6 +117,15 @@ Mobile App (Expo) ──┬──▶ Supabase (Auth, Progress, User Data, Perfor
 8. Mobile: Local validation for simple types (Vocabulary, Grammar, Matching, Fill-in-Blank, Reading)
 9. Mobile: LLM call via agent for complex types (Sentence Construction, Dialogue Completion) when answer differs from key
 10. Mobile: Save per-question results to question_results + update exercise_type_progress
+```
+
+**Premade Exercise Flow (NEW — no LLM needed):**
+```
+1. Mobile: GET premade exercises for chapter from Supabase (premade_exercises table)
+2. Mobile: Display exercise list with completion status per exercise
+3. User selects a premade exercise → exercises rendered locally from stored structured content
+4. Mobile: Local validation against stored correct answers
+5. Mobile: Save per-question results to question_results + update exercise_type_progress
 ```
 
 ### Cross-Cutting Concerns Identified
@@ -218,15 +236,79 @@ Project initialization should be the first implementation task, creating:
 | **Database** | Supabase PostgreSQL | Already chosen; handles auth, data, and pgvector |
 | **Migrations** | Supabase migrations | Built-in migration system |
 | **Weakness Profile** | Computed on request via SQL aggregation | Agent queries `question_results` directly; works at MVP scale (100 users, ~100 rows/user/week); avoids extra materialized table |
+| **Content Strategy** | Structured tables (primary) + RAG chunks (supplementary) | Structured vocab/grammar/dialogue tables provide consistent, reliable content for exercise generation. RAG chunks used only as supplementary context when needed (e.g., culture notes, pronunciation). |
 
-**Schema Approach:**
+**Schema Approach — User Data Tables:**
 - `users` - Profile + cached aggregates (total_points, current_streak, streak_updated_at)
 - `quiz_attempts` - Individual quiz records with JSONB `answers_json` for full quiz replay (includes per-question detail for history display)
-- `question_results` - **NEW**: Normalized per-question performance data (user_id, chapter_id, exercise_type, vocabulary_item, grammar_pattern, correct, time_spent_ms, created_at). Indexed on (user_id, exercise_type) and (user_id, vocabulary_item) for fast weakness aggregation. This is the source of truth for the adaptive learning system.
-- `exercise_type_progress` - **NEW**: Per exercise type per chapter progress (user_id, chapter_id, exercise_type, best_score, attempts_count, mastered_at). Directly feeds the Exercise Type Selection UI. Chapter mastery requires ≥4 of 7 types attempted with ≥80% average.
+- `question_results` - Normalized per-question performance data (user_id, chapter_id, exercise_type, vocabulary_item, grammar_pattern, correct, time_spent_ms, created_at). Indexed on (user_id, exercise_type) and (user_id, vocabulary_item) for fast weakness aggregation. This is the source of truth for the adaptive learning system.
+- `exercise_type_progress` - Per exercise type per chapter progress (user_id, chapter_id, exercise_type, best_score, attempts_count, mastered_at). Directly feeds the Exercise Type Selection UI. Chapter mastery requires ≥4 of 7 types attempted with ≥80% average.
 - `chapter_progress` - Per-chapter overall completion percentage (calculated from `exercise_type_progress`)
 - `daily_activity` - Streak tracking (one row per active day)
-- `paused_quizzes` - **NEW**: Paused in-progress quiz state (user_id, chapter_id, exercise_type, quiz_state JSONB, paused_at, expires_at). Allows users to pause and resume quizzes. One paused quiz per chapter per user (upsert). Auto-expires after 7 days.
+- `paused_quizzes` - Paused in-progress quiz state (user_id, chapter_id, exercise_type, quiz_state JSONB, paused_at, expires_at). Allows users to pause and resume quizzes. One paused quiz per chapter per user (upsert). Auto-expires after 7 days.
+
+**Schema Approach — Structured Content Tables (NEW):**
+
+These tables store the Dangdai textbook curriculum content as structured data, replacing RAG-only retrieval for exercise generation. Content covers Books 1-4 (54 lessons total: 15+15+12+12).
+
+- `vocabulary` - All vocabulary items from the textbook series. Source: Flash-card.tsv (~3,000 items for Books 1-4). Traditional Chinese only.
+  - Fields: `id`, `book_id`, `lesson_id`, `vocab_section` (I or II), `traditional`, `pinyin`, `english`, `part_of_speech`, `is_name` (boolean for proper nouns), `sort_order`
+  - Indexes: (book_id, lesson_id), (traditional)
+
+- `dialogues` - Lesson dialogues in traditional, simplified, and English. Each lesson has Dialogue I and Dialogue II. Source: textbook chunks + PDFs.
+  - Fields: `id`, `book_id`, `lesson_id`, `dialogue_number` (1 or 2), `title_traditional`, `title_english`, `lines` (JSONB array of `{ speaker, traditional, simplified, pinyin, english }`)
+  - Indexes: (book_id, lesson_id)
+
+- `grammar_points` - Grammar rules and patterns per lesson. Each lesson typically has 4-6 grammar points. Source: textbook chunks (vocabulary section contains embedded grammar) + PDFs.
+  - Fields: `id`, `book_id`, `lesson_id`, `grammar_order` (order within lesson), `title_english`, `title_chinese`, `function_description`, `structure_pattern`, `usage_notes`, `examples` (JSONB array of `{ traditional, pinyin, english }`), `sort_order`
+  - Indexes: (book_id, lesson_id)
+
+- `premade_exercises` - Pre-existing workbook exercises stored in structured format. Source: workbook chunk files (workbook1-4_chunks.json), restructured into exercise format.
+  - Fields: `id`, `book_id`, `lesson_id`, `exercise_type` (listening, reading, fill_in_blank, dialogue_completion, sentence_construction, matching, character_writing, composition, pronunciation), `exercise_order` (order within lesson), `title`, `instructions`, `content` (JSONB — exercise-type-specific structure), `difficulty`, `source_page_range`
+  - Indexes: (book_id, lesson_id, exercise_type)
+
+- `dangdai_chunks` - (EXISTING) RAG vector chunks. Retained as supplementary context for culture notes, pronunciation guides, and any edge cases where structured tables lack coverage. Not the primary source for exercise generation.
+
+**Premade Exercise `content` JSONB Schema (by exercise type):**
+
+```typescript
+// Fill-in-the-blank
+{ sentences: [{ text_with_blanks: string, word_bank: string[], correct_answers: string[] }] }
+
+// Matching / Dialogue Completion
+{ pairs: [{ prompt: string, response: string }] }
+
+// Sentence Construction
+{ sentences: [{ scrambled_words: string[], correct_order: string }] }
+
+// Reading Comprehension
+{ passage: string, questions: [{ question: string, options: string[], correct_answer: string }] }
+
+// Listening (converted to reading for app — no audio)
+{ sentences: [{ pinyin: string, expected_chinese: string }] }
+
+// Composition
+{ prompt: string, word_count: number, suggested_vocabulary: string[] }
+```
+
+**Content Coverage Summary:**
+
+| Book | Lessons | Vocab Items | Dialogues | Grammar Points | Premade Exercises |
+|------|---------|-------------|-----------|----------------|-------------------|
+| 1 | 15 | ~568 | ~30 | ~60-90 | ~133 chunks → restructured |
+| 2 | 15 | ~658 | ~30 | ~60-90 | ~122 chunks → restructured |
+| 3 | 12 | ~850 | ~24 | ~48-72 | ~69 chunks → restructured |
+| 4 | 12 | ~997 | ~24 | ~48-72 | ~51 chunks → restructured |
+
+**Data Sources & Seeding:**
+
+| Table | Source | Extraction Method |
+|-------|--------|-------------------|
+| `vocabulary` | `/home/maxime/Downloads/Flash-card.tsv` | Parse TSV: header lines (`//當代中文/Book N/LXX-I/II`) define book/lesson/section; data lines are `traditional\tpinyin\tenglish(POS)` |
+| `dialogues` | `dangdai-rag/output_chunks/book{1-4}_chunks.json` (section=learning_objectives,vocabulary with dialogue content) + PDFs at `/home/maxime/Documents/NTNU Book/` | Extract from chunks where content contains dialogue markers; use PDFs for clean text when chunks have OCR noise |
+| `grammar_points` | `dangdai-rag/output_chunks/book{1-4}_chunks.json` (chunks containing "Function:", "Structure:", "Usage:", "Grammar", "文法") + PDFs | Extract grammar patterns from vocabulary-section chunks; ~35 grammar-containing chunks per book; supplement with PDF extraction |
+| `premade_exercises` | `dangdai-rag/output_chunks/workbook{1-4}_chunks.json` | Restructure chunks by exercise_type into proper exercise format with questions, options, correct answers |
+| `dangdai_chunks` | Already seeded (1060 rows with embeddings) | No change — retained as supplementary |
 
 **Weakness Profile Query (agent calls via Supabase service key):**
 ```sql
@@ -274,9 +356,14 @@ HAVING ROUND(COUNT(*) FILTER (WHERE correct)::decimal / COUNT(*) * 100) < 70;
 | **Auth Token Passing** | Supabase JWT in Authorization header | Python backend verifies JWT with Supabase |
 
 **Endpoints (Python Backend):**
-- `POST /api/quizzes/generate` - Generate quiz for chapter + exercise type. Accepts `{ chapter_id, book_id, exercise_type, user_jwt }`. Agent queries weakness profile, retrieves RAG content, generates quiz with pre-generated explanations. Returns structured quiz payload.
+- `POST /api/quizzes/generate` - Generate quiz for chapter + exercise type. Accepts `{ chapter_id, book_id, exercise_type, user_jwt }`. Agent queries weakness profile, retrieves structured content (vocabulary + grammar_points + dialogues), generates quiz with pre-generated explanations using structured content as context. Returns structured quiz payload. ALL grammar points for the chapter are covered.
 - `POST /api/quizzes/validate-answer` - **Hybrid validation endpoint** for complex exercise types (Sentence Construction, Dialogue Completion). Accepts `{ question, user_answer, correct_answer, exercise_type }`. LLM evaluates whether the answer is valid (correct/incorrect + alternative answers shown). Only called when local validation is insufficient.
 - `GET /api/health` - Health check
+
+**Endpoints (Supabase Direct — Mobile reads):**
+- Premade exercises: `supabase.from('premade_exercises').select('*').eq('book_id', bookId).eq('lesson_id', lessonId)` — no backend needed
+- Chapter vocabulary: `supabase.from('vocabulary').select('*').eq('book_id', bookId).eq('lesson_id', lessonId)` — for chapter vocabulary display
+- Chapter grammar: `supabase.from('grammar_points').select('*').eq('book_id', bookId).eq('lesson_id', lessonId)` — for grammar reference
 
 **Answer Validation Strategy (Hybrid):**
 
@@ -1197,10 +1284,22 @@ class ContentIssue(BaseModel):
 #### Updated Graph Topology
 
 ```
-START → retrieve_content → query_weakness → generate_quiz → validate_structure → evaluate_content → END
-                                                ↑                                       |
-                                                └──── (if fails & retries ≤ 2) ────────┘
+START → retrieve_structured_content → query_weakness → generate_quiz → validate_structure → evaluate_content → END
+                                                           ↑                                       |
+                                                           └──── (if fails & retries ≤ 2) ────────┘
 ```
+
+**`retrieve_structured_content` node (replaces RAG-only `retrieve_content`):**
+This node queries the **structured content tables** as the PRIMARY source:
+1. `vocabulary` — all vocab items for the target chapter (and optionally previous chapters for cumulative review)
+2. `grammar_points` — all grammar points for the target chapter (ALL must be covered in generated exercises)
+3. `dialogues` — dialogue lines for the target chapter (used for Reading Comprehension, Dialogue Completion exercise types)
+4. (Optional) `dangdai_chunks` — supplementary RAG retrieval for culture/pronunciation context when needed
+
+The node returns structured content objects (not raw text chunks), which the `generate_quiz` node uses to produce curriculum-aligned exercises. This ensures:
+- **Complete grammar coverage**: Every grammar point in the chapter is represented in generated exercises
+- **Accurate vocabulary**: No hallucinated vocabulary — only items actually in the textbook
+- **Reliable dialogue content**: Exact dialogue lines from the textbook for comprehension exercises
 
 **Retry flow:** When `evaluate_content` finds issues, it:
 1. Sets `validation_errors` with the evaluator's structured feedback
@@ -2008,10 +2107,13 @@ dangdai-mobile/
 │   │   └── [bookId].tsx              # Chapter list for book (with per-type indicators)
 │   │
 │   ├── exercise-type/
-│   │   └── [chapterId].tsx           # Exercise type selection screen
+│   │   └── [chapterId].tsx           # Exercise type selection screen (premade + AI-generated)
 │   │
 │   ├── quiz/
 │   │   └── [chapterId].tsx           # Quiz screen (handles all 7 exercise types)
+│   │
+│   ├── premade/
+│   │   └── [exerciseId].tsx          # Premade workbook exercise screen (no LLM needed)
 │   │
 │   └── weakness/
 │       └── index.tsx                 # Weakness dashboard screen
@@ -2032,7 +2134,8 @@ dangdai-mobile/
 │   │   ├── DialogueCard.tsx          # Conversation bubble layout
 │   │   ├── WordBankSelector.tsx      # Horizontal word bank for fill-in-the-blank
 │   │   ├── ReadingPassageCard.tsx    # Scrollable passage + comprehension questions
-│   │   └── ExerciseTypeSelector.tsx  # Grid of exercise type cards with per-type progress
+│   │   ├── ExerciseTypeSelector.tsx  # Grid of exercise type cards with per-type progress
+│   │   └── PremadeExerciseCard.tsx   # Card for premade workbook exercise with completion status
 │   │
 │   ├── progress/
 │   │   ├── ActivityCalendar.tsx      # GitHub-style calendar
@@ -2072,6 +2175,9 @@ dangdai-mobile/
 ├── hooks/
 │   ├── useAuth.ts                    # Auth state & actions
 │   ├── useQuiz.ts                    # Quiz data fetching + generation (TanStack Query)
+│   ├── usePremadeExercises.ts        # Premade workbook exercises per chapter (Supabase direct read)
+│   ├── useVocabulary.ts              # Vocabulary items per chapter (Supabase direct read)
+│   ├── useGrammarPoints.ts           # Grammar points per chapter (Supabase direct read)
 │   ├── useProgress.ts                # Progress data fetching
 │   ├── useChapters.ts                # Chapter list fetching
 │   ├── useExerciseTypes.ts           # Exercise type progress per chapter
@@ -2097,6 +2203,7 @@ dangdai-mobile/
 ├── types/
 │   ├── quiz.ts                       # Quiz, Question, Answer types (all 7 exercise types)
 │   ├── exercise.ts                   # ExerciseType enum, ExerciseTypeProgress, MatchingPair, SentenceTile, DialogueBubble
+│   ├── content.ts                    # Vocabulary, GrammarPoint, Dialogue, PremadeExercise types (maps to structured content tables)
 │   ├── weakness.ts                   # WeaknessProfile, WeakVocabItem, WeakGrammarPattern, ExerciseTypeAccuracy
 │   ├── user.ts                       # User, Progress types
 │   ├── chapter.ts                    # Book, Chapter types
@@ -2152,8 +2259,8 @@ dangdai-api/
 │   │
 │   ├── agent/                        # LangGraph quiz generation
 │   │   ├── __init__.py
-│   │   ├── graph.py                  # Main quiz generation graph (retrieve → generate → validate_structure → evaluate_content → respond)
-│   │   ├── nodes.py                  # Graph nodes (retrieve_content, query_weakness, generate_quiz, validate_structure, evaluate_content)
+│   │   ├── graph.py                  # Main quiz generation graph (retrieve_structured_content → query_weakness → generate → validate_structure → evaluate_content → respond)
+│   │   ├── nodes.py                  # Graph nodes (retrieve_structured_content, query_weakness, generate_quiz, validate_structure, evaluate_content)
 │   │   ├── prompts.py                # LLM prompt templates (per exercise type + content evaluation + answer validation)
 │   │   └── state.py                  # Graph state definitions (includes weakness profile, exercise type, evaluator_feedback)
 │   │
@@ -2171,14 +2278,16 @@ dangdai-api/
 │   ├── services/
 │   │   ├── __init__.py
 │   │   ├── quiz_service.py           # Quiz business logic (generation orchestration)
-│   │   ├── rag_service.py            # RAG retrieval logic (filtered by exercise type)
+│   │   ├── content_service.py        # Structured content retrieval for quiz generation (vocab + grammar + dialogues)
+│   │   ├── rag_service.py            # RAG retrieval logic (supplementary — culture/pronunciation context only)
 │   │   ├── weakness_service.py       # Weakness profile query and aggregation from question_results
 │   │   ├── validation_service.py     # LLM-based answer validation for complex exercise types
 │   │   └── auth_service.py           # Supabase JWT verification
 │   │
 │   ├── repositories/
 │   │   ├── __init__.py
-│   │   ├── vector_store.py           # pgvector operations (filtered by book, lesson, exercise_type)
+│   │   ├── content_repo.py           # Structured content queries (vocabulary, grammar_points, dialogues, premade_exercises tables)
+│   │   ├── vector_store.py           # pgvector operations (supplementary RAG — culture/pronunciation)
 │   │   ├── chapter_repo.py           # Chapter content retrieval
 │   │   └── performance_repo.py       # Query question_results for weakness profile aggregation
 │   │
@@ -2276,41 +2385,52 @@ EXPO_PUBLIC_ENABLE_WEAKNESS_BIASING=true
 **Component Boundaries:**
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│ Mobile App (dangdai-app)                                        │
-├─────────────────────────────────────────────────────────────────┤
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
-│  │   Screens    │──│  Components  │──│    Stores    │          │
-│  │  (app/)      │  │              │  │  (Zustand)   │          │
-│  └──────────────┘  └──────────────┘  └──────────────┘          │
-│         │                 │                 │                   │
-│         └────────────────┬┴─────────────────┘                   │
-│                          │                                      │
-│                   ┌──────┴──────┐                               │
-│                   │    Hooks    │                               │
-│                   │ (TanStack)  │                               │
-│                   └──────┬──────┘                               │
-│                          │                                      │
-│         ┌────────────────┼────────────────┐                     │
-│         │                │                │                     │
-│  ┌──────┴──────┐  ┌──────┴──────┐  ┌──────┴──────┐             │
-│  │ lib/api.ts  │  │lib/supabase │  │   types/    │             │
-│  │ (Python)    │  │   (Data)    │  │             │             │
-│  └──────┬──────┘  └──────┬──────┘  └─────────────┘             │
-└─────────┼────────────────┼──────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────┐
+│ Mobile App (dangdai-mobile)                                               │
+├───────────────────────────────────────────────────────────────────────────┤
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                    │
+│  │   Screens    │──│  Components  │──│    Stores    │                    │
+│  │  (app/)      │  │              │  │  (Zustand)   │                    │
+│  └──────────────┘  └──────────────┘  └──────────────┘                    │
+│         │                 │                 │                             │
+│         └────────────────┬┴─────────────────┘                             │
+│                          │                                                │
+│                   ┌──────┴──────┐                                         │
+│                   │    Hooks    │                                         │
+│                   │ (TanStack)  │                                         │
+│                   └──────┬──────┘                                         │
+│                          │                                                │
+│         ┌────────────────┼────────────────┐                               │
+│         │                │                │                               │
+│  ┌──────┴──────┐  ┌──────┴──────┐  ┌──────┴──────┐                       │
+│  │ lib/api.ts  │  │lib/supabase │  │   types/    │                       │
+│  │ (Python)    │  │   (Data)    │  │             │                       │
+│  └──────┬──────┘  └──────┬──────┘  └─────────────┘                       │
+└─────────┼────────────────┼────────────────────────────────────────────────┘
           │                │
-          ▼                ▼
-┌─────────────────┐  ┌─────────────────────────────────────────┐
-│  Python API     │  │  Supabase                               │
-│  (dangdai-api)  │  │  ├── Auth (users, sessions)             │
-│  ├── /quizzes   │  │  ├── Database (progress, quiz_attempts) │
-│  └── /health    │  │  └── pgvector (Dangdai embeddings)      │
-└────────┬────────┘  └─────────────────────────────────────────┘
-         │
-         ▼
+          │                ▼
+          │   ┌────────────────────────────────────────────────────────────┐
+          │   │  Supabase                                                 │
+          │   │  ├── Auth (users, sessions)                               │
+          │   │  ├── User Data (progress, quiz_attempts, question_results)│
+          │   │  ├── Structured Content (vocabulary, grammar_points,      │
+          │   │  │   dialogues, premade_exercises) ← DIRECT READ          │
+          │   │  └── pgvector (dangdai_chunks — supplementary RAG)        │
+          │   └──────────────────────────────┬─────────────────────────────┘
+          │                                  │
+          ▼                                  ▼
+┌──────────────────────────┐     (Python API also reads
+│  Python API              │      structured content +
+│  (dangdai-api)           │      pgvector via service key)
+│  ├── /quizzes/generate   │
+│  ├── /quizzes/validate   │
+│  └── /health             │
+└──────────┬───────────────┘
+           │
+           ▼
 ┌─────────────────┐
 │  LLM API        │
-│  (Claude/GPT)   │
+│  (Azure OpenAI) │
 └─────────────────┘
 ```
 
@@ -2325,7 +2445,11 @@ EXPO_PUBLIC_ENABLE_WEAKNESS_BIASING=true
 | Chapter progress | Supabase `chapter_progress` | Direct from mobile (calculated from exercise_type_progress) |
 | Weakness profile | Computed from `question_results` | Python agent queries on each quiz generation request |
 | Generated quizzes | In-memory (Python) | Generated per request, not persisted |
-| Dangdai content | Supabase pgvector | Python backend RAG retrieval (filtered by exercise type) |
+| Vocabulary | Supabase `vocabulary` | Python agent (read for quiz generation context), mobile (read for vocab lists/study) |
+| Grammar points | Supabase `grammar_points` | Python agent (read for quiz generation — ALL must be covered), mobile (read for grammar reference) |
+| Dialogues | Supabase `dialogues` | Python agent (read for reading comprehension/dialogue exercises), mobile (read for dialogue study) |
+| Premade exercises | Supabase `premade_exercises` | Direct from mobile via Supabase JS (no Python/LLM involvement) |
+| RAG chunks (supplementary) | Supabase `dangdai_chunks` pgvector | Python backend supplementary retrieval (culture/pronunciation context only) |
 
 ### Integration Points
 
@@ -2480,7 +2604,7 @@ All technology choices validated as compatible:
 All 50 FRs mapped to architectural components:
 - FR1-FR6 (Auth): `app/(auth)/`, `lib/supabase.ts`, `hooks/useAuth.ts`
 - FR7-FR10 (Navigation): `app/(tabs)/books.tsx`, `app/chapter/[bookId].tsx`
-- FR11-FR14 (RAG Quiz Generation): Python API `agent/graph.py`, `services/rag_service.py`, `services/weakness_service.py`, validation node
+- FR11-FR14 (Quiz Generation): Python API `agent/graph.py`, `services/content_service.py` (structured content — primary), `services/rag_service.py` (supplementary), `services/weakness_service.py`, validation node
 - FR15-FR22 (Exercise Types): `app/quiz/[chapterId].tsx`, `components/quiz/` (7 type-specific components), `app/exercise-type/[chapterId].tsx`
 - FR23-FR26 (Quiz Interaction): `components/quiz/FeedbackOverlay.tsx` (with pre-generated explanations), `CompletionScreen.tsx`
 - FR27-FR30 (Chapter Assessment): `app/quiz/[chapterId].tsx` (chapter test mode), `exercise_type_progress` table, mastery calculation
@@ -2493,11 +2617,11 @@ All 50 FRs mapped to architectural components:
 All 31 NFRs addressed architecturally:
 - Performance: 8s quiz generation with progressive loading, 500ms nav, 3s launch, 2s weakness calc
 - Security: Supabase Auth, JWT verification, service keys, per-user data isolation (RLS)
-- Reliability: TanStack Query caching, crash-safe progress sync, no empty RAG results, graceful degradation
-- Integration: RAG fallback to broader content (NFR17), LLM validation timeout fallback
+- Reliability: TanStack Query caching, crash-safe progress sync, no empty results (structured content eliminates empty RAG risk), graceful degradation
+- Integration: Structured content as primary source eliminates RAG empty-result risk (NFR17), LLM validation timeout fallback
 - Scalability: Azure Container Apps auto-scaling, ~100 question_results rows/user/week
 - Localization: i18n folder with 4 language files
-- AI & RAG Quality: Two-phase validation (rule-based structure + LLM-based content evaluation), evaluator-optimizer retry loop, exercise-type-specific prompts, Traditional Chinese & pinyin enforcement, workbook format compliance
+- AI & RAG Quality: Two-phase validation (rule-based structure + LLM-based content evaluation), evaluator-optimizer retry loop, exercise-type-specific prompts, Traditional Chinese & pinyin enforcement, workbook format compliance, structured content ensures 100% grammar coverage per chapter
 
 ### Implementation Readiness Validation
 
@@ -2525,10 +2649,13 @@ All 31 NFRs addressed architecturally:
 
 | Gap | Resolution |
 |-----|------------|
-| Database schema details | First migration will define 6 tables (users, quiz_attempts, question_results, exercise_type_progress, chapter_progress, daily_activity) |
-| LLM prompt templates per exercise type | 7 distinct prompt templates needed (one per exercise type). Iterate during quiz generation development |
+| Database schema details | Migrations will define user data tables (users, quiz_attempts, question_results, exercise_type_progress, chapter_progress, daily_activity, paused_quizzes) + structured content tables (vocabulary, dialogues, grammar_points, premade_exercises) |
+| Content seeding scripts | Extraction scripts needed for: TSV→vocabulary, chunks→grammar_points, chunks+PDFs→dialogues, workbook chunks→premade_exercises. Run once, then verify. |
+| LLM prompt templates per exercise type | 7 distinct prompt templates needed (one per exercise type). Must reference structured content fields, not raw RAG chunks. Iterate during development. |
 | Content evaluator prompts | `CONTENT_EVALUATION_SYSTEM_PROMPT` and `CONTENT_EVALUATION_PROMPT` need implementation matching the 5-rule evaluation schema |
 | LLM validation prompts | Prompts for Sentence Construction and Dialogue Completion answer evaluation |
+| Grammar coverage validation | `validate_structure` node must verify ALL grammar_points for the chapter are represented in generated quiz questions |
+| Premade exercise quality | Workbook chunk→exercise extraction may need manual review/cleanup for ambiguous exercises |
 | Sound asset files | Use placeholder sounds, replace with final |
 | Weakness profile query optimization | Start with simple aggregation; add indexes if slow at scale |
 
@@ -2538,6 +2665,7 @@ All 31 NFRs addressed architecturally:
 - Performance monitoring (Sentry, LangSmith)
 - Materialized weakness_profiles table if aggregation queries become slow
 - Supabase RPC function for weakness profile (encapsulate SQL)
+- Extend structured content to Books 5-6 (data sources already available)
 
 ### Architecture Completeness Checklist
 
@@ -2545,7 +2673,7 @@ All 31 NFRs addressed architecturally:
 - [x] Project context thoroughly analyzed
 - [x] Scale and complexity assessed (Medium-High, 100 users, 7 exercise types, adaptive learning)
 - [x] Technical constraints identified (Online-only, iOS 13+, Android 21+)
-- [x] Cross-cutting concerns mapped (13 concerns identified including adaptive learning, hybrid validation, exercise type system)
+- [x] Cross-cutting concerns mapped (15 concerns identified including adaptive learning, hybrid validation, exercise type system, request cancellation, quiz pause/resume)
 
 **Architectural Decisions**
 - [x] Critical decisions documented with versions
@@ -2580,6 +2708,8 @@ All 31 NFRs addressed architecturally:
 6. Hybrid answer validation strategy balances UX quality with cost
 7. Adaptive learning pipeline fully specified (weakness profile → quiz biasing → performance tracking → profile update)
 8. Evaluator-optimizer pattern ensures quiz content quality (Traditional Chinese, pinyin diacritics, question language, curriculum alignment) with self-correcting retry loop
+9. Structured content tables provide reliable, consistent curriculum data — eliminates RAG hallucination risk for core exercise content
+10. Premade workbook exercises provide instant, LLM-free practice — reducing costs and latency for users
 
 **Areas for Future Enhancement:**
 1. Database schema refinement based on usage patterns
@@ -2587,6 +2717,7 @@ All 31 NFRs addressed architecturally:
 3. E2E testing infrastructure
 4. Performance monitoring integration
 5. Supabase RPC function for weakness profile aggregation (if direct SQL queries become slow)
+6. Extend structured content to Books 5-6 (data sources available)
 
 ### Implementation Handoff
 
@@ -2608,10 +2739,18 @@ pip install -U "langgraph-cli[inmem]"
 langgraph new --template=new-langgraph-project-python dangdai-api
 
 # 3. Set up Supabase schema
-# (Create tables: users, quiz_attempts, question_results, exercise_type_progress, chapter_progress, daily_activity)
+# User data tables: users, quiz_attempts, question_results, exercise_type_progress, chapter_progress, daily_activity, paused_quizzes
+# Structured content tables: vocabulary, dialogues, grammar_points, premade_exercises
 # (Add indexes on question_results for weakness profile queries)
+# (Add indexes on structured content tables for chapter-based lookups)
 
-# 4. Configure Azure infrastructure
+# 4. Content seeding (run once after schema creation)
+# Parse Flash-card.tsv → vocabulary table (~3,000 items for Books 1-4)
+# Extract grammar from textbook chunks/PDFs → grammar_points table
+# Extract dialogues from textbook chunks/PDFs → dialogues table
+# Restructure workbook chunks → premade_exercises table
+
+# 5. Configure Azure infrastructure
 cd terraform && terraform init && terraform plan
 ```
 
