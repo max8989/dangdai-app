@@ -50,6 +50,9 @@ export const queryKeys = {
 
   // Dialogues (Story 11.7)
   dialogues: (bookId: number, lessonId: number) => ['dialogues', bookId, lessonId] as const,
+
+  // Premade Exercises (Story 3.5)
+  premadeExercises: (bookId: number, lessonId: number) => ['premadeExercises', bookId, lessonId] as const,
 } as const
 
 // Type helper for query key extraction

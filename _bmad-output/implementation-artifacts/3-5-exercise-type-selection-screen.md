@@ -1,6 +1,6 @@
 # Story 3.5: Exercise Type Selection Screen (Premade + AI-Generated)
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -279,10 +279,30 @@ This table may not exist yet if Epic 6 hasn't been implemented. The hook should 
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+anthropic/claude-sonnet-4-6
 
 ### Debug Log References
 
 ### Completion Notes List
 
+- Created exercises.tsx screen with 2-section layout (Workbook + AI-Generated)
+- All 8 exercise type cards rendered in 2-column grid (Mixed + 7 types)
+- Premade section hidden when no exercises exist (graceful 42P01 degradation)
+- Navigation wired: AI types → /quiz/loading, premade → /quiz/premade stub, browse → vocabulary/grammar/dialogues
+- Updated chapter list to navigate to /chapter/[chapterId]/exercises instead of /quiz/[chapterId]
+- Code review fixes: conditional hook call (Rules of Hooks), removed as any cast, stable row keys, optional chaining over non-null assertion
+- 44 new tests passing; 2 pre-existing failures unrelated to this story
+
 ### File List
+
+- dangdai-mobile/app/chapter/[chapterId]/exercises.tsx (created)
+- dangdai-mobile/app/chapter/[chapterId]/exercises.test.tsx (created)
+- dangdai-mobile/components/chapter/ExerciseTypeCard.tsx (created)
+- dangdai-mobile/components/chapter/ExerciseTypeCard.test.tsx (created)
+- dangdai-mobile/components/chapter/PremadeExerciseCard.tsx (created)
+- dangdai-mobile/components/chapter/PremadeExerciseCard.test.tsx (created)
+- dangdai-mobile/hooks/usePremadeExercises.ts (created)
+- dangdai-mobile/app/quiz/premade.tsx (created — stub for Epic 11)
+- dangdai-mobile/app/chapter/[bookId].tsx (modified — navigation updated)
+- dangdai-mobile/app/chapter/[bookId].test.tsx (modified — navigation tests updated)
+- dangdai-mobile/lib/queryKeys.ts (modified — added premadeExercises key)

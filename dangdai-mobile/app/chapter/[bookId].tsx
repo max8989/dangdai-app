@@ -37,7 +37,8 @@ export default function ChapterListScreen() {
   } = useChapterProgress(bookIdNum)
 
   const handleChapterPress = (chapterId: number) => {
-    router.push(`/quiz/${chapterId}`)
+    // Story 3.5: Navigate to exercise type selection screen instead of quiz directly
+    router.push(`/chapter/${chapterId}/exercises`)
   }
 
   return (

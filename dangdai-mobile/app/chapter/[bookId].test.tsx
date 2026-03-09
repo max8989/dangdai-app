@@ -167,7 +167,11 @@ describe('ChapterListScreen', () => {
   })
 
   describe('navigation', () => {
-    it('navigates to quiz when chapter is pressed', () => {
+    /**
+     * Story 3.5: Navigate to exercise type selection screen (updated from Story 3.4)
+     * Chapter list now navigates to /chapter/[chapterId]/exercises instead of /quiz/[chapterId]
+     */
+    it('navigates to exercise type selection when chapter is pressed', () => {
       mockUseChapterProgress.mockReturnValue({
         data: {},
         isLoading: false,
@@ -178,7 +182,7 @@ describe('ChapterListScreen', () => {
 
       fireEvent.press(getByTestId('chapter-list-item-101'))
 
-      expect(mockPush).toHaveBeenCalledWith('/quiz/101')
+      expect(mockPush).toHaveBeenCalledWith('/chapter/101/exercises')
     })
 
     /**
@@ -197,7 +201,7 @@ describe('ChapterListScreen', () => {
       // Navigate to second chapter (102) with no progress on chapter 101
       fireEvent.press(getByTestId('chapter-list-item-102'))
 
-      expect(mockPush).toHaveBeenCalledWith('/quiz/102')
+      expect(mockPush).toHaveBeenCalledWith('/chapter/102/exercises')
     })
 
     it('allows navigation to chapter regardless of progress state', () => {
@@ -212,10 +216,10 @@ describe('ChapterListScreen', () => {
 
       // Both chapters should be navigable
       fireEvent.press(getByTestId('chapter-list-item-101'))
-      expect(mockPush).toHaveBeenNthCalledWith(1, '/quiz/101')
+      expect(mockPush).toHaveBeenNthCalledWith(1, '/chapter/101/exercises')
 
       fireEvent.press(getByTestId('chapter-list-item-102'))
-      expect(mockPush).toHaveBeenNthCalledWith(2, '/quiz/102')
+      expect(mockPush).toHaveBeenNthCalledWith(2, '/chapter/102/exercises')
     })
   })
 
