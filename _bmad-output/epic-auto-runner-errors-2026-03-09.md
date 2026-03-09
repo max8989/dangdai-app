@@ -16,3 +16,36 @@ Involved Epics: 1, 3, 4
 [OK] dev-story 1.9: complete — 373/373 tests passing, 0 new ruff/mypy errors, status→review, commit 379b11c
 [INFO] code-review 1.9 Pass 1: CHANGES REQUESTED — 2 blocking issues (except Exception swallowing CancelledError in nodes.py). Fixes applied automatically.
 [OK] code-review 1.9 Pass 2: APPROVED — all blocking issues resolved, 373/373 tests passing, status→done
+[OK] automate epic-4: 30 E2E tests + 7 unit test edge cases for 4.10b, all unit tests pass, commit 3dabd1f
+[OK] automate epic-3: 34 E2E tests for 3.6/3.7, 52 unit tests pass, commit d7e8b52
+[OK] automate epic-1: 24 integration tests for 1.9, 393/393 tests pass, commit 7c6e4b6
+
+## Summary
+
+**Run completed:** 2026-03-09
+**Stories processed:** 4 in user-specified order
+**Involved epics:** 1, 3, 4
+
+### Execution Order Results
+
+| # | Story ID | Epic | create-story | dev-story | code-review |
+|---|----------|------|-------------|-----------|-------------|
+| 1 | 4.10b | 4 | ⏭️ existed | ✅ OK (140/140 tests) | ✅ APPROVED (5 minor non-blocking notes) |
+| 2 | 3.6 | 3 | ⏭️ existed | ✅ OK (897/899 tests) | ✅ APPROVED |
+| 3 | 3.7 | 3 | ⏭️ existed | ✅ OK (907/908 tests) | ✅ APPROVED |
+| 4 | 1.9 | 1 | ⏭️ existed | ✅ OK (373/373 tests) | ✅ APPROVED (2 blocking fixes applied auto) |
+
+### Epic-Level Results
+
+| Epic | Automate (QA) | Retro | Retro Trigger |
+|------|--------------|-------|---------------|
+| 4 | ✅ OK (30 E2E + 7 unit edge cases) | ⏭️ skipped | not all stories complete (15/16) |
+| 3 | ✅ OK (34 E2E tests) | ✅ done | inline (after story 3.7) |
+| 1 | ✅ OK (24 integration tests) | ⏭️ skipped | not all stories complete (9/11) |
+
+### Totals
+- Stories fully completed: 4/4
+- Stories with failures: 0
+- Epic automate (QA) completed: 3/3
+- Epic retros completed: 1 (inline: 1, catch-up: 0)
+- Epic retros skipped (incomplete): 2 (Epic 1 has 1.1b + 1.8 in review; Epic 4 has 4.14 in ready-for-dev)
