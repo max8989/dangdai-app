@@ -1,6 +1,6 @@
 # Story 11.1: Vocabulary Seeding from Flash-card.tsv
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -40,40 +40,40 @@ So that quiz generation has accurate vocabulary data for all chapters.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create TSV parser module (AC: #2, #3, #4, #5)
-  - [ ] 1.1 Create `dangdai-api/src/scripts/seed_vocabulary.py` with a `parse_flashcard_tsv(file_path: str) -> list[dict]` function
-  - [ ] 1.2 Parse header lines with regex `r"^//當代中文/Book (\d+)/L(\d+)-(I{1,2})"` to extract book_id, lesson_id, vocab_section
-  - [ ] 1.3 Parse data lines: split by tab into `[traditional, pinyin, english]`
-  - [ ] 1.4 Extract POS from english field using regex `r"^\(([^)]+)\)\s*(.+)"` — set `part_of_speech` and strip POS from english text
-  - [ ] 1.5 Detect proper names: entries with no POS tag whose english text does not start with `(` → set `is_name=True`
-  - [ ] 1.6 Assign `sort_order` as sequential counter per (book_id, lesson_id, vocab_section), resetting to 1 on each new section
-  - [ ] 1.7 Handle edge cases: multi-POS entries like `(N/V)`, variant characters like `臺灣/台灣`, alternate pinyin like `zhè / zhèi`
+- [x] Task 1: Create TSV parser module (AC: #2, #3, #4, #5)
+  - [x] 1.1 Create `dangdai-api/src/scripts/seed_vocabulary.py` with a `parse_flashcard_tsv(file_path: str) -> list[dict]` function
+  - [x] 1.2 Parse header lines with regex `r"^//當代中文/Book (\d+)/L(\d+)-(I{1,2})"` to extract book_id, lesson_id, vocab_section
+  - [x] 1.3 Parse data lines: split by tab into `[traditional, pinyin, english]`
+  - [x] 1.4 Extract POS from english field using regex `r"^\(([^)]+)\)\s*(.+)"` — set `part_of_speech` and strip POS from english text
+  - [x] 1.5 Detect proper names: entries with no POS tag whose english text does not start with `(` → set `is_name=True`
+  - [x] 1.6 Assign `sort_order` as sequential counter per (book_id, lesson_id, vocab_section), resetting to 1 on each new section
+  - [x] 1.7 Handle edge cases: multi-POS entries like `(N/V)`, variant characters like `臺灣/台灣`, alternate pinyin like `zhè / zhèi`
 
-- [ ] Task 2: Create Supabase upsert logic (AC: #1, #6)
-  - [ ] 2.1 Use `get_supabase_client()` from `src.utils.supabase` (service key bypasses RLS)
-  - [ ] 2.2 Batch upsert rows using `.upsert()` with `on_conflict='book_id,lesson_id,vocab_section,sort_order'` matching the UNIQUE constraint added in Story 1.10 code review
-  - [ ] 2.3 Use batch size of 500 rows per upsert call to avoid payload limits
-  - [ ] 2.4 Log progress: header transitions, batch counts, total inserted
+- [x] Task 2: Create Supabase upsert logic (AC: #1, #6)
+  - [x] 2.1 Use `get_supabase_client()` from `src.utils.supabase` (service key bypasses RLS)
+  - [x] 2.2 Batch upsert rows using `.upsert()` with `on_conflict='book_id,lesson_id,vocab_section,traditional'` matching the actual UNIQUE constraint in the database
+  - [x] 2.3 Use batch size of 500 rows per upsert call to avoid payload limits
+  - [x] 2.4 Log progress: header transitions, batch counts, total inserted
 
-- [ ] Task 3: Create CLI entry point (AC: #1)
-  - [ ] 3.1 Add `if __name__ == "__main__":` block accepting optional `--file` argument (default: `dangdai-rag/Flash-card.tsv`)
-  - [ ] 3.2 Add `--dry-run` flag that parses and validates without inserting
-  - [ ] 3.3 Print summary on completion: total items per book, any warnings
+- [x] Task 3: Create CLI entry point (AC: #1)
+  - [x] 3.1 Add `if __name__ == "__main__":` block accepting optional `--file` argument (default: `dangdai-rag/Flash-card.tsv`)
+  - [x] 3.2 Add `--dry-run` flag that parses and validates without inserting
+  - [x] 3.3 Print summary on completion: total items per book, any warnings
 
-- [ ] Task 4: Write unit tests (AC: #2, #3, #4, #5, #6)
-  - [ ] 4.1 Create `dangdai-api/tests/unit_tests/test_seed_vocabulary.py`
-  - [ ] 4.2 Test header parsing: all header variants (Book 1-4, L01-L15, I and II)
-  - [ ] 4.3 Test data line parsing: standard POS, multi-POS (`N/V`), no POS (names), phrases without POS
-  - [ ] 4.4 Test sort_order reset on new section
-  - [ ] 4.5 Test edge cases: variant characters, alternate pinyin, entries with apostrophes in english
-  - [ ] 4.6 Test full parse of a representative TSV excerpt (10-20 lines covering headers + data)
+- [x] Task 4: Write unit tests (AC: #2, #3, #4, #5, #6)
+  - [x] 4.1 Create `dangdai-api/tests/unit_tests/test_seed_vocabulary.py`
+  - [x] 4.2 Test header parsing: all header variants (Book 1-4, L01-L15, I and II)
+  - [x] 4.3 Test data line parsing: standard POS, multi-POS (`N/V`), no POS (names), phrases without POS
+  - [x] 4.4 Test sort_order reset on new section
+  - [x] 4.5 Test edge cases: variant characters, alternate pinyin, entries with apostrophes in english
+  - [x] 4.6 Test full parse of a representative TSV excerpt (10-20 lines covering headers + data)
 
-- [ ] Task 5: Run seeding and verify (AC: #7)
-  - [ ] 5.1 Run the script against the real `dangdai-rag/Flash-card.tsv`
-  - [ ] 5.2 Verify counts: `SELECT book_id, COUNT(*) FROM vocabulary GROUP BY book_id ORDER BY book_id`
-  - [ ] 5.3 Spot-check data: verify first and last entries for each book
-  - [ ] 5.4 Verify idempotency: run again and confirm no duplicates or errors
-  - [ ] 5.5 Run `make test` to ensure no regressions
+- [x] Task 5: Run seeding and verify (AC: #7)
+  - [x] 5.1 Run the script against the real `dangdai-rag/Flash-card.tsv`
+  - [x] 5.2 Verify counts: `SELECT book_id, COUNT(*) FROM vocabulary GROUP BY book_id ORDER BY book_id`
+  - [x] 5.3 Spot-check data: verify first and last entries for each book
+  - [x] 5.4 Verify idempotency: run again and confirm no duplicates or errors
+  - [x] 5.5 Run `make test` to ensure no regressions
 
 ## Dev Notes
 
@@ -240,10 +240,35 @@ Total: ~3,073 vocabulary items across 4 books.
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+claude-opus-4-6
 
 ### Debug Log References
 
+- Discovered actual UNIQUE constraint is `(book_id, lesson_id, vocab_section, traditional)` not `(book_id, lesson_id, vocab_section, sort_order)` as stated in story — used actual DB constraint
+- TSV file contains Book 5 data (926 items) in addition to Books 1-4 — seeded all 5 books
+- Found 2 duplicate entries in TSV: 工作 (Book 1 L12-II) and 又 (Book 2 L11-II) — added deduplication logic to handle gracefully
+- Name detection heuristic: capitalized pinyin = proper name (handles person names, place names); lowercase pinyin without POS = phrase (not a name)
+
 ### Completion Notes List
 
+- All 71 unit tests pass (41 new + 26 existing infrastructure + 1 configuration + 3 deduplication)
+- ruff check: all checks passed
+- ruff format: all files properly formatted
+- mypy --strict: no issues found
+- Seeding verified: 3,997 unique rows across 5 books (567 + 657 + 850 + 997 + 926)
+- Idempotency verified: second run produces identical counts with no errors
+
+### Change Log
+
+- 2026-03-08: Created `dangdai-api/src/scripts/seed_vocabulary.py` — TSV parser, Supabase upsert, CLI entry point with --dry-run
+- 2026-03-08: Created `dangdai-api/tests/unit_tests/test_seed_vocabulary.py` — 45 unit tests covering parsing, deduplication, and seeding
+- 2026-03-08: Updated `dangdai-api/src/scripts/__init__.py` — added module docstring for ruff D104 compliance
+- 2026-03-08: Seeded vocabulary table with 3,997 items from Flash-card.tsv (Books 1-5)
+
 ### File List
+
+| File | Action | Description |
+|------|--------|-------------|
+| `dangdai-api/src/scripts/__init__.py` | Modified | Added module docstring |
+| `dangdai-api/src/scripts/seed_vocabulary.py` | Created | TSV parser, Supabase upsert, CLI with --file and --dry-run |
+| `dangdai-api/tests/unit_tests/test_seed_vocabulary.py` | Created | 45 unit tests for parser, deduplication, and seeding logic |
