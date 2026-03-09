@@ -1,6 +1,6 @@
 # Story 1.9: Request Cancellation for Backend Endpoints
 
-Status: review
+Status: done
 
 ## Story
 
@@ -476,3 +476,82 @@ All 373 tests pass after fixes. Ruff clean (pre-existing `F821` in `conftest.py`
 |------|--------|--------|
 | 2026-03-09 | Senior Dev (AI) | Review: CHANGES REQUESTED — 2 blocking issues (except Exception swallowing CancelledError in generate_quiz and evaluate_content nodes) |
 | 2026-03-09 | DEV Agent | Fixed BLOCK-1, BLOCK-2, WARN-1: added `except asyncio.CancelledError: raise` in nodes.py (generate_quiz, evaluate_content) and quizzes.py (both route handlers) |
+| 2026-03-09 | Senior Dev (AI) | Review Pass 2: APPROVED — all blocking and warning fixes verified, story marked done |
+
+## Senior Developer Review (AI) — Pass 2
+
+### Reviewer: Senior Dev (AI)
+### Date: 2026-03-09
+### Outcome: ✅ APPROVED
+
+---
+
+### Verification of Fixes
+
+All three issues from Pass 1 have been correctly resolved. Verified by direct inspection of source files:
+
+#### ✅ BLOCK-1 Resolved — `generate_quiz` node (`nodes.py` lines 283–285)
+
+```python
+    except asyncio.CancelledError:
+        raise  # Do NOT swallow — let cancellation propagate
+    except Exception as e:
+```
+
+`except asyncio.CancelledError: raise` is present and comes BEFORE `except Exception`. A `CancelledError` raised mid-LLM-call during `await llm.ainvoke(messages)` will now propagate correctly instead of being swallowed and returned as a failed-generation result.
+
+#### ✅ BLOCK-2 Resolved — `evaluate_content` node (`nodes.py` lines 564–566)
+
+```python
+    except asyncio.CancelledError:
+        raise  # Do NOT swallow — let cancellation propagate
+    except Exception as e:
+```
+
+Same fix applied to the evaluator node. A `CancelledError` raised during the evaluator LLM call will now propagate instead of being silently converted to a "defaulting to PASS" result.
+
+#### ✅ WARN-1 Resolved — Route handlers (`quizzes.py` lines 125–127 and 191–193)
+
+Both `generate_quiz` and `validate_answer` route handlers now have:
+```python
+    except asyncio.CancelledError:
+        raise  # Do NOT swallow — let cancellation propagate
+    except Exception:
+        ...
+        raise HTTPException(status_code=500, ...)
+```
+
+`import asyncio` is present at the top of `quizzes.py` (line 9). Defensive clarity is achieved — cancellation can never be accidentally converted to a 500 HTTPException.
+
+---
+
+### Scan for Remaining `except Exception` Risks
+
+Scanned all modified files for `except Exception` blocks that could swallow `CancelledError`:
+
+| File | `except Exception` locations | Risk |
+|------|------------------------------|------|
+| `nodes.py` | Lines 285, 566 | ✅ Guarded by `except asyncio.CancelledError: raise` immediately above |
+| `quizzes.py` | Lines 127, 193 | ✅ Guarded by `except asyncio.CancelledError: raise` immediately above |
+| `quiz_service.py` | None | ✅ Only catches `asyncio.CancelledError` and `asyncio.TimeoutError` explicitly |
+| `validation_service.py` | None | ✅ Only catches `asyncio.CancelledError` and `asyncio.TimeoutError` explicitly |
+
+Remaining `except Exception` blocks in `scripts/`, `middleware.py`, `dependencies.py`, and `performance_repo.py` are pre-existing, out of scope for this story, and not in async LLM/graph execution paths.
+
+---
+
+### Final Checklist
+
+| # | Check | Result |
+|---|-------|--------|
+| 1 | BLOCK-1: `except asyncio.CancelledError: raise` before `except Exception` in `generate_quiz` node | ✅ VERIFIED |
+| 2 | BLOCK-2: `except asyncio.CancelledError: raise` before `except Exception` in `evaluate_content` node | ✅ VERIFIED |
+| 3 | WARN-1: Both route handlers guard `except Exception` with `except asyncio.CancelledError: raise` | ✅ VERIFIED |
+| 4 | No other `except Exception` in modified files can swallow `CancelledError` | ✅ VERIFIED |
+| 5 | `request.is_disconnected()` checks BEFORE expensive LLM calls in all 4 nodes | ✅ VERIFIED |
+| 6 | Service layer catches, logs at INFO, and re-raises `CancelledError` | ✅ VERIFIED |
+| 7 | Health endpoint unchanged | ✅ VERIFIED (not modified) |
+| 8 | 373/373 tests passing | ✅ CONFIRMED (per dev agent record) |
+| 9 | Ruff clean on modified files (1 pre-existing unrelated error) | ✅ CONFIRMED |
+
+**Story 1.9 is APPROVED and marked done.**
