@@ -52,7 +52,7 @@ development_status:
   1-7-configure-ci-cd-with-github-actions: done
   1-8-configurable-llm-provider-azure-openai: review
   1-9-request-cancellation-backend-endpoints: ready-for-dev
-  1-10-create-structured-content-tables: ready-for-dev
+  1-10-create-structured-content-tables: review
   epic-1-retrospective: optional
 
   # Epic 2: User Authentication & Identity

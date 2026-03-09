@@ -113,6 +113,39 @@ export type Database = {
         }
         Relationships: []
       }
+      dialogues: {
+        Row: {
+          book_id: number
+          created_at: string
+          dialogue_number: number
+          id: string
+          lesson_id: number
+          lines: Json
+          title_english: string | null
+          title_traditional: string | null
+        }
+        Insert: {
+          book_id: number
+          created_at?: string
+          dialogue_number: number
+          id?: string
+          lesson_id: number
+          lines?: Json
+          title_english?: string | null
+          title_traditional?: string | null
+        }
+        Update: {
+          book_id?: number
+          created_at?: string
+          dialogue_number?: number
+          id?: string
+          lesson_id?: number
+          lines?: Json
+          title_english?: string | null
+          title_traditional?: string | null
+        }
+        Relationships: []
+      }
       exercise_type_progress: {
         Row: {
           attempts_count: number
@@ -143,6 +176,129 @@ export type Database = {
           mastered_at?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      grammar_points: {
+        Row: {
+          book_id: number
+          created_at: string
+          examples: Json
+          function_description: string | null
+          grammar_order: number
+          id: string
+          lesson_id: number
+          sort_order: number
+          structure_pattern: string | null
+          title_chinese: string | null
+          title_english: string
+          usage_notes: string | null
+        }
+        Insert: {
+          book_id: number
+          created_at?: string
+          examples?: Json
+          function_description?: string | null
+          grammar_order: number
+          id?: string
+          lesson_id: number
+          sort_order: number
+          structure_pattern?: string | null
+          title_chinese?: string | null
+          title_english: string
+          usage_notes?: string | null
+        }
+        Update: {
+          book_id?: number
+          created_at?: string
+          examples?: Json
+          function_description?: string | null
+          grammar_order?: number
+          id?: string
+          lesson_id?: number
+          sort_order?: number
+          structure_pattern?: string | null
+          title_chinese?: string | null
+          title_english?: string
+          usage_notes?: string | null
+        }
+        Relationships: []
+      }
+      paused_quizzes: {
+        Row: {
+          chapter_id: number
+          created_at: string
+          exercise_type: string
+          expires_at: string
+          id: string
+          paused_at: string
+          quiz_state: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          chapter_id: number
+          created_at?: string
+          exercise_type: string
+          expires_at?: string
+          id?: string
+          paused_at?: string
+          quiz_state: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          chapter_id?: number
+          created_at?: string
+          exercise_type?: string
+          expires_at?: string
+          id?: string
+          paused_at?: string
+          quiz_state?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      premade_exercises: {
+        Row: {
+          book_id: number
+          content: Json
+          created_at: string
+          difficulty: string | null
+          exercise_order: number
+          exercise_type: string
+          id: string
+          instructions: string | null
+          lesson_id: number
+          source_page_range: string | null
+          title: string | null
+        }
+        Insert: {
+          book_id: number
+          content?: Json
+          created_at?: string
+          difficulty?: string | null
+          exercise_order: number
+          exercise_type: string
+          id?: string
+          instructions?: string | null
+          lesson_id: number
+          source_page_range?: string | null
+          title?: string | null
+        }
+        Update: {
+          book_id?: number
+          content?: Json
+          created_at?: string
+          difficulty?: string | null
+          exercise_order?: number
+          exercise_type?: string
+          id?: string
+          instructions?: string | null
+          lesson_id?: number
+          source_page_range?: string | null
+          title?: string | null
         }
         Relationships: []
       }
@@ -251,6 +407,48 @@ export type Database = {
           streak_updated_at?: string | null
           total_points?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      vocabulary: {
+        Row: {
+          book_id: number
+          created_at: string
+          english: string
+          id: string
+          is_name: boolean
+          lesson_id: number
+          part_of_speech: string | null
+          pinyin: string
+          sort_order: number
+          traditional: string
+          vocab_section: string
+        }
+        Insert: {
+          book_id: number
+          created_at?: string
+          english: string
+          id?: string
+          is_name?: boolean
+          lesson_id: number
+          part_of_speech?: string | null
+          pinyin: string
+          sort_order: number
+          traditional: string
+          vocab_section: string
+        }
+        Update: {
+          book_id?: number
+          created_at?: string
+          english?: string
+          id?: string
+          is_name?: boolean
+          lesson_id?: number
+          part_of_speech?: string | null
+          pinyin?: string
+          sort_order?: number
+          traditional?: string
+          vocab_section?: string
         }
         Relationships: []
       }

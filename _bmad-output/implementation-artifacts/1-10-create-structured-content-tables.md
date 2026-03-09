@@ -1,6 +1,6 @@
 # Story 1.10: Create Structured Content Tables and Additional Schema
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -42,36 +42,36 @@ So that curriculum data can be seeded and quiz generation can use structured con
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create structured content tables migration (AC: #1, #2, #3, #4)
-  - [ ] 1.1 Create `vocabulary` table with all columns and proper types
-  - [ ] 1.2 Create `dialogues` table with JSONB `lines` column
-  - [ ] 1.3 Create `grammar_points` table with JSONB `examples` column
-  - [ ] 1.4 Create `premade_exercises` table with JSONB `content` column
-  - [ ] 1.5 Add CHECK constraints on exercise_type ENUM values
+- [x] Task 1: Create structured content tables migration (AC: #1, #2, #3, #4)
+  - [x] 1.1 Create `vocabulary` table with all columns and proper types
+  - [x] 1.2 Create `dialogues` table with JSONB `lines` column
+  - [x] 1.3 Create `grammar_points` table with JSONB `examples` column
+  - [x] 1.4 Create `premade_exercises` table with JSONB `content` column
+  - [x] 1.5 Add CHECK constraints on exercise_type ENUM values
 
-- [ ] Task 2: Create paused_quizzes table (AC: #5)
-  - [ ] 2.1 Create `paused_quizzes` table with JSONB `quiz_state` column
-  - [ ] 2.2 Add UNIQUE constraint on (user_id, chapter_id, exercise_type)
-  - [ ] 2.3 Add foreign key to auth.users(id) with ON DELETE CASCADE
-  - [ ] 2.4 Add default expressions for paused_at and expires_at (NOW() + 7 days)
+- [x] Task 2: Create paused_quizzes table (AC: #5)
+  - [x] 2.1 Create `paused_quizzes` table with JSONB `quiz_state` column
+  - [x] 2.2 Add UNIQUE constraint on (user_id, chapter_id, exercise_type)
+  - [x] 2.3 Add foreign key to auth.users(id) with ON DELETE CASCADE
+  - [x] 2.4 Add default expressions for paused_at and expires_at (NOW() + 7 days)
 
-- [ ] Task 3: Create indexes (AC: #6)
-  - [ ] 3.1 Add composite indexes on structured content tables (book_id, lesson_id)
-  - [ ] 3.2 Add index on premade_exercises(book_id, lesson_id, exercise_type)
-  - [ ] 3.3 Add index on paused_quizzes(user_id) and paused_quizzes(expires_at)
-  - [ ] 3.4 Add index on vocabulary(traditional) for lookup queries
+- [x] Task 3: Create indexes (AC: #6)
+  - [x] 3.1 Add composite indexes on structured content tables (book_id, lesson_id)
+  - [x] 3.2 Add index on premade_exercises(book_id, lesson_id, exercise_type)
+  - [x] 3.3 Add index on paused_quizzes(user_id) and paused_quizzes(expires_at)
+  - [x] 3.4 Add index on vocabulary(traditional) for lookup queries
 
-- [ ] Task 4: Configure Row Level Security (AC: #7)
-  - [ ] 4.1 Enable RLS on vocabulary, dialogues, grammar_points, premade_exercises
-  - [ ] 4.2 Create read-only SELECT policy for authenticated users on content tables
-  - [ ] 4.3 Enable RLS on paused_quizzes with SELECT/INSERT/UPDATE/DELETE policies for own data
-  - [ ] 4.4 Use optimized `(select auth.uid())` subquery pattern for all policies
+- [x] Task 4: Configure Row Level Security (AC: #7)
+  - [x] 4.1 Enable RLS on vocabulary, dialogues, grammar_points, premade_exercises
+  - [x] 4.2 Create read-only SELECT policy for authenticated users on content tables
+  - [x] 4.3 Enable RLS on paused_quizzes with SELECT/INSERT/UPDATE/DELETE policies for own data
+  - [x] 4.4 Use optimized `(select auth.uid())` subquery pattern for all policies
 
-- [ ] Task 5: Apply migration and verify (AC: all)
-  - [ ] 5.1 Apply migration via Supabase MCP `apply_migration` tool
-  - [ ] 5.2 Verify all tables exist with correct columns using `list_tables`
-  - [ ] 5.3 Run security and performance advisors
-  - [ ] 5.4 Generate updated TypeScript types via `generate_typescript_types`
+- [x] Task 5: Apply migration and verify (AC: all)
+  - [x] 5.1 Apply migration via Supabase MCP `apply_migration` tool
+  - [x] 5.2 Verify all tables exist with correct columns using `list_tables`
+  - [x] 5.3 Run security and performance advisors
+  - [x] 5.4 Generate updated TypeScript types via `generate_typescript_types`
 
 ## Dev Notes
 
@@ -341,10 +341,33 @@ After migration, run `generate_typescript_types` to update `dangdai-mobile/types
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude claude-opus-4-6 (anthropic/claude-opus-4-6)
 
 ### Debug Log References
 
+- Initial RLS policies on content tables used `auth.role()` directly, which triggered `auth_rls_initplan` performance warnings. Applied fix migration `fix_content_rls_initplan` to use `(select auth.role())` subquery pattern.
+- Pre-existing test failures in `CompletionScreen.test.tsx` (2 tests) confirmed unrelated to this story — same failures on stashed baseline.
+
 ### Completion Notes List
 
+- ✅ Applied migration `create_structured_content_tables` via Supabase MCP — created all 5 tables (vocabulary, dialogues, grammar_points, premade_exercises, paused_quizzes) in a single migration
+- ✅ Applied fix migration `fix_content_rls_initplan` to optimize RLS policies on content tables (use `(select auth.role())` instead of `auth.role()`)
+- ✅ All tables verified with correct columns, types, CHECK constraints, JSONB defaults
+- ✅ All 13 indexes verified (7 custom + 5 PKs + 1 unique constraint)
+- ✅ RLS enabled on all 5 tables with correct policies: read-only SELECT for content tables, full CRUD for paused_quizzes (own data only)
+- ✅ paused_quizzes: FK to auth.users(id) ON DELETE CASCADE, UNIQUE(user_id, chapter_id, exercise_type), updated_at trigger reusing handle_updated_at()
+- ✅ TypeScript types regenerated and written to `dangdai-mobile/types/supabase.ts` — includes all 5 new table types
+- ✅ Security advisors: no new issues from this story (pre-existing: vector extension in public schema, leaked password protection disabled)
+- ✅ Performance advisors: all `auth_rls_initplan` warnings for our tables resolved after fix migration; unused_index INFO warnings expected on fresh empty tables
+- ✅ TypeScript type checking passes (0 errors)
+- ✅ All 727/729 tests pass (2 pre-existing failures in CompletionScreen unrelated to this story)
+
+### Change Log
+
+- 2026-03-08: Applied `create_structured_content_tables` migration — 5 new tables, 13 indexes, RLS policies
+- 2026-03-08: Applied `fix_content_rls_initplan` migration — optimized content table RLS to use subquery pattern
+- 2026-03-08: Updated `dangdai-mobile/types/supabase.ts` with generated types for new tables
+
 ### File List
+
+- `dangdai-mobile/types/supabase.ts` — Updated with generated TypeScript types for vocabulary, dialogues, grammar_points, premade_exercises, paused_quizzes tables
