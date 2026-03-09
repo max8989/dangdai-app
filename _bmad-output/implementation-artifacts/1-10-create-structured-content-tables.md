@@ -1,6 +1,6 @@
 # Story 1.10: Create Structured Content Tables and Additional Schema
 
-Status: review
+Status: done
 
 ## Story
 
@@ -65,7 +65,7 @@ So that curriculum data can be seeded and quiz generation can use structured con
   - [x] 4.1 Enable RLS on vocabulary, dialogues, grammar_points, premade_exercises
   - [x] 4.2 Create read-only SELECT policy for authenticated users on content tables
   - [x] 4.3 Enable RLS on paused_quizzes with SELECT/INSERT/UPDATE/DELETE policies for own data
-  - [x] 4.4 Use optimized `(select auth.uid())` subquery pattern for all policies
+  - [x] 4.4 Use optimized subquery pattern for all policies: `(select auth.uid())` for user-specific tables, `(select auth.role())` for content tables
 
 - [x] Task 5: Apply migration and verify (AC: all)
   - [x] 5.1 Apply migration via Supabase MCP `apply_migration` tool
@@ -367,7 +367,30 @@ Claude claude-opus-4-6 (anthropic/claude-opus-4-6)
 - 2026-03-08: Applied `create_structured_content_tables` migration — 5 new tables, 13 indexes, RLS policies
 - 2026-03-08: Applied `fix_content_rls_initplan` migration — optimized content table RLS to use subquery pattern
 - 2026-03-08: Updated `dangdai-mobile/types/supabase.ts` with generated types for new tables
+- 2026-03-08: **[Code Review]** Applied `fix_legacy_rls_initplan` migration — fixed 13 pre-existing `auth_rls_initplan` performance warnings on Story 1.3 tables (chapter_progress, exercise_type_progress, question_results, quiz_attempts)
+- 2026-03-08: **[Code Review]** Applied `add_content_uniqueness_constraints` migration — added UNIQUE constraints on all 4 content tables for seeding idempotency
+- 2026-03-08: **[Code Review]** Removed extraneous `package-lock.json` (project uses yarn); added to `.gitignore`
+- 2026-03-08: **[Code Review]** Fixed task 4.4 description to accurately distinguish `auth.uid()` vs `auth.role()` pattern usage
 
 ### File List
 
 - `dangdai-mobile/types/supabase.ts` — Updated with generated TypeScript types for vocabulary, dialogues, grammar_points, premade_exercises, paused_quizzes tables
+- `dangdai-mobile/.gitignore` — Added `package-lock.json` to prevent dual lock file conflicts (project uses yarn)
+
+### Senior Developer Review (AI)
+
+**Reviewer:** Maxime | **Date:** 2026-03-08 | **Outcome:** Approved with fixes applied
+
+**Issues Found:** 0 Critical, 3 High, 3 Medium, 2 Low
+
+**Fixes Applied (6):**
+1. **[H1] Task 4.4 description misleading** — Updated to distinguish `(select auth.uid())` for user tables vs `(select auth.role())` for content tables
+2. **[H2] Dual lock file conflict** — Removed `package-lock.json`, added to `.gitignore` (CI uses yarn)
+3. **[H3] Incomplete File List** — Updated to include all changed files
+4. **[M1] Pre-existing auth_rls_initplan warnings** — Applied `fix_legacy_rls_initplan` migration fixing 13 policies on 4 tables from Story 1.3
+5. **[M2] No updated_at on content tables** — Documented as acceptable: content tables are read-only, seeded once, no audit trail needed
+6. **[M3] No uniqueness constraints on content tables** — Applied `add_content_uniqueness_constraints` migration adding UNIQUE constraints on all 4 content tables
+
+**Not Fixed (2 Low):**
+- **[L1]** `daily_activity` anti-pattern note references non-existent table — cosmetic, no impact
+- **[L2]** Terse commit message (`dev story 1.10`) — informational only, no retroactive fix needed

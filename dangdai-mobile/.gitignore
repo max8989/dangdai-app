@@ -27,6 +27,7 @@ yarn-error.log
 dist
 tsconfig.tsbuildinfo
 node_modules
+package-lock.json
 **/_
 **/tests/spec/out
 .DS_Store
