@@ -74,7 +74,7 @@ development_status:
   3-5-exercise-type-selection-screen: done
   3-6-expand-book-selection-to-books-1-4: done
   3-7-wire-browse-screen-navigation: done
-  epic-3-retrospective: optional
+  epic-3-retrospective: done
 
   # Epic 4: Quiz Experience & Exercise Types
   epic-4: in-progress
