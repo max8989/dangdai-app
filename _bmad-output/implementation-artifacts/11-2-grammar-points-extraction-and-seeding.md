@@ -1,6 +1,6 @@
 # Story 11.2: Grammar Points Extraction and Seeding
 
-Status: review
+Status: done
 
 ## Story
 
@@ -161,7 +161,7 @@ CREATE TABLE public.grammar_points (
 ]
 ```
 
-**UNIQUE constraint** (from Story 1.10 code review): `UNIQUE (book_id, lesson_id, grammar_order, sort_order)`
+**UNIQUE constraint** (from Story 1.10 code review): `UNIQUE (book_id, lesson_id, grammar_order)`
 
 ### Expected Counts
 
@@ -243,3 +243,27 @@ claude-opus-4-6
 ## Change Log
 
 - **2026-03-08**: Created `seed_grammar_points.py` with LLM-assisted extraction, chunk filtering, validation, grammar_order assignment, batch upsert, and CLI entry point. Created 28 unit tests covering all public functions. All 102 unit tests pass. Lint clean.
+- **2026-03-08**: **[Code Review]** Fixed `process_chunks` to lazily create LLM instance (dry-run no longer requires API keys). Fixed markdown code block stripping to only remove first/last markers. Added example structure validation in `validate_grammar_point`. Added 9 new tests for `extract_grammar_points_llm` and example validation. Fixed incorrect UNIQUE constraint documentation. All 37 unit tests pass. Lint clean.
+
+## Senior Developer Review (AI)
+
+**Reviewer:** claude-opus-4-6 | **Date:** 2026-03-08 | **Outcome:** Approved with fixes applied
+
+**Issues Found:** 0 Critical, 3 High, 3 Medium, 1 Low
+
+**Fixes Applied (6):**
+1. **[H1] `process_chunks` creates LLM even in dry_run mode** — `get_llm()` was called unconditionally at function entry, meaning `--dry-run` would fail without LLM API keys. Fixed: LLM instance is now created lazily on first non-dry-run extraction.
+2. **[H2] No test coverage for `extract_grammar_points_llm`** — The most complex function (LLM extraction, JSON parsing, markdown stripping, validation) had zero tests. Fixed: Added 8 tests covering valid extraction, markdown code blocks, invalid point filtering, non-list responses, invalid JSON, LLM exceptions, missing examples, and string response fallback.
+3. **[H3] Incorrect UNIQUE constraint in story documentation** — Story file line 164 documented `UNIQUE (book_id, lesson_id, grammar_order, sort_order)` but actual DB constraint is `UNIQUE (book_id, lesson_id, grammar_order)`. Code was correct; documentation was wrong. Fixed: Updated story documentation.
+4. **[M1] Markdown code block stripping was fragile** — The code filtered ALL lines starting with ``` which could remove legitimate content. Fixed: Now only strips the first line (opening marker) and last line if it's a closing ```.
+5. **[M2] `validate_grammar_point` didn't validate example structure** — Each example should be a dict per the schema, but validation only checked that `examples` is a list. Non-dict examples (strings, ints) would be silently inserted. Fixed: Added per-element dict type check. Added test.
+6. **[M3] `sort_order` always equals `grammar_order`** — AC #5 mentions both fields preserving order, but `assign_grammar_order` sets both to the same value. Documented as acceptable: the DB schema has both columns, and for this seeding use case they are equivalent. If cross-lesson global ordering is needed later, `sort_order` can be updated independently.
+
+**Not Fixed (1 Low):**
+- **[L1]** `--use-pdf` flag is a placeholder (logs warning, not implemented) — Acceptable per story notes; PDF extraction is a future enhancement when OCR quality is insufficient.
+
+**Verification:**
+- 37/37 unit tests pass (9 new tests added)
+- `ruff check`: All checks passed
+- `ruff format`: All files formatted
+- UNIQUE constraint verified against live Supabase DB: `UNIQUE (book_id, lesson_id, grammar_order)` — matches code

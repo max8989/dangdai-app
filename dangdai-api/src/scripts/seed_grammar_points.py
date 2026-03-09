@@ -118,6 +118,12 @@ def validate_grammar_point(point: dict[str, Any]) -> bool:
     if examples is not None and not isinstance(examples, list):
         return False
 
+    # Validate example structure if examples are provided
+    if isinstance(examples, list):
+        for example in examples:
+            if not isinstance(example, dict):
+                return False
+
     return True
 
 
@@ -158,10 +164,13 @@ def extract_grammar_points_llm(
         # Extract JSON from response (handle markdown code blocks)
         json_text = response_text.strip()
         if json_text.startswith("```"):
-            # Remove markdown code block markers
+            # Remove opening and closing markdown code block markers only
             lines = json_text.split("\n")
-            # Remove first line (```json or ```) and last line (```)
-            lines = [line for line in lines if not line.strip().startswith("```")]
+            # Remove first line (```json or ```)
+            lines = lines[1:]
+            # Remove last line if it's a closing ```
+            if lines and lines[-1].strip() == "```":
+                lines = lines[:-1]
             json_text = "\n".join(lines)
 
         points = json.loads(json_text)
@@ -300,8 +309,6 @@ def process_chunks(
     Returns:
         List of grammar point dictionaries ready for database insertion.
     """
-    from src.utils.llm_factory import get_llm
-
     chunks_path = Path(chunks_dir)
     all_points: list[dict[str, Any]] = []
 
@@ -311,8 +318,8 @@ def process_chunks(
     else:
         book_ids = [1, 2, 3, 4]
 
-    # Create LLM instance once for all extractions
-    llm = get_llm(temperature=0.0, max_tokens=4096)
+    # Create LLM instance lazily (only when needed for extraction)
+    llm = None
 
     for bid in book_ids:
         chunk_file = chunks_path / f"book{bid}_chunks.json"
@@ -371,6 +378,11 @@ def process_chunks(
                 )
 
                 if not dry_run:
+                    if llm is None:
+                        from src.utils.llm_factory import get_llm
+
+                        llm = get_llm(temperature=0.0, max_tokens=4096)
+
                     points = extract_grammar_points_llm(chunk, llm=llm)
                     for point in points:
                         point["book_id"] = bid

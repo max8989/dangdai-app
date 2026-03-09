@@ -7,6 +7,7 @@ import pytest
 
 from src.scripts.seed_grammar_points import (
     assign_grammar_order,
+    extract_grammar_points_llm,
     filter_grammar_chunks,
     load_chunks,
     seed_grammar_points,
@@ -437,6 +438,117 @@ class TestSeedGrammarPoints:
             seed_grammar_points(rows)
 
 
+# ── Test: extract_grammar_points_llm ───────────────────────────────────
+
+
+class TestExtractGrammarPointsLlm:
+    """Tests for LLM-based grammar point extraction."""
+
+    def test_extracts_valid_grammar_points(self):
+        mock_llm = MagicMock()
+        mock_llm.invoke.return_value = MagicMock(
+            content=json.dumps(
+                [
+                    {
+                        "title_english": "A-not-A Questions",
+                        "title_chinese": "正反問句",
+                        "function_description": "Used to form yes/no questions",
+                        "structure_pattern": "S + V-not-V + O?",
+                        "usage_notes": "Common in spoken Chinese",
+                        "examples": [
+                            {
+                                "traditional": "你是不是學生？",
+                                "pinyin": "Nǐ shì bú shì xuéshēng?",
+                                "english": "Are you a student?",
+                            }
+                        ],
+                    }
+                ]
+            )
+        )
+
+        result = extract_grammar_points_llm(GRAMMAR_CHUNK_BOOK1_L1, llm=mock_llm)
+        assert len(result) == 1
+        assert result[0]["title_english"] == "A-not-A Questions"
+        assert result[0]["title_chinese"] == "正反問句"
+        assert len(result[0]["examples"]) == 1
+
+    def test_handles_markdown_code_blocks(self):
+        mock_llm = MagicMock()
+        mock_llm.invoke.return_value = MagicMock(
+            content='```json\n[{"title_english": "Test Point", "examples": []}]\n```'
+        )
+
+        result = extract_grammar_points_llm(GRAMMAR_CHUNK_BOOK1_L1, llm=mock_llm)
+        assert len(result) == 1
+        assert result[0]["title_english"] == "Test Point"
+
+    def test_filters_invalid_points(self):
+        mock_llm = MagicMock()
+        mock_llm.invoke.return_value = MagicMock(
+            content=json.dumps(
+                [
+                    {"title_english": "Valid Point", "examples": []},
+                    {"title_english": "", "examples": []},
+                    {"title_chinese": "No English Title", "examples": []},
+                ]
+            )
+        )
+
+        result = extract_grammar_points_llm(GRAMMAR_CHUNK_BOOK1_L1, llm=mock_llm)
+        assert len(result) == 1
+        assert result[0]["title_english"] == "Valid Point"
+
+    def test_handles_non_list_response(self):
+        mock_llm = MagicMock()
+        mock_llm.invoke.return_value = MagicMock(
+            content=json.dumps({"title_english": "Single Point", "examples": []})
+        )
+
+        result = extract_grammar_points_llm(GRAMMAR_CHUNK_BOOK1_L1, llm=mock_llm)
+        assert len(result) == 1
+        assert result[0]["title_english"] == "Single Point"
+
+    def test_returns_empty_on_invalid_json(self):
+        mock_llm = MagicMock()
+        mock_llm.invoke.return_value = MagicMock(content="not valid json at all")
+
+        result = extract_grammar_points_llm(GRAMMAR_CHUNK_BOOK1_L1, llm=mock_llm)
+        assert result == []
+
+    def test_returns_empty_on_llm_exception(self):
+        mock_llm = MagicMock()
+        mock_llm.invoke.side_effect = RuntimeError("API error")
+
+        result = extract_grammar_points_llm(GRAMMAR_CHUNK_BOOK1_L1, llm=mock_llm)
+        assert result == []
+
+    def test_defaults_missing_examples_to_empty_list(self):
+        mock_llm = MagicMock()
+        mock_llm.invoke.return_value = MagicMock(
+            content=json.dumps(
+                [
+                    {"title_english": "No Examples Point"},
+                ]
+            )
+        )
+
+        result = extract_grammar_points_llm(GRAMMAR_CHUNK_BOOK1_L1, llm=mock_llm)
+        assert len(result) == 1
+        assert result[0]["examples"] == []
+
+    def test_handles_string_response_without_content_attr(self):
+        mock_llm = MagicMock()
+        # Return a plain string (no .content attribute) to test str() fallback
+        mock_llm.invoke.return_value = json.dumps(
+            [{"title_english": "String Response", "examples": []}]
+        )
+
+        result = extract_grammar_points_llm(GRAMMAR_CHUNK_BOOK1_L1, llm=mock_llm)
+        assert len(result) == 1
+        assert result[0]["title_english"] == "String Response"
+
+
 # ── Test: Malformed content handling ───────────────────────────────────
 
 
@@ -469,3 +581,10 @@ class TestMalformedContent:
             ],
         }
         assert validate_grammar_point(point) is True
+
+    def test_validate_rejects_non_dict_examples(self):
+        point = {
+            "title_english": "A-not-A Questions",
+            "examples": ["not a dict", "also not a dict"],
+        }
+        assert validate_grammar_point(point) is False
