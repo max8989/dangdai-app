@@ -150,7 +150,7 @@ development_status:
 
   # Epic 11: Content Seeding & Structured Data Pipeline
   epic-11: in-progress
-  11-1-vocabulary-seeding-from-flash-card-tsv: review
+  11-1-vocabulary-seeding-from-flash-card-tsv: done
   11-2-grammar-points-extraction-and-seeding: ready-for-dev
   11-3-dialogue-extraction-and-seeding: ready-for-dev
   11-4-premade-workbook-exercise-seeding: ready-for-dev

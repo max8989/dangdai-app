@@ -1,6 +1,6 @@
 # Story 11.1: Vocabulary Seeding from Flash-card.tsv
 
-Status: review
+Status: done
 
 ## Story
 
@@ -264,6 +264,7 @@ claude-opus-4-6
 - 2026-03-08: Created `dangdai-api/tests/unit_tests/test_seed_vocabulary.py` — 45 unit tests covering parsing, deduplication, and seeding
 - 2026-03-08: Updated `dangdai-api/src/scripts/__init__.py` — added module docstring for ruff D104 compliance
 - 2026-03-08: Seeded vocabulary table with 3,997 items from Flash-card.tsv (Books 1-5)
+- 2026-03-08: **[Code Review]** Fixed sort_order gaps after deduplication, added error handling around upsert, fixed language name false positives, moved test imports to module level, added 3 new tests, re-seeded database
 
 ### File List
 
@@ -272,3 +273,34 @@ claude-opus-4-6
 | `dangdai-api/src/scripts/__init__.py` | Modified | Added module docstring |
 | `dangdai-api/src/scripts/seed_vocabulary.py` | Created | TSV parser, Supabase upsert, CLI with --file and --dry-run |
 | `dangdai-api/tests/unit_tests/test_seed_vocabulary.py` | Created | 45 unit tests for parser, deduplication, and seeding logic |
+
+### Senior Developer Review (AI)
+
+**Reviewer:** claude-opus-4-6 | **Date:** 2026-03-08 | **Outcome:** Approved with fixes applied
+
+**Issues Found:** 0 Critical, 2 High, 3 Medium, 2 Low
+
+**Fixes Applied (5 HIGH + MEDIUM):**
+
+1. **[H1] Sort order gaps after deduplication** — `_deduplicate_rows` replaced the first occurrence with the later one but kept the later occurrence's `sort_order`, creating gaps (e.g., Book 1 L12-II started at sort_order=2 instead of 1). Violates AC #5. **Fix:** Added sort_order renumbering pass after deduplication using `defaultdict(int)` per (book_id, lesson_id, vocab_section) group. Re-seeded database — verified 0 sections with sort_order gaps.
+
+2. **[H2] No error handling around Supabase upsert** — `seed_vocabulary()` called `.upsert().execute()` with no try/except. A batch failure would crash with no indication of which batch failed. **Fix:** Wrapped each batch upsert in try/except that logs the failed batch range via `logger.exception()` and re-raises. Added test `test_seed_vocabulary_raises_on_upsert_failure`.
+
+3. **[M1] Module docstring says "Books 1-4" but script seeds Books 1-5** — TSV contains Book 5 data (926 items) and the script seeds all books. **Fix:** Updated docstring to "all books found in the TSV."
+
+4. **[M2] `_is_proper_name` false positives for language names** — Words like 法文 (Fǎwén = "French language"), 英文 (Yīngwén = "English language"), 西班牙語 (Xībānyá yǔ = "Spanish language") were marked `is_name=True` because their pinyin has uppercase letters. **Fix:** Added early return `if english.lower().endswith(" language"): return False` before the uppercase check. Added test `test_language_name_not_proper_name`. Re-seeded database — 5 language entries corrected.
+
+5. **[M3] Test file imports inside methods** — `TestSortOrderReset` and `TestFullParseTSVExcerpt` imported `tempfile` and `os` inside each test method (5 occurrences) instead of at module level. **Fix:** Moved to module-level imports.
+
+**Not Fixed (2 Low — acceptable):**
+
+- **[L1] `_print_summary` had unused `warnings` list** — Dead code block that was never populated. Fixed as part of the cleanup (removed).
+- **[L2] `sys.path.insert(0, ".")` in `__main__` block** — Fragile path manipulation, but necessary for running the script directly (`python src/scripts/seed_vocabulary.py`). Documented in comments. Acceptable for a CLI script.
+
+**Verification:**
+- 48/48 unit tests pass (3 new: language name, sort_order renumbering, upsert error handling)
+- ruff check: all checks passed
+- ruff format: all files properly formatted
+- mypy --strict: no issues found
+- Database re-seeded: 3,997 rows, 0 sort_order gaps, 5 language names corrected
+- Idempotency verified via upsert on UNIQUE constraint

@@ -1,6 +1,10 @@
 """Tests for vocabulary seeding script."""
 
+import os
+import tempfile
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from src.scripts.seed_vocabulary import (
     _deduplicate_rows,
@@ -216,6 +220,14 @@ class TestParseDataLine:
         # Pinyin starts with capital W -> is_name True
         assert result["is_name"] is True
 
+    def test_language_name_not_proper_name(self):
+        line = "法文\tFǎwén\tFrench language"
+        result = parse_data_line(line)
+        assert result is not None
+        assert result["part_of_speech"] is None
+        assert result["is_name"] is False
+        assert result["english"] == "French language"
+
     def test_empty_line_returns_none(self):
         result = parse_data_line("")
         assert result is None
@@ -250,8 +262,6 @@ class TestSortOrderReset:
             "來\tlái\t(V) to come\n"
             "是\tshì\t(Vst) to be\n"
         )
-        import tempfile
-        import os
 
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".tsv", delete=False, encoding="utf-8"
@@ -275,8 +285,6 @@ class TestSortOrderReset:
             "請\tqǐng\t(V) please\n"
             "喝\thē\t(V) to drink\n"
         )
-        import tempfile
-        import os
 
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".tsv", delete=False, encoding="utf-8"
@@ -301,8 +309,6 @@ class TestSortOrderReset:
             "//當代中文/Book 1/L02-I\t\t\n"
             "請\tqǐng\t(V) please\n"
         )
-        import tempfile
-        import os
 
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".tsv", delete=False, encoding="utf-8"
@@ -342,8 +348,6 @@ class TestFullParseTSVExcerpt:
             "美國\tMěiguó\tAmerica\n"
             "對不起\tduìbùqǐ\tI'm sorry'\n"
         )
-        import tempfile
-        import os
 
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".tsv", delete=False, encoding="utf-8"
@@ -397,8 +401,6 @@ class TestFullParseTSVExcerpt:
             "//當代中文/Book 2/L01-I\t\t\n"
             "走\tzǒu\t(Vi) to get to\n"
         )
-        import tempfile
-        import os
 
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".tsv", delete=False, encoding="utf-8"
@@ -520,6 +522,50 @@ class TestDeduplicateRows:
         result = _deduplicate_rows(rows)
         assert len(result) == 2
 
+    def test_dedup_renumbers_sort_order(self):
+        rows = [
+            {
+                "book_id": 1,
+                "lesson_id": 12,
+                "vocab_section": "II",
+                "traditional": "工作",
+                "pinyin": "gōngzuò",
+                "english": "to work",
+                "part_of_speech": "Vi",
+                "is_name": False,
+                "sort_order": 1,
+            },
+            {
+                "book_id": 1,
+                "lesson_id": 12,
+                "vocab_section": "II",
+                "traditional": "去年",
+                "pinyin": "qùnián",
+                "english": "last year",
+                "part_of_speech": "N",
+                "is_name": False,
+                "sort_order": 2,
+            },
+            {
+                "book_id": 1,
+                "lesson_id": 12,
+                "vocab_section": "II",
+                "traditional": "工作",
+                "pinyin": "gōngzuò",
+                "english": "job, work",
+                "part_of_speech": "N",
+                "is_name": False,
+                "sort_order": 8,
+            },
+        ]
+        result = _deduplicate_rows(rows)
+        assert len(result) == 2
+        # sort_order should be renumbered: 1, 2 (no gap)
+        assert result[0]["sort_order"] == 1
+        assert result[1]["sort_order"] == 2
+        assert result[0]["traditional"] == "工作"
+        assert result[0]["english"] == "job, work"
+
 
 class TestSeedVocabulary:
     """Tests for the upsert/seeding logic."""
@@ -638,3 +684,32 @@ class TestSeedVocabulary:
         call_args = mock_table.upsert.call_args
         assert len(call_args[0][0]) == 1
         assert call_args[0][0][0]["english"] == "job, work"
+        # sort_order should be renumbered after deduplication
+        assert call_args[0][0][0]["sort_order"] == 1
+
+    @patch("src.scripts.seed_vocabulary.get_supabase_client")
+    def test_seed_vocabulary_raises_on_upsert_failure(self, mock_get_client):
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_table = MagicMock()
+        mock_client.table.return_value = mock_table
+        mock_upsert = MagicMock()
+        mock_table.upsert.return_value = mock_upsert
+        mock_upsert.execute.side_effect = Exception("Connection refused")
+
+        rows = [
+            {
+                "book_id": 1,
+                "lesson_id": 1,
+                "vocab_section": "I",
+                "traditional": "好",
+                "pinyin": "hǎo",
+                "english": "fine, well",
+                "part_of_speech": "Vs",
+                "is_name": False,
+                "sort_order": 1,
+            }
+        ]
+
+        with pytest.raises(Exception, match="Connection refused"):
+            seed_vocabulary(rows)

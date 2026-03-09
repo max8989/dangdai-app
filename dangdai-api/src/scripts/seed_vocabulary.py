@@ -1,7 +1,7 @@
 """Seed vocabulary table from Flash-card.tsv.
 
 Parse the Flash-card.tsv file and populate the vocabulary table
-in Supabase for Books 1-4.
+in Supabase for all books found in the TSV.
 """
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ import argparse
 import logging
 import re
 import sys
+from collections import defaultdict
 from typing import Any
 
 from src.utils.supabase import get_supabase_client
@@ -48,7 +49,9 @@ def _is_proper_name(pinyin: str, english: str) -> bool:
     """Detect whether an entry without POS is a proper name.
 
     Heuristic: if pinyin contains capitalized syllables, it's a proper name.
-    Entries with all-lowercase pinyin and lowercase/phrase-like english are not names.
+    Entries with all-lowercase pinyin and lowercase/phrase-like english are not
+    names. Language names (e.g., "French language") are excluded even if their
+    pinyin is capitalized.
 
     Args:
         pinyin: The pinyin field from the TSV.
@@ -57,6 +60,10 @@ def _is_proper_name(pinyin: str, english: str) -> bool:
     Returns:
         True if the entry is a proper name, False otherwise.
     """
+    # Language names like 法文 (Fǎwén) have capitalized pinyin but are not names
+    if english.lower().endswith(" language"):
+        return False
+
     # Check if pinyin has any uppercase letter (proper nouns have capitalized pinyin)
     if any(c.isupper() for c in pinyin):
         return True
@@ -163,6 +170,8 @@ def _deduplicate_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
     When the TSV contains the same character twice in the same section
     (e.g., 工作 appearing as both verb and noun), keep the last occurrence.
+    After deduplication, sort_order is renumbered per section group to
+    eliminate gaps.
 
     Args:
         rows: List of vocabulary dictionaries.
@@ -195,6 +204,14 @@ def _deduplicate_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             seen[key] = len(result)
             result.append(row)
 
+    # Renumber sort_order per (book_id, lesson_id, vocab_section) group
+    # to eliminate gaps left by deduplication
+    group_counters: dict[tuple[int, int, str], int] = defaultdict(int)
+    for row in result:
+        group_key = (row["book_id"], row["lesson_id"], row["vocab_section"])
+        group_counters[group_key] += 1
+        row["sort_order"] = group_counters[group_key]
+
     return result
 
 
@@ -211,6 +228,9 @@ def seed_vocabulary(
     Args:
         rows: List of vocabulary dictionaries to upsert.
         batch_size: Number of rows per upsert call.
+
+    Raises:
+        Exception: If a batch upsert fails.
     """
     if not rows:
         logger.info("No rows to seed.")
@@ -230,10 +250,19 @@ def seed_vocabulary(
 
     for i in range(0, total, batch_size):
         batch = deduped[i : i + batch_size]
-        client.table("vocabulary").upsert(
-            batch,
-            on_conflict="book_id,lesson_id,vocab_section,traditional",
-        ).execute()
+        try:
+            client.table("vocabulary").upsert(
+                batch,
+                on_conflict="book_id,lesson_id,vocab_section,traditional",
+            ).execute()
+        except Exception:
+            logger.exception(
+                "Failed to upsert batch %d-%d of %d",
+                i + 1,
+                min(i + batch_size, total),
+                total,
+            )
+            raise
         logger.info(
             "Upserted batch %d-%d of %d",
             i + 1,
@@ -251,7 +280,6 @@ def _print_summary(rows: list[dict[str, Any]]) -> None:
         rows: List of parsed vocabulary dictionaries.
     """
     book_counts: dict[int, int] = {}
-    warnings: list[str] = []
 
     for row in rows:
         book_id = row["book_id"]
@@ -270,11 +298,6 @@ def _print_summary(rows: list[dict[str, Any]]) -> None:
     print(f"  With POS tag: {pos_count}")  # noqa: T201
     print(f"  Names: {name_count}")  # noqa: T201
     print(f"  Phrases (no POS, not name): {no_pos_no_name}")  # noqa: T201
-
-    if warnings:
-        print("\nWarnings:")  # noqa: T201
-        for w in warnings:
-            print(f"  - {w}")  # noqa: T201
 
     print("=================================\n")  # noqa: T201
 
