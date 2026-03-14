@@ -93,7 +93,7 @@ development_status:
   4-11-quiz-results-screen: done
   4-12-text-input-answer-type: done
   4-13-evaluator-optimizer-quiz-validation: done
-  4-14-migrate-quiz-generation-to-structured-content: ready-for-dev
+  4-14-migrate-quiz-generation-to-structured-content: done
   epic-4-retrospective: optional
 
   # Epic 5: Chapter Assessment & Mastery

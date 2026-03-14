@@ -1,10 +1,11 @@
 """LangGraph quiz generation graph with Evaluator-Optimizer pattern.
 
 Define the quiz generation pipeline:
-START -> retrieve_content -> query_weakness -> generate_quiz
+START -> retrieve_structured_content -> query_weakness -> generate_quiz
       -> validate_structure -> evaluate_content -> END
                                     |                  |
-                              (structural errors)   (content issues)
+                              (structural errors   (content issues)
+                               or grammar gap)         |
                                     |                  |
                                     └──── generate_quiz (retry, max 2) ◄──┘
 """
@@ -20,7 +21,7 @@ from src.agent.nodes import (
     evaluate_content,
     generate_quiz,
     query_weakness,
-    retrieve_content,
+    retrieve_structured_content,
     validate_structure,
 )
 from src.agent.state import QuizGenerationState
@@ -77,15 +78,15 @@ def _after_content_evaluation(
 builder = StateGraph(QuizGenerationState)
 
 # Add nodes
-builder.add_node("retrieve_content", retrieve_content)
+builder.add_node("retrieve_structured_content", retrieve_structured_content)
 builder.add_node("query_weakness", query_weakness)
 builder.add_node("generate_quiz", generate_quiz)
 builder.add_node("validate_structure", validate_structure)
 builder.add_node("evaluate_content", evaluate_content)
 
 # Define edges
-builder.add_edge(START, "retrieve_content")
-builder.add_edge("retrieve_content", "query_weakness")
+builder.add_edge(START, "retrieve_structured_content")
+builder.add_edge("retrieve_structured_content", "query_weakness")
 builder.add_edge("query_weakness", "generate_quiz")
 builder.add_edge("generate_quiz", "validate_structure")
 builder.add_conditional_edges("validate_structure", _after_structure_validation)

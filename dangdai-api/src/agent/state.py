@@ -33,8 +33,12 @@ class QuizGenerationState(TypedDict, total=False):
     # if the client has navigated away.
     request: Request
 
-    # RAG output (set by retrieve_content node)
+    # RAG output (set by retrieve_content node — supplementary only)
     retrieved_content: list[dict[str, Any]]
+
+    # Structured content (set by retrieve_structured_content node)
+    structured_content: dict[str, Any]  # {vocabulary, grammar_points, dialogues}
+    grammar_points_list: list[dict[str, Any]]  # For grammar coverage validation
 
     # Weakness profile (set by query_weakness node)
     weakness_profile: dict[str, Any]

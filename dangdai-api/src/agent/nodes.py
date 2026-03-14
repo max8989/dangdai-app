@@ -1,10 +1,11 @@
 """LangGraph graph nodes.
 
 Implement nodes for the quiz generation graph:
-- retrieve_content: RAG retrieval node
+- retrieve_structured_content: Structured content retrieval (primary) with RAG fallback
+- retrieve_content: Legacy RAG-only retrieval node (retained, not in graph)
 - query_weakness: Weakness profile node
 - generate_quiz: Quiz generation via LLM
-- validate_structure: Rule-based structural validation node
+- validate_structure: Rule-based structural validation with grammar coverage check
 - evaluate_content: LLM-based content quality evaluation node
 """
 
@@ -26,6 +27,7 @@ from src.agent.prompts import (
 )
 from src.agent.state import QuizGenerationState
 from src.repositories.chapter_repo import ChapterRepository
+from src.services.content_service import ContentService
 from src.services.rag_service import RagService
 from src.services.weakness_service import WeaknessService
 from src.utils.llm_factory import get_llm
@@ -98,6 +100,108 @@ async def retrieve_content(state: QuizGenerationState) -> dict[str, Any]:
     return {"retrieved_content": chunks}
 
 
+async def retrieve_structured_content(
+    state: QuizGenerationState,
+) -> dict[str, Any]:
+    """Retrieve structured chapter content from vocabulary, grammar, dialogues tables.
+
+    Replaces RAG-only retrieval as the primary content source for quiz
+    generation. Structured content guarantees accurate curriculum data.
+    Falls back to RAG-only retrieval if structured content tables are empty.
+
+    Checks for client disconnection before executing database queries.
+
+    Args:
+        state: Current graph state with chapter_id, book_id, exercise_type.
+
+    Returns:
+        State update with structured_content, grammar_points_list,
+        and retrieved_content (for backward compat with generate_quiz).
+
+    Raises:
+        asyncio.CancelledError: If client disconnects before the database query.
+    """
+    import time
+
+    start = time.perf_counter()
+    book_id = state["book_id"]
+    chapter_id = state["chapter_id"]
+    exercise_type = state["exercise_type"]
+
+    logger.info(
+        "[Node:retrieve_structured_content] START book=%d chapter=%d type=%s",
+        book_id,
+        chapter_id,
+        exercise_type,
+    )
+
+    # Check for client disconnection before database queries
+    request = state.get("request")
+    if request and await request.is_disconnected():
+        logger.info("[Node:retrieve_structured_content] Client disconnected, aborting")
+        raise asyncio.CancelledError("Client disconnected")
+
+    _, lesson = ChapterRepository.parse_chapter_id(chapter_id)
+
+    content_service = ContentService()
+    # Wrap synchronous Supabase I/O to avoid blocking the event loop
+    content = await asyncio.to_thread(
+        content_service.retrieve_chapter_content, book_id, lesson, exercise_type
+    )
+
+    vocabulary = content.get("vocabulary", [])
+    grammar_points = content.get("grammar_points", [])
+    dialogues = content.get("dialogues", [])
+
+    # Fall back to RAG-only if structured tables are empty
+    if not vocabulary and not grammar_points:
+        logger.warning(
+            "[Node:retrieve_structured_content] No structured content for "
+            "book=%d lesson=%d, falling back to RAG",
+            book_id,
+            lesson,
+        )
+        rag_service = RagService()
+        if exercise_type == "mixed":
+            chapter_repo = ChapterRepository()
+            available_types = chapter_repo.get_available_exercise_types(book_id, lesson)
+            if not available_types:
+                available_types = ["vocabulary", "grammar", "fill_in_blank"]
+            chunks = rag_service.retrieve_mixed_content(
+                book_id, lesson, available_types
+            )
+        else:
+            chunks = rag_service.retrieve_content(book_id, lesson, exercise_type)
+
+        elapsed = (time.perf_counter() - start) * 1000
+        logger.info(
+            "[Node:retrieve_structured_content] FALLBACK to RAG: %d chunks in %.0fms",
+            len(chunks),
+            elapsed,
+        )
+        return {
+            "retrieved_content": chunks,
+            "structured_content": {},
+            "grammar_points_list": [],
+        }
+
+    elapsed = (time.perf_counter() - start) * 1000
+    logger.info(
+        "[Node:retrieve_structured_content] DONE %d vocab, %d grammar, "
+        "%d dialogues in %.0fms",
+        len(vocabulary),
+        len(grammar_points),
+        len(dialogues),
+        elapsed,
+    )
+
+    return {
+        "structured_content": content,
+        "grammar_points_list": grammar_points,
+        "retrieved_content": content.get("rag_chunks", []),
+    }
+
+
 async def query_weakness(state: QuizGenerationState) -> dict[str, Any]:
     """Query user weakness profile for adaptive quiz generation.
 
@@ -165,7 +269,19 @@ async def generate_quiz(state: QuizGenerationState) -> dict[str, Any]:
 
     _, lesson = ChapterRepository.parse_chapter_id(chapter_id)
 
-    # Prepare chapter content text from RAG chunks
+    # Prepare structured content for the prompt
+    structured_content = state.get("structured_content", {})
+    structured_vocabulary = _format_structured_vocabulary(
+        structured_content.get("vocabulary", [])
+    )
+    structured_grammar_points = _format_structured_grammar_points(
+        structured_content.get("grammar_points", [])
+    )
+    structured_dialogues = _format_structured_dialogues(
+        structured_content.get("dialogues", [])
+    )
+
+    # Prepare supplementary RAG content
     chapter_content = _format_chapter_content(retrieved_content)
 
     # Get exercise-type-specific instructions, biased toward weak areas (AC #2)
@@ -213,6 +329,9 @@ async def generate_quiz(state: QuizGenerationState) -> dict[str, Any]:
         book_id=book_id,
         lesson=lesson,
         exercise_type_instructions=exercise_instructions,
+        structured_vocabulary=structured_vocabulary,
+        structured_grammar_points=structured_grammar_points,
+        structured_dialogues=structured_dialogues,
         chapter_content=chapter_content,
         weakness_context=weakness_context,
         output_schema=output_schema,
@@ -390,11 +509,55 @@ def validate_structure(state: QuizGenerationState) -> dict[str, Any]:
     # Only trigger retry if no valid questions remain
     needs_retry = len(valid_questions) == 0
 
-    return {
+    # Grammar coverage validation (AC #3 — FR58)
+    grammar_points = state.get("grammar_points_list", [])
+    grammar_feedback = ""
+    if grammar_points and valid_questions and not needs_retry:
+        covered_grammar: set[str] = set()
+        for question in valid_questions:
+            gp = question.get("grammar_pattern")
+            if gp:
+                covered_grammar.add(gp)
+
+        missing = [
+            gp["title_english"]
+            for gp in grammar_points
+            if gp.get("title_english") and gp["title_english"] not in covered_grammar
+        ]
+
+        if missing:
+            grammar_feedback = (
+                f"Missing grammar coverage for: {', '.join(missing)}. "
+                "Generate questions covering these grammar patterns. "
+                "Include the 'grammar_pattern' field in each question."
+            )
+            logger.warning(
+                "[Node:validate_structure] Grammar coverage incomplete: "
+                "missing %d/%d points: %s",
+                len(missing),
+                len(grammar_points),
+                missing,
+            )
+            needs_retry = True
+
+    result_dict: dict[str, Any] = {
         "questions": valid_questions,
         "validation_errors": errors if needs_retry else [],
         "retry_count": retry_count + (1 if needs_retry else 0),
     }
+
+    # Append grammar feedback to evaluator_feedback for retry self-correction
+    if grammar_feedback:
+        existing_feedback = state.get("evaluator_feedback", "")
+        combined = (
+            f"{existing_feedback}\n\n{grammar_feedback}"
+            if existing_feedback
+            else grammar_feedback
+        )
+        result_dict["evaluator_feedback"] = combined
+        result_dict["validation_errors"] = [grammar_feedback]
+
+    return result_dict
 
 
 async def evaluate_content(state: QuizGenerationState) -> dict[str, Any]:
@@ -638,7 +801,7 @@ def _get_output_schema_hint(exercise_type: str) -> str:
         "vocabulary": ', "character": "...", "pinyin": "...", "meaning": "...", '
         '"question_subtype": "char_to_meaning", "options": ["a", "b", "c", "d"]}',
         "grammar": ', "sentence": "...", "options": ["a", "b", "c", "d"], '
-        '"grammar_point": "..."}',
+        '"grammar_point": "...", "grammar_pattern": "..."}',
         "fill_in_blank": ', "sentence_with_blanks": "I ___ Chinese", '
         '"word_bank": ["study", "eat", "read"], "blank_positions": [1]}',
         "matching": ', "left_items": ["A", "B"], "right_items": ["1", "2"], '
@@ -720,3 +883,105 @@ def _parse_questions_json(content: str) -> list[dict[str, Any]]:
     except json.JSONDecodeError as e:
         logger.error("Failed to parse LLM JSON response: %s", e)
         return []
+
+
+def _format_structured_vocabulary(vocab_items: list[dict[str, Any]]) -> str:
+    """Format structured vocabulary list for the LLM prompt.
+
+    Args:
+        vocab_items: List of vocabulary dictionaries from content_repo.
+
+    Returns:
+        Formatted string listing each vocab item.
+    """
+    if not vocab_items:
+        return "(No vocabulary data available)"
+
+    lines: list[str] = []
+    for item in vocab_items:
+        traditional = item.get("traditional", "")
+        pinyin = item.get("pinyin", "")
+        english = item.get("english", "")
+        pos = item.get("part_of_speech", "")
+        pos_str = f" ({pos})" if pos else ""
+        lines.append(f"- {traditional} [{pinyin}] — {english}{pos_str}")
+
+    return "\n".join(lines)
+
+
+def _format_structured_grammar_points(
+    grammar_points: list[dict[str, Any]],
+) -> str:
+    """Format structured grammar points for the LLM prompt.
+
+    Args:
+        grammar_points: List of grammar point dictionaries from content_repo.
+
+    Returns:
+        Formatted string listing each grammar point with patterns and examples.
+    """
+    if not grammar_points:
+        return "(No grammar points data available)"
+
+    sections: list[str] = []
+    for i, gp in enumerate(grammar_points, 1):
+        title = gp.get("title_english", "Unknown")
+        title_cn = gp.get("title_chinese", "")
+        pattern = gp.get("structure_pattern", "")
+        description = gp.get("function_description", "")
+        usage = gp.get("usage_notes", "")
+        examples = gp.get("examples", [])
+
+        parts = [f"### {i}. {title}"]
+        if title_cn:
+            parts.append(f"   Chinese: {title_cn}")
+        if pattern:
+            parts.append(f"   Pattern: {pattern}")
+        if description:
+            parts.append(f"   Function: {description}")
+        if usage:
+            parts.append(f"   Usage: {usage}")
+        if examples and isinstance(examples, list):
+            for ex in examples[:3]:
+                if isinstance(ex, dict):
+                    cn = ex.get("chinese", "")
+                    en = ex.get("english", "")
+                    parts.append(f"   Example: {cn} — {en}")
+
+        sections.append("\n".join(parts))
+
+    return "\n\n".join(sections)
+
+
+def _format_structured_dialogues(dialogues: list[dict[str, Any]]) -> str:
+    """Format structured dialogues for the LLM prompt.
+
+    Args:
+        dialogues: List of dialogue dictionaries from content_repo.
+
+    Returns:
+        Formatted string with dialogue content.
+    """
+    if not dialogues:
+        return "(No dialogue data available)"
+
+    sections: list[str] = []
+    for dlg in dialogues:
+        num = dlg.get("dialogue_number", "")
+        title_trad = dlg.get("title_traditional", "")
+        title_en = dlg.get("title_english", "")
+        lines = dlg.get("lines", [])
+
+        header = f"### Dialogue {num}: {title_trad} ({title_en})"
+        line_strs: list[str] = []
+        if isinstance(lines, list):
+            for line in lines:
+                if isinstance(line, dict):
+                    speaker = line.get("speaker", "")
+                    text = line.get("traditional", "")
+                    english = line.get("english", "")
+                    line_strs.append(f"   {speaker}: {text} ({english})")
+
+        sections.append(header + "\n" + "\n".join(line_strs))
+
+    return "\n\n".join(sections)

@@ -7,9 +7,13 @@ import pytest
 
 from src.agent.nodes import (
     _format_chapter_content,
+    _format_structured_dialogues,
+    _format_structured_grammar_points,
+    _format_structured_vocabulary,
     _parse_evaluation_response,
     _parse_questions_json,
     retrieve_content,
+    retrieve_structured_content,
     validate_structure,
 )
 from src.repositories.chapter_repo import ChapterRepository
@@ -527,3 +531,374 @@ class TestGraphRoutingFunctions:
         state = {"validation_errors": ["Error"], "retry_count": 3}
         result = _after_content_evaluation(state)
         assert result == "__end__"
+
+
+# -----------------------------------------------------------------------
+# Structured content node tests (Story 4.14)
+# -----------------------------------------------------------------------
+
+
+class TestRetrieveStructuredContentNode:
+    """Tests for the retrieve_structured_content graph node."""
+
+    @pytest.mark.asyncio
+    @patch("src.agent.nodes.ContentService")
+    async def test_returns_structured_content(self, mock_service_cls):
+        """Test normal structured content retrieval."""
+        mock_service = MagicMock()
+        mock_service.retrieve_chapter_content.return_value = {
+            "vocabulary": [{"traditional": "學", "pinyin": "xué"}],
+            "grammar_points": [{"title_english": "Using 是"}],
+            "dialogues": [],
+        }
+        mock_service_cls.return_value = mock_service
+
+        state = {
+            "book_id": 1,
+            "chapter_id": 105,
+            "exercise_type": "vocabulary",
+            "user_id": "user-1",
+        }
+        result = await retrieve_structured_content(state)
+
+        assert "structured_content" in result
+        assert "grammar_points_list" in result
+        assert len(result["grammar_points_list"]) == 1
+        assert result["grammar_points_list"][0]["title_english"] == "Using 是"
+
+    @pytest.mark.asyncio
+    @patch("src.agent.nodes.RagService")
+    @patch("src.agent.nodes.ContentService")
+    async def test_falls_back_to_rag_when_empty(self, mock_service_cls, mock_rag_cls):
+        """Test fallback to RAG when structured tables are empty."""
+        mock_service = MagicMock()
+        mock_service.retrieve_chapter_content.return_value = {
+            "vocabulary": [],
+            "grammar_points": [],
+        }
+        mock_service_cls.return_value = mock_service
+
+        mock_rag = MagicMock()
+        mock_rag.retrieve_content.return_value = [{"content": "rag chunk"}]
+        mock_rag_cls.return_value = mock_rag
+
+        state = {
+            "book_id": 1,
+            "chapter_id": 105,
+            "exercise_type": "vocabulary",
+            "user_id": "user-1",
+        }
+        result = await retrieve_structured_content(state)
+
+        assert result["structured_content"] == {}
+        assert result["grammar_points_list"] == []
+        assert len(result["retrieved_content"]) == 1
+        mock_rag.retrieve_content.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch("src.agent.nodes.ContentService")
+    async def test_client_disconnection_aborts(self, mock_service_cls):
+        """Test cancellation when client disconnects."""
+        import asyncio
+
+        mock_request = MagicMock()
+        mock_request.is_disconnected = AsyncMock(return_value=True)
+
+        state = {
+            "book_id": 1,
+            "chapter_id": 105,
+            "exercise_type": "vocabulary",
+            "user_id": "user-1",
+            "request": mock_request,
+        }
+
+        with pytest.raises(asyncio.CancelledError):
+            await retrieve_structured_content(state)
+
+        mock_service_cls.assert_not_called()
+
+    @pytest.mark.asyncio
+    @patch("src.agent.nodes.ContentService")
+    async def test_passes_rag_chunks_as_retrieved_content(self, mock_service_cls):
+        """Test that rag_chunks from content service pass to retrieved_content."""
+        mock_service = MagicMock()
+        mock_service.retrieve_chapter_content.return_value = {
+            "vocabulary": [{"traditional": "好"}],
+            "grammar_points": [{"title_english": "Verb 好"}],
+            "rag_chunks": [{"content": "supplementary"}],
+        }
+        mock_service_cls.return_value = mock_service
+
+        state = {
+            "book_id": 1,
+            "chapter_id": 101,
+            "exercise_type": "grammar",
+            "user_id": "user-1",
+        }
+        result = await retrieve_structured_content(state)
+
+        assert result["retrieved_content"] == [{"content": "supplementary"}]
+
+
+class TestValidateStructureGrammarCoverage:
+    """Tests for grammar coverage validation in validate_structure (AC #3)."""
+
+    def test_full_grammar_coverage_passes(self):
+        """Test that all grammar points covered = no retry."""
+        state = {
+            "questions": [
+                {
+                    "question_id": "q1",
+                    "question_text": "Test 是",
+                    "correct_answer": "a",
+                    "exercise_type": "grammar",
+                    "explanation": "x",
+                    "grammar_pattern": "Using 是",
+                },
+                {
+                    "question_id": "q2",
+                    "question_text": "Test 在",
+                    "correct_answer": "b",
+                    "exercise_type": "grammar",
+                    "explanation": "y",
+                    "grammar_pattern": "Using 在",
+                },
+            ],
+            "retry_count": 0,
+            "grammar_points_list": [
+                {"title_english": "Using 是"},
+                {"title_english": "Using 在"},
+            ],
+        }
+        result = validate_structure(state)
+        assert result["validation_errors"] == []
+        assert result["retry_count"] == 0
+
+    def test_missing_grammar_coverage_triggers_retry(self):
+        """Test that missing grammar point coverage triggers retry."""
+        state = {
+            "questions": [
+                {
+                    "question_id": "q1",
+                    "question_text": "Test 是",
+                    "correct_answer": "a",
+                    "exercise_type": "grammar",
+                    "explanation": "x",
+                    "grammar_pattern": "Using 是",
+                },
+            ],
+            "retry_count": 0,
+            "grammar_points_list": [
+                {"title_english": "Using 是"},
+                {"title_english": "Using 在"},
+            ],
+        }
+        result = validate_structure(state)
+        assert result["retry_count"] == 1
+        assert any("Using 在" in e for e in result["validation_errors"])
+        assert "evaluator_feedback" in result
+        assert "Using 在" in result["evaluator_feedback"]
+
+    def test_no_grammar_points_skips_coverage_check(self):
+        """Test that empty grammar_points_list skips coverage validation."""
+        state = {
+            "questions": [
+                {
+                    "question_id": "q1",
+                    "question_text": "Test",
+                    "correct_answer": "a",
+                    "exercise_type": "vocabulary",
+                    "explanation": "x",
+                },
+            ],
+            "retry_count": 0,
+            "grammar_points_list": [],
+        }
+        result = validate_structure(state)
+        assert result["validation_errors"] == []
+        assert result["retry_count"] == 0
+
+    def test_no_grammar_points_key_skips_coverage_check(self):
+        """Test that missing grammar_points_list key skips coverage."""
+        state = {
+            "questions": [
+                {
+                    "question_id": "q1",
+                    "question_text": "Test",
+                    "correct_answer": "a",
+                    "exercise_type": "vocabulary",
+                    "explanation": "x",
+                },
+            ],
+            "retry_count": 0,
+        }
+        result = validate_structure(state)
+        assert result["validation_errors"] == []
+
+
+class TestFormatStructuredVocabulary:
+    """Tests for _format_structured_vocabulary helper."""
+
+    def test_formats_vocabulary_items(self):
+        vocab = [
+            {
+                "traditional": "學",
+                "pinyin": "xué",
+                "english": "to study",
+                "part_of_speech": "V",
+            },
+        ]
+        result = _format_structured_vocabulary(vocab)
+        assert "學" in result
+        assert "xué" in result
+        assert "to study" in result
+        assert "(V)" in result
+
+    def test_empty_list_returns_placeholder(self):
+        result = _format_structured_vocabulary([])
+        assert "No vocabulary" in result
+
+    def test_missing_part_of_speech(self):
+        vocab = [
+            {"traditional": "我", "pinyin": "wǒ", "english": "I"},
+        ]
+        result = _format_structured_vocabulary(vocab)
+        assert "我" in result
+        assert "()" not in result
+
+
+class TestFormatStructuredGrammarPoints:
+    """Tests for _format_structured_grammar_points helper."""
+
+    def test_formats_grammar_points(self):
+        gps = [
+            {
+                "title_english": "Using 是",
+                "title_chinese": "是的用法",
+                "structure_pattern": "Subject + 是 + Noun",
+                "function_description": "Equative verb",
+                "usage_notes": "Identification",
+                "examples": [{"chinese": "我是學生", "english": "I am a student"}],
+            },
+        ]
+        result = _format_structured_grammar_points(gps)
+        assert "Using 是" in result
+        assert "Subject + 是 + Noun" in result
+        assert "我是學生" in result
+
+    def test_empty_list_returns_placeholder(self):
+        result = _format_structured_grammar_points([])
+        assert "No grammar" in result
+
+
+class TestFormatStructuredDialogues:
+    """Tests for _format_structured_dialogues helper."""
+
+    def test_formats_dialogues(self):
+        dialogues = [
+            {
+                "dialogue_number": 1,
+                "title_traditional": "在學校",
+                "title_english": "At School",
+                "lines": [
+                    {"speaker": "A", "traditional": "你好！", "english": "Hello!"},
+                ],
+            },
+        ]
+        result = _format_structured_dialogues(dialogues)
+        assert "Dialogue 1" in result
+        assert "在學校" in result
+        assert "你好！" in result
+
+    def test_empty_list_returns_placeholder(self):
+        result = _format_structured_dialogues([])
+        assert "No dialogue" in result
+
+
+class TestGraphTopologyUpdated:
+    """Tests confirming graph uses retrieve_structured_content node."""
+
+    def test_graph_has_retrieve_structured_content_node(self):
+        """Confirm the compiled graph includes retrieve_structured_content."""
+        from src.agent.graph import graph
+
+        # The compiled Pregel graph has .nodes attribute
+        node_names = list(graph.nodes.keys())
+        assert "retrieve_structured_content" in node_names
+
+    def test_graph_does_not_have_old_retrieve_content_node(self):
+        """Confirm retrieve_content was replaced in the graph."""
+        from src.agent.graph import graph
+
+        node_names = list(graph.nodes.keys())
+        assert "retrieve_content" not in node_names
+
+    def test_graph_still_has_all_other_nodes(self):
+        """Verify query_weakness, generate_quiz, validate_structure, evaluate_content remain."""
+        from src.agent.graph import graph
+
+        node_names = list(graph.nodes.keys())
+        for expected in [
+            "query_weakness",
+            "generate_quiz",
+            "validate_structure",
+            "evaluate_content",
+        ]:
+            assert expected in node_names
+
+
+class TestBackwardCompatibility:
+    """Tests verifying the quiz response format is unchanged (AC #4)."""
+
+    @pytest.mark.asyncio
+    @patch("src.agent.nodes.get_llm")
+    async def test_evaluate_content_produces_same_payload_format(self, mock_llm_client):
+        """Test evaluate_content still produces quiz_payload with questions list."""
+        from src.agent.nodes import evaluate_content
+
+        mock_llm = MagicMock()
+        mock_response = MagicMock()
+        mock_response.content = '{"passed": true, "issues": []}'
+        mock_llm.ainvoke = AsyncMock(return_value=mock_response)
+        mock_llm_client.return_value = mock_llm
+
+        state = {
+            "questions": [
+                {
+                    "question_id": "q1",
+                    "question_text": "What does 學 mean?",
+                    "correct_answer": "to study",
+                    "exercise_type": "vocabulary",
+                    "explanation": "學 means to study",
+                    "options": ["to study", "to eat", "to go", "to read"],
+                }
+            ],
+            "retry_count": 0,
+            "validation_errors": [],
+        }
+
+        result = await evaluate_content(state)
+
+        # Verify backward-compatible payload structure
+        assert "quiz_payload" in result
+        assert "questions" in result["quiz_payload"]
+        questions = result["quiz_payload"]["questions"]
+        assert len(questions) == 1
+        q = questions[0]
+        assert "question_text" in q
+        assert "correct_answer" in q
+        assert "exercise_type" in q
+        assert "explanation" in q
+        assert "options" in q
+
+
+class TestStateStructuredContentFields:
+    """Tests confirming new state fields exist in QuizGenerationState."""
+
+    def test_state_has_structured_content_field(self):
+        """Verify QuizGenerationState accepts structured_content."""
+        from src.agent.state import QuizGenerationState
+
+        annotations = QuizGenerationState.__annotations__
+        assert "structured_content" in annotations
+        assert "grammar_points_list" in annotations

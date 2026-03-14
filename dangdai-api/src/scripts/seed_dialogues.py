@@ -92,7 +92,7 @@ def load_chunks(file_path: str) -> list[dict[str, Any]]:
         raise FileNotFoundError(f"Chunk file not found: {file_path}")
 
     with open(path, encoding="utf-8") as f:
-        return json.load(f)
+        return json.load(f)  # type: ignore[no-any-return]
 
 
 def filter_dialogue_chunks(

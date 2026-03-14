@@ -28,7 +28,16 @@ for Book {book_id}, Chapter {lesson} of 當代中文課程.
 
 {exercise_type_instructions}
 
-## Chapter Content (from RAG retrieval):
+## Chapter Vocabulary (from textbook):
+{structured_vocabulary}
+
+## Chapter Grammar Points (MUST cover ALL):
+{structured_grammar_points}
+
+## Chapter Dialogues:
+{structured_dialogues}
+
+## Supplementary Chapter Content:
 {chapter_content}
 
 {weakness_context}
@@ -40,12 +49,15 @@ Return a JSON array of question objects. Each question must follow this structur
 IMPORTANT:
 - Generate exactly {question_count} questions
 - Every question must have a unique question_id (q1, q2, q3, ...)
+- MUST generate at least one question per grammar point listed above
+- Use ONLY vocabulary from the provided vocabulary list (do not invent new words)
 - source_citation format: "Book {book_id}, Chapter {lesson} - <section name>"
 - explanations should be concise (1-2 sentences) and educational, written in English
 - All content must come from the provided chapter material
 - USE ONLY TRADITIONAL CHINESE CHARACTERS (繁體字) in all Chinese text - NEVER use Simplified Chinese
 - Pinyin MUST use tone marks (é, ǐ, ā, etc.) - NEVER use tone numbers (e2, i3, a1)
 - "question_text" MUST be in English (e.g., "Which character means 'to study'?") - NEVER write question_text in Chinese
+- For grammar questions, include the "grammar_pattern" field with the grammar point title being tested
 """
 
 # ---------------------------------------------------------------------------

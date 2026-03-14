@@ -73,7 +73,7 @@ def load_chunks(file_path: str) -> list[dict[str, Any]]:
         raise FileNotFoundError(f"Chunk file not found: {file_path}")
 
     with open(path, encoding="utf-8") as f:
-        return json.load(f)
+        return json.load(f)  # type: ignore[no-any-return]
 
 
 def filter_grammar_chunks(
@@ -359,6 +359,18 @@ def process_chunks(
             for chunk in chunks_for_lesson:
                 quality = chunk["metadata"].get("content_quality", 1.0)
 
+                # Skip very low quality chunks — OCR noise too severe for reliable extraction
+                if quality < 0.5:
+                    logger.warning(
+                        "Skipping low-quality chunk: Book %d, Lesson %d "
+                        "(quality: %.2f, pages: %s)",
+                        bid,
+                        lesson_id,
+                        quality,
+                        chunk["metadata"].get("page_range", "?"),
+                    )
+                    continue
+
                 if use_pdf and quality < 0.85:
                     logger.warning(
                         "Book %d Lesson %d: Low quality (%.2f), "
@@ -406,6 +418,23 @@ def process_chunks(
                     lesson_id,
                     len(lesson_points),
                 )
+
+    # Deduplicate by (book_id, lesson_id, title_english) — same title in same lesson = duplicate.
+    # Multiple chunks of the same lesson (e.g., split OCR pages) can produce
+    # overlapping grammar point extractions — the last chunk's extraction wins.
+    title_seen: dict[tuple[int, int, str], int] = {}
+    for idx, point in enumerate(all_points):
+        key = (point["book_id"], point["lesson_id"], point.get("title_english", ""))
+        title_seen[key] = idx
+    if len(title_seen) < len(all_points):
+        deduped = [all_points[i] for i in sorted(title_seen.values())]
+        logger.warning(
+            "Deduplicated %d → %d grammar points (removed %d duplicates)",
+            len(all_points),
+            len(deduped),
+            len(all_points) - len(deduped),
+        )
+        all_points = deduped
 
     # Assign grammar_order and sort_order
     if all_points:
