@@ -99,8 +99,8 @@ development_status:
   # Epic 5: Chapter Assessment & Mastery
   epic-5: in-progress
   5-1-chapter-test-combined-vocabulary-grammar: ready-for-dev
-  5-2-chapter-mastery-calculation: backlog
-  5-3-chapter-mastery-celebration: backlog
+  5-2-chapter-mastery-calculation: ready-for-dev
+  5-3-chapter-mastery-celebration: ready-for-dev
   epic-5-retrospective: optional
 
   # Epic 6: Progress Tracking & History
