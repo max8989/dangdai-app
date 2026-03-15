@@ -2,8 +2,10 @@
 stepsCompleted: ['step-01-validate-prerequisites', 'step-02-design-epics', 'step-03-create-stories', 'step-04-final-validation']
 workflowComplete: true
 completedAt: 2026-02-15
-updatedAt: 2026-03-08
+updatedAt: 2026-03-14
 updateHistory:
+  - date: '2026-03-14'
+    changes: 'Hybrid Quiz Generation redesign: Added Story 4.15 (Hybrid 3-Tier Quiz Generation). Tier 1 (vocabulary, matching, fill_in_blank) uses algorithmic generation from structured tables — zero LLM calls. Tier 2 (grammar, sentence_construction, dialogue_completion, reading_comprehension) uses single LLM call — evaluator removed. Updated FR12, FR13, FR58. Updated NFR1, NFR27, NFR31. Updated Epic 4 goal. Supersedes Story 4.13 evaluator-optimizer pattern.'
   - date: '2026-03-09'
     changes: 'Correct Course (Epic 11 retro): Added Story 3.7 (Wire Browse Screen Navigation). Updated story creation template with mandatory seeding/hook/component patterns (A1-A9 from retro). Story 3.7 formalises deferred navigation wiring for vocabulary/grammar/dialogue browse screens (retro A7).'
   - date: '2026-03-08'
@@ -44,8 +46,8 @@ This document provides the complete epic and story breakdown for dangdai-app, de
 
 **Structured Content & Quiz Generation:**
 - **FR11:** System retrieves chapter-specific content from structured content tables (vocabulary, grammar_points, dialogues) as PRIMARY source. RAG chunks supplementary only.
-- **FR12:** System generates quiz questions via LangGraph agent using structured content, ensuring ALL grammar points for the chapter are represented
-- **FR13:** System validates generated questions for accuracy, curriculum alignment, and grammar coverage before presenting
+- **FR12:** System generates quiz questions via hybrid 3-tier approach: Tier 1 (vocabulary, matching, fill_in_blank) generated algorithmically from structured tables with zero LLM calls; Tier 2 (grammar, sentence_construction, dialogue_completion, reading_comprehension) generated via single LLM call using structured content
+- **FR13:** System validates generated questions using deterministic rule-based checks (regex simplified Chinese detection, pinyin format, CJK in question_text, vocabulary set-membership, grammar coverage) — no LLM evaluator
 - **FR14:** System returns structured quiz with questions, answer options, correct answers, and source citations
 
 **Exercise Types (MVP - 7 Types):**
@@ -110,12 +112,12 @@ This document provides the complete epic and story breakdown for dangdai-app, de
 - **FR57:** User can browse dialogues for a chapter (traditional, simplified, pinyin, English)
 
 **Grammar Coverage:**
-- **FR58:** AI-generated quizzes MUST cover all grammar points for the chapter (enforced by validation node)
+- **FR58:** AI-generated quizzes MUST cover at least min(4, total) grammar points for the chapter (enforced by validation node). Same grammar point may appear in multiple questions. Tier 1 fill-in-blank covers grammar points directly from grammar_points.examples[]. Tier 2 coverage enforced by validate_structure.
 
 ### NonFunctional Requirements (PRD v3.0)
 
 **Performance:**
-- **NFR1:** RAG retrieval + LLM quiz generation completes within 8 seconds (10 questions), loading indicator with progress
+- **NFR1:** Quiz generation completes within 200ms for Tier 1 types (vocabulary, matching, fill_in_blank — algorithmic, no LLM) and within 4 seconds for Tier 2 types (grammar, sentence_construction, dialogue_completion, reading_comprehension — single LLM call), loading indicator with progress for Tier 2
 - **NFR2:** Screen navigation completes within 500ms
 - **NFR3:** App launches to usable state within 3 seconds
 - **NFR4:** Weakness profile calculation completes within 2 seconds after quiz submission
@@ -155,11 +157,11 @@ This document provides the complete epic and story breakdown for dangdai-app, de
 - **NFR26:** Chinese content unchanged regardless of UI language
 
 **AI & RAG Quality:**
-- **NFR27:** Generated quiz questions are curriculum-aligned: 100% use vocabulary/grammar from structured content tables
+- **NFR27:** Generated quiz questions are curriculum-aligned: 100% use vocabulary/grammar from structured content tables. Tier 1 types guarantee this by construction (algorithmic). Tier 2 types verified by deterministic vocabulary set-membership check.
 - **NFR28:** Structured content coverage: 100% of chapters in Books 1-4 have vocabulary, grammar, and dialogues
 - **NFR29:** Adaptive quiz content: 30-50% of generated questions target documented weak areas
 - **NFR30:** Generated exercises follow workbook formatting patterns
-- **NFR31:** LLM cost per quiz generation stays under $0.05 per 10-question quiz
+- **NFR31:** LLM cost per quiz generation: $0 for Tier 1 types (algorithmic), ~$0.012 for Tier 2 types (single LLM call), stays well under $0.05 cap
 
 ### Additional Requirements
 
@@ -263,9 +265,9 @@ This document provides the complete epic and story breakdown for dangdai-app, de
 | FR8 | Epic 3 | User can view chapters within a book |
 | FR9 | Epic 3 | User can select any chapter |
 | FR10 | Epic 3 | User can see chapter completion status (per-exercise-type indicators) |
-| FR11 | Epic 4 (Story 4.14) | System retrieves chapter content from structured content tables (PRIMARY) |
-| FR12 | Epic 4 (Story 4.14) | System generates quiz via LangGraph agent using structured content |
-| FR13 | Epic 4 (Story 4.14) | System validates generated questions (structure + grammar coverage) |
+| FR11 | Epic 4 (Stories 4.14, 4.15) | System retrieves chapter content from structured content tables (PRIMARY) |
+| FR12 | Epic 4 (Story 4.15) | System generates quiz via hybrid 3-tier: algorithmic (Tier 1) or single LLM call (Tier 2) |
+| FR13 | Epic 4 (Story 4.15) | System validates generated questions using deterministic rule-based checks (no LLM evaluator) |
 | FR14 | Epic 4 | System returns structured quiz with explanations and source citations |
 | FR15 | Epic 4 | User can select exercise type per chapter (7 types + Mixed) |
 | FR16 | Epic 4 | Vocabulary Quiz |
@@ -310,7 +312,7 @@ This document provides the complete epic and story breakdown for dangdai-app, de
 | FR55 | Epic 11 + Epic 3 (Story 3.7) | User can browse vocabulary for a chapter |
 | FR56 | Epic 11 + Epic 3 (Story 3.7) | User can browse grammar points for a chapter |
 | FR57 | Epic 11 + Epic 3 (Story 3.7) | User can browse dialogues for a chapter |
-| FR58 | Epic 4 (Story 4.14) | AI-generated quizzes MUST cover all grammar points (validation) |
+| FR58 | Epic 4 (Story 4.15) | AI-generated quizzes MUST cover min(4, total) grammar points (deterministic validation) |
 
 ## Epic List
 
@@ -345,9 +347,9 @@ This document provides the complete epic and story breakdown for dangdai-app, de
 ---
 
 ### Epic 4: Quiz Experience & Exercise Types
-**Goal:** Enable users to take 7 types of AI-generated exercises with hybrid answer validation, pre-generated explanations, and satisfying feedback. Story 4.14 migrates quiz generation from RAG-only to structured content tables as the primary source, with grammar coverage enforcement.
+**Goal:** Enable users to take 7 types of exercises with hybrid 3-tier generation (algorithmic for simple types, single LLM call for complex types), hybrid answer validation, pre-generated explanations, and satisfying feedback. Story 4.14 migrated to structured content tables. Story 4.15 introduces hybrid 3-tier generation: Tier 1 (vocabulary, matching, fill_in_blank) generated algorithmically — instant, free; Tier 2 (grammar, sentence_construction, dialogue_completion, reading_comprehension) generated via single LLM call — no evaluator, 2-4s, ~$0.012.
 
-**User Outcome:** Users can select exercise types, take Vocabulary/Grammar/Fill-in-the-Blank/Matching/Dialogue Completion/Sentence Construction/Reading Comprehension quizzes, receive immediate feedback with explanations and source citations, and see results with per-question breakdown. After Story 4.14, all grammar points per chapter are guaranteed to be covered.
+**User Outcome:** Users experience near-instant quiz delivery (<200ms) for vocabulary, matching, and fill-in-blank exercises. Grammar, sentence construction, dialogue completion, and reading comprehension quizzes are generated in 2-4 seconds with a single LLM call. All quiz types maintain curriculum alignment verified by deterministic validation. Monthly LLM costs reduced 55-70%.
 
 **FRs covered:** FR11, FR12, FR13, FR14, FR15, FR16, FR17, FR18, FR19, FR20, FR21, FR22, FR23, FR24, FR25, FR26, FR58
 **NFRs addressed:** NFR1, NFR2, NFR10, NFR13, NFR15, NFR17, NFR27, NFR28, NFR30, NFR31
@@ -927,7 +929,7 @@ So that I can study chapter content directly without starting a quiz.
 
 ## Epic 4: Quiz Experience & Exercise Types
 
-**Goal:** Enable users to take 7 types of AI-generated exercises with hybrid answer validation, pre-generated explanations, and satisfying feedback across all interaction patterns. Quiz generation uses structured content tables as the primary source (see Story 4.14).
+**Goal:** Enable users to take 7 types of exercises with hybrid 3-tier generation (algorithmic for Tier 1, single LLM for Tier 2), hybrid answer validation, pre-generated explanations, and satisfying feedback across all interaction patterns. Quiz generation uses structured content tables as the primary source (Story 4.14). Story 4.15 introduces hybrid 3-tier generation, removing the LLM evaluator and adding algorithmic generators for vocabulary/matching/fill-in-blank.
 
 ### Story 4.1: Quiz Generation API Endpoint (All Exercise Types)
 
@@ -1281,6 +1283,52 @@ So that generated quizzes are guaranteed to use accurate curriculum data with co
 - Add `services/content_service.py` for content retrieval orchestration
 - Modify `agent/nodes.py`: replace `retrieve_content` with `retrieve_structured_content`
 - Keep existing RAG retrieval as fallback/supplementary in `services/rag_service.py`
+
+---
+
+### Story 4.15: Hybrid Quiz Generation — 3-Tier Algorithmic + Single LLM
+
+As a learner,
+I want vocabulary, matching, and fill-in-blank quizzes to be generated instantly from structured textbook data, and grammar, sentence construction, dialogue completion, and reading comprehension quizzes to be generated with a single fast LLM call (no evaluator),
+So that I experience near-instant quiz delivery for simple exercise types and faster, cheaper generation for complex types.
+
+**Acceptance Criteria:**
+
+**Given** the exercise type is `vocabulary`, `matching`, or `fill_in_blank` (Tier 1)
+**When** a POST request is made to `/api/quizzes/generate`
+**Then** quiz questions are generated algorithmically from `vocabulary` and `grammar_points` tables with ZERO LLM calls
+**And** the response is returned within 200ms
+**And** no LLM API cost is incurred
+
+**Given** the exercise type is `grammar`, `sentence_construction`, `dialogue_completion`, or `reading_comprehension` (Tier 2)
+**When** a POST request is made to `/api/quizzes/generate`
+**Then** quiz questions are generated with exactly ONE LLM call (no evaluator)
+**And** the response is returned within 4 seconds (happy path)
+
+**Given** Tier 1 algorithmic generation produces vocabulary questions
+**When** the user has a weakness profile
+**Then** 30-50% of questions target weak items (biased selection from `question_results`)
+**And** distractors are from same chapter, same part-of-speech when possible
+
+**Given** any tier generates questions
+**When** the quiz payload is returned
+**Then** deterministic rule-based validation is applied (regex simplified Chinese detection, pinyin format, CJK in question_text, vocab set-membership, grammar coverage)
+**And** the `evaluate_content` LLM node is NOT called
+**And** the response format is backward-compatible (no mobile changes required)
+
+**Given** the `evaluate_content` node existed previously (Story 4.13)
+**When** this story is complete
+**Then** `evaluate_content` is removed from the graph topology
+**And** grammar coverage is relaxed to min(4, total_grammar_points) instead of ALL
+
+**Implementation notes:**
+- Add `agent/generators.py` for Tier 1 algorithmic generators (Vocabulary, Matching, FillInBlank)
+- Add `algorithmic_generate` node to `agent/nodes.py`
+- Add tier routing logic to `agent/graph.py`
+- Enhance `validate_structure` with deterministic content quality checks (regex)
+- Remove `evaluate_content` from graph edges
+- Deprecate `CONTENT_EVALUATION_*` prompts
+- Supersedes Story 4.13's evaluator-optimizer pattern
 
 ---
 

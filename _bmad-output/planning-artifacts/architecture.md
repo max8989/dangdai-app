@@ -11,8 +11,10 @@ date: 'Sat Feb 14 2026'
 lastStep: 8
 status: 'complete'
 completedAt: '2026-02-14'
-updatedAt: 'Sat Feb 21 2026'
+updatedAt: 'Sat Mar 14 2026'
 updateHistory:
+  - date: 'Sat Mar 14 2026'
+    changes: 'Major architecture redesign: Hybrid Quiz Generation (3-Tier). Replaced 2-LLM-call pipeline (generator + evaluator) with tiered approach. Tier 1 (vocabulary, matching, fill_in_blank) uses algorithmic generation from structured tables — zero LLM calls, <200ms, $0. Tier 2 (grammar, sentence_construction, dialogue_completion, reading_comprehension) uses single LLM call — no evaluator, 2-4s, ~$0.012. Tier 3: LLM evaluator removed entirely, replaced by deterministic rule-based validation (regex for simplified Chinese, pinyin format, CJK in question_text, vocab set-membership). Grammar coverage relaxed to min(4, total) grammar points. Monthly cost reduced ~55-70% ($80→$25-35). Latency reduced ~40-95% depending on exercise type.'
   - date: 'Sat Feb 21 2026'
     changes: 'Added Quiz Pause/Resume Architecture: Allows users to pause in-progress quizzes and resume later with full state restoration. Paused quizzes stored in Supabase paused_quizzes table with JSONB state. Exit modal updated with Pause/Cancel options. Improves UX by preventing accidental quiz loss.'
   - date: 'Sat Feb 21 2026'
@@ -98,22 +100,38 @@ Mobile App (Expo) ──┬──▶ Supabase (Auth, Progress, User Data, Perfor
                               └──▶ LangGraph Content Evaluator Node (LLM-based quality gate)
 ```
 
-**Quiz Generation Flow (Detailed) -- Structured Content + Evaluator-Optimizer Pattern:**
+**Quiz Generation Flow (Detailed) -- Hybrid 3-Tier Generation:**
 ```
 1. Mobile: POST /api/quizzes/generate { chapter_id, exercise_type, user_jwt }
-2. Agent: Verify JWT → Query weakness profile from question_results (aggregation)
-3. Agent: Retrieve structured content from Supabase:
-   a. vocabulary table: all vocab for this chapter (+ optionally previous chapters for cumulative review)
-   b. grammar_points table: all grammar points for this chapter (MUST cover all grammar points)
-   c. dialogues table: dialogue lines for this chapter (for Reading Comprehension, Dialogue Completion)
-   d. (Optional) dangdai_chunks: culture/pronunciation context if needed
-4. Agent: LLM (Azure OpenAI gpt-4o) generates quiz using structured content as context, with pre-generated explanations, biased 30-50% toward weak areas, ensuring ALL grammar points are covered
-5. Agent: Structure validation node (rule-based: correct answers exist, options distinct, required fields, all grammar points represented)
-6. Agent: Content evaluator node (LLM-based: Traditional Chinese compliance, pinyin diacritics, 
-          question text in UI language, curriculum alignment, pedagogical quality)
-   - If evaluator fails: structured feedback → retry generate_quiz (max 2 retries)
-   - Generator receives evaluator feedback to self-correct specific issues
-7. Agent: Return structured quiz payload with answer keys + explanations + source citations
+2. Agent: Verify JWT → Determine generation tier based on exercise_type:
+   - Tier 1 (vocabulary, matching, fill_in_blank): Algorithmic generation, no LLM
+   - Tier 2 (grammar, sentence_construction, dialogue_completion, reading_comprehension): Single LLM call
+   - Mixed: Blend of Tier 1 + Tier 2 questions
+
+--- Tier 1 Flow (vocabulary, matching, fill_in_blank) — instant, $0 ---
+3a. Agent: Query structured content from Supabase (vocabulary + grammar_points tables)
+4a. Agent: Query weakness profile from question_results (bias toward weak items)
+5a. Agent: Algorithmically generate questions:
+    - Vocabulary: Pick N vocab items (30-50% weak-biased), choose subtype, pick distractors by POS
+    - Matching: Pick 4-6 vocab pairs, shuffle right column
+    - Fill-in-Blank: Use grammar_points.examples[], mask key words, build word bank from chapter vocab
+6a. Agent: Rule-based validation (structural + deterministic content checks)
+7a. Agent: Return structured quiz payload with answer keys + explanations + source citations
+
+--- Tier 2 Flow (grammar, sentence_construction, dialogue_completion, reading_comprehension) — 2-4s, ~$0.012 ---
+3b. Agent: Query weakness profile from question_results (aggregation)
+4b. Agent: Retrieve structured content from Supabase:
+    a. vocabulary table: all vocab for this chapter
+    b. grammar_points table: all grammar points (cover at least min(4, total) grammar points)
+    c. dialogues table: dialogue lines (for reading_comprehension, dialogue_completion)
+5b. Agent: Single LLM call (Azure OpenAI gpt-4o) generates quiz using structured content as context,
+    with pre-generated explanations, biased 30-50% toward weak areas
+6b. Agent: Rule-based validation (structural checks + deterministic content quality checks:
+    regex simplified Chinese detection, pinyin format, CJK in question_text, vocab set-membership)
+    - If validation fails: retry generate_quiz with feedback (max 2 retries)
+7b. Agent: Return structured quiz payload with answer keys + explanations + source citations
+
+--- Common Post-Generation Flow ---
 8. Mobile: Local validation for simple types (Vocabulary, Grammar, Matching, Fill-in-Blank, Reading)
 9. Mobile: LLM call via agent for complex types (Sentence Construction, Dialogue Completion) when answer differs from key
 10. Mobile: Save per-question results to question_results + update exercise_type_progress
@@ -613,7 +631,8 @@ When the user presses "back" or navigates away from the quiz loading screen, Rea
 
 | Endpoint | Expensive Operations | Cancellation Checkpoints |
 |----------|---------------------|--------------------------|
-| `POST /api/quizzes/generate` | RAG retrieval, weakness profile query, LLM generation (2-4 calls), LLM evaluation (1-2 calls) | Before RAG query, before each LLM call in `generate_quiz` and `evaluate_content` nodes |
+| `POST /api/quizzes/generate` (Tier 1) | Supabase structured content queries, weakness profile query | Before Supabase queries (fast, but still check) |
+| `POST /api/quizzes/generate` (Tier 2) | Supabase structured content queries, weakness profile query, single LLM generation call | Before Supabase queries, before the LLM call in `generate_quiz` node |
 | `POST /api/quizzes/validate-answer` | LLM answer validation call | Before LLM call in validation service |
 | `GET /health` | None (instant response) | No cancellation checks needed |
 
@@ -1223,145 +1242,195 @@ Users can manually delete paused quizzes:
 # 8. Verify paused_quizzes record deleted
 ```
 
-### Quiz Generation Quality: Evaluator-Optimizer Pattern
+### Quiz Generation Quality: Hybrid 3-Tier Generation with Deterministic Validation
 
-This section defines the LLM-based content evaluation architecture that ensures quiz quality beyond structural validation. The pattern follows the standard LangGraph evaluator-optimizer loop where a dedicated evaluator node acts as a quality gate, providing structured feedback to the generator for self-correction on failure.
+This section defines the hybrid quiz generation architecture that replaces the previous 2-LLM-call pipeline (generator + evaluator) with a tiered approach: algorithmic generation for simple exercise types, single LLM call for complex types, and deterministic rule-based validation for all types.
 
-#### Problem Statement
+#### Problem Statement (Motivation for Redesign)
 
-The quiz generator LLM (even with explicit prompt rules) occasionally:
-- Uses Simplified Chinese characters instead of Traditional (繁體字)
-- Outputs pinyin with tone numbers (e.g., `ni3 hao3`) instead of diacritics (e.g., `nǐ hǎo`)
-- Writes question text in Chinese instead of the expected UI language (English, French, etc.)
-- Generates content not aligned with the specified chapter
+The previous Evaluator-Optimizer pattern (Story 4.13) used 2 LLM calls per quiz:
+1. **Generator LLM call** ($0.014, ~3-5s): Generate quiz questions
+2. **Evaluator LLM call** ($0.006, ~1-2s): Quality-check the output against 5 rules
 
-The existing rule-based `validate_quiz` node only catches **structural** issues (missing fields, duplicate options, correct answer not in options). It cannot detect **linguistic** or **pedagogical** violations.
+Issues with this approach:
+- **Unnecessary latency**: 4-7s happy path, 8-12s with retry — too slow for exercise types that can be generated deterministically
+- **Unnecessary cost**: $0.02+ per quiz, even for vocabulary/matching which are trivially algorithmic
+- **Evaluator rarely caught real issues**: With gpt-4o and strong system prompts, the generator already followed rules ~95% of the time
+- **Evaluator rules are better as code**: Simplified Chinese detection, pinyin format checking, and CJK detection in question_text are more reliable as regex than LLM judgment
 
-#### Architecture: Two-Phase Validation
+#### Architecture: 3-Tier Generation
 
-**Phase 1: Structure Validation (rule-based, free, <10ms)**
+**Tier 1: Algorithmic Generation (no LLM) — instant, $0**
 
-The existing `validate_structure` node performs:
-- Required field checks (`question_text`, `correct_answer`, `exercise_type`)
-- Duplicate question detection
-- Options distinctness verification
-- Correct answer in options (for MC types)
-- Explanation presence
+Exercise types: `vocabulary`, `matching`, `fill_in_blank`
 
-**Phase 2: Content Evaluation (LLM-based, ~$0.005, ~1-2s)**
+These are generated entirely from structured data with deterministic algorithms:
 
-A new `evaluate_content` async node that invokes the LLM as an evaluator/judge:
+| Exercise Type | Algorithm |
+|---|---|
+| **Vocabulary** | Pick N vocab items from `vocabulary` table (bias 30-50% toward weak items from `question_results`). For each: randomly choose subtype (char→meaning, pinyin→char, meaning→char). Pick 3 distractors from same chapter's vocab (same POS when possible). Shuffle options. Generate explanations from vocab data. |
+| **Matching** | Pick 4-6 vocab items. Left column = traditional characters. Right column = shuffled meanings (or pinyin). Correct pairs = original mapping. |
+| **Fill-in-Blank** | Use `grammar_points.examples[]` — each example has `{traditional, pinyin, english}`. Mask one key word (using the grammar pattern's structure to identify the target). Provide word bank from other vocab items + correct answer. |
 
-| Rule | What It Checks | Example Violation |
-|------|----------------|-------------------|
-| **Traditional Chinese Only** | All Chinese text uses Traditional characters (繁體字), zero Simplified characters (简体字) | `学习` instead of `學習` |
-| **Pinyin Diacritics** | All pinyin uses tone marks, never tone numbers or bare Latin | `xue2xi2` instead of `xuéxí` |
-| **Question Text Language** | `question_text` field is in the expected UI language (English by default), not in Chinese | `"哪個字對應拼音...?"` instead of `"Which character corresponds to the pinyin...?"` |
-| **Curriculum Alignment** | Content comes from the specified book/chapter, not hallucinated vocabulary | Testing `電腦` when it's not in Book 1 Ch 3 |
-| **Pedagogical Quality** | Distractors are plausible, explanations are educational, difficulty is appropriate | All distractors are obviously wrong or from unrelated topics |
+Key design decisions:
+- Distractors come from same chapter, same POS → plausible without LLM
+- Weakness biasing works directly on SQL query (ORDER BY accuracy ASC, LIMIT N for weak items)
+- Grammar coverage: fill-in-blank pulls from grammar examples directly, guaranteeing coverage
+- All Chinese is already Traditional in the DB → no validation needed
+- All pinyin already has diacritics in the DB → no validation needed
+- Explanations generated from structured data fields (e.g., "學 (xué) means 'to study'. Part of speech: Verb.")
 
-**Evaluator Output Schema:**
+**Latency: <200ms.** **Cost: $0.**
 
-```python
-class ContentEvaluation(BaseModel):
-    """Structured output from the content evaluator node."""
-    passed: bool
-    issues: list[ContentIssue]
+**Tier 2: Single LLM Call Generation — 2-4s, ~$0.012**
 
-class ContentIssue(BaseModel):
-    """Individual issue found by the evaluator."""
-    question_id: str
-    rule: Literal[
-        "traditional_chinese",
-        "pinyin_diacritics",
-        "question_language",
-        "curriculum_alignment",
-        "pedagogical_quality",
-    ]
-    detail: str  # Human-readable description of the violation
-```
+Exercise types: `grammar`, `sentence_construction`, `dialogue_completion`, `reading_comprehension`
+
+These require LLM creativity but use structured content as rich context:
+
+| Exercise Type | What LLM Does | Why LLM Is Needed |
+|---|---|---|
+| **Grammar** | Generate sentences testing grammar patterns, with plausible wrong options | Requires natural sentence construction with contextual distractors |
+| **Sentence Construction** | Generate scrambled-word exercises from chapter vocab + grammar | Needs to construct grammatically valid sentences, then scramble |
+| **Dialogue Completion** | Generate dialogue exchanges with one missing turn | Needs natural conversational flow |
+| **Reading Comprehension** | Generate/adapt a passage + comprehension questions | Needs coherent multi-sentence passage |
+
+Changes from previous architecture:
+1. **Evaluator LLM call removed** — replaced with deterministic validation (Tier 3)
+2. **One LLM call only** with rich structured context (vocab list + grammar points + dialogue lines + examples)
+3. **Stronger system prompt** — evaluator rules folded INTO the generation prompt
+4. **Rule-based post-validation** — `validate_structure` node enhanced with content quality checks
+
+**Latency: 2-4s** (vs 4-7s previously). **Cost: ~$0.012** (vs $0.02-0.025 previously).
+
+**Mixed exercise type:** Generates a blend — Tier 1 questions algorithmically + Tier 2 questions via single LLM call.
+
+**Tier 3: Deterministic Rule-Based Validation (replaces LLM evaluator) — instant, $0**
+
+The 5 evaluator rules become deterministic checks in `validate_structure`:
+
+| Rule | Previous (LLM) | New (Code) | Reliability |
+|---|---|---|---|
+| **Traditional Chinese only** | LLM judges | Regex: detect Simplified chars via Unicode range `\u4e00-\u9fff` cross-referenced with known Simplified→Traditional mapping (学→學, 说→說, etc.) | **More reliable** — LLMs can miss subtle simplified chars |
+| **Pinyin diacritics** | LLM judges | Regex: flag `[a-z][1-5]` tone number patterns; verify presence of Unicode diacritics (ā-ǖ) in pinyin fields | **More reliable** — deterministic pattern match |
+| **Question text in English** | LLM judges | Regex: detect CJK characters (Unicode `\u4e00-\u9fff`) in `question_text` field | **More reliable** — simple presence check |
+| **Curriculum alignment** | LLM judges | Code: verify every `character`/`traditional` value exists in the chapter's `vocabulary` table rows (set-membership check) | **More reliable** — exact match against source data |
+| **Pedagogical quality** | LLM judges | Code: verify options are distinct, explanation non-empty, distractor count correct, answer in options | **Equal** — structural checks are sufficient |
 
 #### Updated Graph Topology
 
 ```
-START → retrieve_structured_content → query_weakness → generate_quiz → validate_structure → evaluate_content → END
-                                                           ↑                                       |
-                                                           └──── (if fails & retries ≤ 2) ────────┘
+                    ┌─────────────────────────────────────────────┐
+                    │  Route by exercise_type tier                │
+                    └──────────┬──────────────────────────────────┘
+                               │
+                    ┌──────────▼──────────┐
+                    │  Tier 1?            │  Tier 2?
+                    │  (vocabulary,       │  (grammar, sentence_construction,
+                    │   matching,         │   dialogue_completion,
+                    │   fill_in_blank)    │   reading_comprehension)
+                    ▼                     ▼
+        ┌───────────────────┐   ┌────────────────────────────────────┐
+        │ algorithmic_       │   │ retrieve_structured_content         │
+        │ generate           │   │   → query_weakness                  │
+        │ (no LLM, <200ms)  │   │   → generate_quiz (1 LLM call)      │
+        │                    │   │   → validate_structure (rule-based)  │
+        │ - query vocab/     │   │   → (retry if needed, up to 2x)     │
+        │   grammar tables   │   │                                     │
+        │ - query weakness   │   └────────────────────────────────────┘
+        │ - build questions  │                │
+        │   algorithmically  │                │
+        │ - validate_        │                │
+        │   structure        │                │
+        └────────┬───────────┘                │
+                 │                            │
+                 └──────────┬─────────────────┘
+                            ▼
+                         RETURN quiz_payload
 ```
 
-**`retrieve_structured_content` node (replaces RAG-only `retrieve_content`):**
-This node queries the **structured content tables** as the PRIMARY source:
-1. `vocabulary` — all vocab items for the target chapter (and optionally previous chapters for cumulative review)
-2. `grammar_points` — all grammar points for the target chapter (ALL must be covered in generated exercises)
-3. `dialogues` — dialogue lines for the target chapter (used for Reading Comprehension, Dialogue Completion exercise types)
-4. (Optional) `dangdai_chunks` — supplementary RAG retrieval for culture/pronunciation context when needed
-
-The node returns structured content objects (not raw text chunks), which the `generate_quiz` node uses to produce curriculum-aligned exercises. This ensures:
-- **Complete grammar coverage**: Every grammar point in the chapter is represented in generated exercises
-- **Accurate vocabulary**: No hallucinated vocabulary — only items actually in the textbook
-- **Reliable dialogue content**: Exact dialogue lines from the textbook for comprehension exercises
-
-**Retry flow:** When `evaluate_content` finds issues, it:
-1. Sets `validation_errors` with the evaluator's structured feedback
-2. Sets `evaluator_feedback` with a formatted string of all issues
-3. Increments `retry_count`
-4. Routes back to `generate_quiz` via conditional edge
-
-The `generate_quiz` node, on retry, appends the evaluator feedback to the LLM prompt:
+**Tier 2 graph flow (detail):**
 ```
-## Previous Attempt Failed Evaluation
-The following issues were found in your previous generation:
-{evaluator_feedback}
-
-Please regenerate the quiz fixing ALL of the above issues.
+START → retrieve_structured_content → query_weakness → generate_quiz → validate_structure → END
+                                                            ↑                    |
+                                                            └── (if fails & retries ≤ 2)
 ```
 
-This self-correction mechanism means the generator gets **specific, actionable feedback** rather than blindly retrying.
+Note: `evaluate_content` node is **removed** from the graph. All quality checks are handled by the enhanced `validate_structure` node.
+
+#### Grammar Coverage (Relaxed)
+
+Previous: "MUST cover ALL grammar points" — forced 12 questions to span all 4-6 grammar points.
+
+**Updated:** Cover **at least min(4, total_grammar_points)** grammar points. The same grammar point CAN appear in multiple questions. This gives the LLM more creative freedom and produces better questions.
+
+```python
+# validate_structure grammar coverage check
+MIN_GRAMMAR_COVERAGE = 4
+required = min(MIN_GRAMMAR_COVERAGE, len(all_grammar_points))
+if len(covered_grammar_points) < required:
+    # Trigger retry with feedback listing uncovered grammar points
+```
 
 #### Updated State Definition
 
 ```python
 class QuizGenerationState(TypedDict, total=False):
-    # ... existing fields ...
+    # Input fields
+    chapter_id: int
+    book_id: int
+    exercise_type: str
+    user_id: str
+    request: Request  # For cancellation detection
     
-    # NEW: Evaluator feedback for self-correction (set by evaluate_content)
-    evaluator_feedback: str
+    # Content fields
+    retrieved_content: list[dict]       # Supplementary RAG chunks (rarely used)
+    structured_content: dict            # { vocabulary, grammar_points, dialogues }
+    grammar_points_list: list[dict]     # For grammar coverage validation
+    
+    # Weakness fields
+    weakness_profile: dict              # { weak_vocab, weak_grammar, weak_exercise_types }
+    
+    # Generation fields
+    questions: list[dict]               # Generated question objects
+    generation_tier: int                # NEW: 1 or 2 (routing metadata)
+    
+    # Validation fields
+    validation_errors: list[str]        # Error messages (non-empty = retry)
+    retry_count: int                    # Current retry number
+    
+    # Output fields
+    quiz_payload: dict                  # Final output { questions: [...] }
+    
+    # REMOVED: evaluator_feedback (no longer needed — evaluator node removed)
 ```
-
-#### LLM Model Upgrade
-
-| Setting | Previous | Updated | Rationale |
-|---------|----------|---------|-----------|
-| Default OpenAI model | `gpt-4o` | `gpt-4.1` | Better instruction-following reduces baseline rule violations, fewer retry loops needed |
-
-Both the generator and evaluator use the same `gpt-4.1` model. The evaluator call is typically smaller (it receives the generated questions, not the full RAG context) so its cost is lower.
 
 #### Cost & Latency Impact
 
-| Metric | Before | After (happy path) | After (1 retry) |
-|--------|--------|---------------------|------------------|
-| LLM calls per quiz | 1 | 2 | 4 |
-| Generation latency | ~3-5s | ~4-7s | ~8-12s |
-| Cost per quiz | ~$0.02 | ~$0.025 | ~$0.045 |
-| Quality assurance | Structural only | Structural + linguistic + pedagogical | Same with self-correction |
-
-The 8s timeout budget (NFR) still holds for the happy path. For retries, the timeout is extended to 30s at the service level (existing `GENERATION_TIMEOUT_SECONDS`).
-
-#### New Prompts
-
-Two new prompt constants in `src/agent/prompts.py`:
-
-- **`CONTENT_EVALUATION_SYSTEM_PROMPT`**: Sets the LLM as a strict quality evaluator for Chinese language quizzes, with explicit rules for each validation dimension.
-- **`CONTENT_EVALUATION_PROMPT`**: Template that receives the generated questions JSON and the evaluation rules, returns the `ContentEvaluation` structured output.
+| Exercise Type | Previous (2 LLM calls) | New (0 or 1 LLM call) | Improvement |
+|---|---|---|---|
+| **Vocabulary** | 4-7s, $0.02 | **<200ms, $0** | ~95% faster, 100% cheaper |
+| **Matching** | 4-7s, $0.02 | **<200ms, $0** | ~95% faster, 100% cheaper |
+| **Fill-in-Blank** | 4-7s, $0.02 | **<200ms, $0** | ~95% faster, 100% cheaper |
+| **Grammar** | 4-7s, $0.02 | **2-4s, ~$0.012** | ~40% faster, 40% cheaper |
+| **Sentence Construction** | 4-7s, $0.02 | **2-4s, ~$0.012** | ~40% faster, 40% cheaper |
+| **Dialogue Completion** | 4-7s, $0.02 | **2-4s, ~$0.012** | ~40% faster, 40% cheaper |
+| **Reading Comprehension** | 4-7s, $0.02 | **2-4s, ~$0.012** | ~40% faster, 40% cheaper |
+| **Mixed** | 4-7s, $0.02 | **2-4s, ~$0.008** | Tier 1 portion free |
+| **Monthly (100 users, 10 quizzes/wk)** | ~$80/month | **~$25-35/month** | ~55-70% savings |
 
 #### Enforcement Guidelines (Updated)
 
 **All AI Agents implementing quiz generation MUST:**
-1. Never remove or bypass the `evaluate_content` node
-2. Always pass evaluator feedback to the generator on retry
-3. Use Azure OpenAI gpt-4o as the default model (configurable via environment variables)
-4. Ensure the evaluator prompt checks ALL five rules (Traditional Chinese, pinyin, question language, curriculum, pedagogy)
-5. Cap retries at 2 (existing `MAX_RETRIES`) -- after 2 failed evaluations, return the best attempt with a warning flag
+1. Route exercise types to the correct generation tier (Tier 1: vocabulary/matching/fill_in_blank, Tier 2: grammar/sentence_construction/dialogue_completion/reading_comprehension)
+2. **Never** use LLM calls for Tier 1 exercise types — these must be algorithmic
+3. Use exactly **one** LLM call for Tier 2 exercise types — no evaluator
+4. Use the enhanced `validate_structure` node with deterministic content quality checks for ALL tiers
+5. Cap retries at 2 (existing `MAX_RETRIES`) — after 2 failed validations, return best attempt with warning
+6. Use Azure OpenAI gpt-4o as default model (configurable via environment variables)
+7. The `evaluate_content` node and `CONTENT_EVALUATION_*` prompts are **deprecated and must not be used**
+8. Tier 1 generators must include `explanation` and `source_citation` fields derived from structured data
+9. Grammar coverage requires min(4, total_grammar_points) — same grammar point may appear in multiple questions
 
 ### LLM Provider Configuration Architecture
 
@@ -2259,10 +2328,11 @@ dangdai-api/
 │   │
 │   ├── agent/                        # LangGraph quiz generation
 │   │   ├── __init__.py
-│   │   ├── graph.py                  # Main quiz generation graph (retrieve_structured_content → query_weakness → generate → validate_structure → evaluate_content → respond)
-│   │   ├── nodes.py                  # Graph nodes (retrieve_structured_content, query_weakness, generate_quiz, validate_structure, evaluate_content)
-│   │   ├── prompts.py                # LLM prompt templates (per exercise type + content evaluation + answer validation)
-│   │   └── state.py                  # Graph state definitions (includes weakness profile, exercise type, evaluator_feedback)
+│   │   ├── graph.py                  # Main quiz generation graph (tier routing → algorithmic_generate OR retrieve_structured_content → query_weakness → generate_quiz → validate_structure → respond)
+│   │   ├── nodes.py                  # Graph nodes (algorithmic_generate, retrieve_structured_content, query_weakness, generate_quiz, validate_structure) — evaluate_content REMOVED
+│   │   ├── generators.py             # NEW: Tier 1 algorithmic generators (VocabularyGenerator, MatchingGenerator, FillInBlankGenerator)
+│   │   ├── prompts.py                # LLM prompt templates (per exercise type + answer validation) — content evaluation prompts DEPRECATED
+│   │   └── state.py                  # Graph state definitions (includes weakness profile, exercise type, generation_tier) — evaluator_feedback REMOVED
 │   │
 │   ├── api/                          # FastAPI routes
 │   │   ├── __init__.py
@@ -2472,60 +2542,60 @@ EXPO_PUBLIC_ENABLE_WEAKNESS_BIASING=true
 | Azure | Python backend hosting | Terraform config |
 | LangSmith | Observability (optional) | `LANGSMITH_API_KEY` |
 
-**Data Flow (Quiz Generation - Full Adaptive Loop):**
+**Data Flow (Quiz Generation - Hybrid 3-Tier Adaptive Loop):**
 
 ```
 1. User selects Chapter 12 → Exercise Type Selection screen loads
    │  Mobile fetches exercise_type_progress for Chapter 12 from Supabase
    │
-2. User taps "Matching" (or "Mixed" for AI-selected)
+2. User taps "Matching" (Tier 1) or "Grammar" (Tier 2) or "Mixed" (blend)
    │
 3. Mobile calls POST /api/quizzes/generate {
    │    chapter_id: 12, book_id: 2, exercise_type: "matching"
    │  }  (Authorization: Bearer <supabase_jwt>)
    │
-4. Python API verifies JWT → extracts user_id
+4. Python API verifies JWT → extracts user_id → determines generation tier
    │
-5. Weakness Service queries question_results for user's weakness profile
-   │  (aggregation query: weak vocab items, weak grammar patterns, weak exercise types)
+--- Tier 1 (vocabulary, matching, fill_in_blank): ---
+5a. Content Service queries structured content tables (vocabulary + grammar_points)
+   │  Weakness Service queries question_results for weakness biasing
+   │  Algorithmic generator builds questions deterministically
+   │  validate_structure runs deterministic content quality checks
+   │  Returns quiz payload — <200ms, $0
    │
-6. RAG Service retrieves Chapter 12 content from pgvector
-   │  FILTERED by: book=2, lesson=12, exercise_type="matching"
+--- Tier 2 (grammar, sentence_construction, dialogue_completion, reading_comprehension): ---
+5b. Weakness Service queries question_results for user's weakness profile
+   │  Content Service queries structured content tables (vocabulary + grammar_points + dialogues)
+   │  Single LLM call (gpt-4o) generates quiz with structured content as context
+   │  validate_structure: structural + deterministic content quality checks
+   │  (regex: simplified Chinese, pinyin format, CJK in question_text, vocab set-membership)
+   │  If validation fails → retry with feedback (max 2 retries)
+   │  Returns quiz payload — 2-4s, ~$0.012
    │
-7. LangGraph generates quiz (gpt-4.1) biased toward weak areas (30-50% of questions)
-   │  Each question includes: answer_key, explanation, source_citation
+6. API returns { quiz_id, exercise_type, questions: [{
+   │    question, options, correct_answer, explanation, source_citation, ...
+   │  }] }
    │
-8. Structure Validation Node (rule-based): correct answers exist, options distinct,
-   │  required fields present, no duplicates
+7. Mobile stores quiz in useQuizStore, renders exercise-type-specific component
    │
-9. Content Evaluator Node (LLM-based): Traditional Chinese compliance, pinyin diacritics,
-   │  question text in UI language, curriculum alignment, pedagogical quality
-   │  If evaluation fails → structured feedback → retry generate_quiz (max 2 retries)
+8. User answers each question:
+   │  - Matching/Vocabulary/Grammar/Fill-in-Blank/Reading: LOCAL validation
+   │    (compare against answer_key in payload, instant feedback with explanation)
+   │  - Sentence Construction/Dialogue Completion: LOCAL check first,
+   │    then LLM call via POST /api/quizzes/validate-answer if answer differs from key
    │
-10. API returns { quiz_id, exercise_type, questions: [{
-    │    question, options, correct_answer, explanation, source_citation, ...
-    │  }] }
-    │
-11. Mobile stores quiz in useQuizStore, renders MatchingExercise component
-    │
-12. User answers each question:
-    │  - Matching/Vocabulary/Grammar/Fill-in-Blank/Reading: LOCAL validation
-    │    (compare against answer_key in payload, instant feedback with explanation)
-    │  - Sentence Construction/Dialogue Completion: LOCAL check first,
-    │    then LLM call via POST /api/quizzes/validate-answer if answer differs from key
-    │
-13. Per-question: Mobile saves result to question_results via Supabase
-    │  { user_id, chapter_id, exercise_type, vocabulary_item, correct, time_spent_ms }
-    │
-14. On quiz completion, Mobile saves to Supabase:
+9. Per-question: Mobile saves result to question_results via Supabase
+   │  { user_id, chapter_id, exercise_type, vocabulary_item, correct, time_spent_ms }
+   │
+10. On quiz completion, Mobile saves to Supabase:
     │  - quiz_attempts record (with JSONB answers for replay)
     │  - exercise_type_progress update (best_score, attempts_count, mastered_at)
     │  - chapter_progress update (recalculated from exercise_type_progress)
     │  - user aggregates update (points, streak)
     │
-15. CompletionScreen shows: score, per-exercise-type breakdown, weakness update
+11. CompletionScreen shows: score, per-exercise-type breakdown, weakness update
     │
-16. TanStack Query invalidates: progress, exercise type progress, weakness profile
+12. TanStack Query invalidates: progress, exercise type progress, weakness profile
 ```
 
 ### Development Workflow Integration
@@ -2615,13 +2685,13 @@ All 50 FRs mapped to architectural components:
 
 **Non-Functional Requirements Coverage:**
 All 31 NFRs addressed architecturally:
-- Performance: 8s quiz generation with progressive loading, 500ms nav, 3s launch, 2s weakness calc
+- Performance: <200ms quiz generation for Tier 1 types (vocabulary/matching/fill-in-blank), 2-4s for Tier 2 types (grammar/sentence/dialogue/reading) with progressive loading, 500ms nav, 3s launch, 2s weakness calc
 - Security: Supabase Auth, JWT verification, service keys, per-user data isolation (RLS)
 - Reliability: TanStack Query caching, crash-safe progress sync, no empty results (structured content eliminates empty RAG risk), graceful degradation
 - Integration: Structured content as primary source eliminates RAG empty-result risk (NFR17), LLM validation timeout fallback
 - Scalability: Azure Container Apps auto-scaling, ~100 question_results rows/user/week
 - Localization: i18n folder with 4 language files
-- AI & RAG Quality: Two-phase validation (rule-based structure + LLM-based content evaluation), evaluator-optimizer retry loop, exercise-type-specific prompts, Traditional Chinese & pinyin enforcement, workbook format compliance, structured content ensures 100% grammar coverage per chapter
+- AI & RAG Quality: Hybrid 3-tier generation (algorithmic for Tier 1, single LLM for Tier 2), deterministic rule-based validation (regex simplified Chinese/pinyin/CJK checks, vocab set-membership), exercise-type-specific prompts, structured content ensures grammar coverage (≥4 points per chapter)
 
 ### Implementation Readiness Validation
 
@@ -2679,7 +2749,7 @@ All 31 NFRs addressed architecturally:
 - [x] Critical decisions documented with versions
 - [x] Technology stack fully specified
 - [x] Integration patterns defined (REST, Supabase JS)
-- [x] Performance considerations addressed (4-7s quiz gen happy path, evaluator-optimizer retry patterns, 30s timeout budget)
+- [x] Performance considerations addressed (Tier 1: <200ms algorithmic, Tier 2: 2-4s single LLM call, 30s timeout budget for retries)
 
 **Implementation Patterns**
 - [x] Naming conventions established (snake_case DB, PascalCase components)
@@ -2707,7 +2777,7 @@ All 31 NFRs addressed architecturally:
 5. Well-defined integration boundaries
 6. Hybrid answer validation strategy balances UX quality with cost
 7. Adaptive learning pipeline fully specified (weakness profile → quiz biasing → performance tracking → profile update)
-8. Evaluator-optimizer pattern ensures quiz content quality (Traditional Chinese, pinyin diacritics, question language, curriculum alignment) with self-correcting retry loop
+8. Hybrid 3-tier generation eliminates unnecessary LLM calls for simple exercise types, reducing cost 55-70% and latency 40-95%; deterministic validation replaces LLM evaluator with more reliable regex/code checks
 9. Structured content tables provide reliable, consistent curriculum data — eliminates RAG hallucination risk for core exercise content
 10. Premade workbook exercises provide instant, LLM-free practice — reducing costs and latency for users
 
