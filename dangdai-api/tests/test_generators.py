@@ -205,7 +205,7 @@ class TestVocabularyGenerator:
             assert len(options) == len(set(options)), f"Duplicate options: {options}"
 
     def test_subtypes_covered(self):
-        """All three subtypes should appear across 12 generated questions."""
+        """Both subtypes should appear across 12 generated questions."""
         gen = VocabularyGenerator()
         # Run multiple times to ensure variety
         all_subtypes: set[str] = set()
@@ -214,9 +214,8 @@ class TestVocabularyGenerator:
             for q in questions:
                 all_subtypes.add(q.get("question_subtype", ""))
 
-        assert "char_to_meaning" in all_subtypes
         assert "pinyin_to_char" in all_subtypes
-        assert "meaning_to_char" in all_subtypes
+        assert "char_to_pinyin" in all_subtypes
 
     def test_weakness_biasing_prioritizes_weak_vocab(self):
         """30-50% of questions should target weak vocabulary items."""
@@ -232,7 +231,8 @@ class TestVocabularyGenerator:
             )
             for q in questions:
                 total += 1
-                if q.get("character") == weak_trad:
+                # character or correct_answer may contain the target
+                if q.get("character") == weak_trad or q.get("meaning") == "to study":
                     weak_count += 1
 
         # Weak item should appear more often than random selection
@@ -258,6 +258,109 @@ class TestVocabularyGenerator:
         questions = gen.generate([], {}, book_id=1, lesson_id=1)
         assert questions == []
 
+    def test_distractor_pool_used_when_provided(self):
+        """Distractors should be drawn from distractor_pool, not just vocabulary."""
+        gen = VocabularyGenerator()
+        # Use only 2 items as vocabulary (small — distractors would be limited)
+        small_vocab = SAMPLE_VOCABULARY[:2]
+        # Provide a broader pool
+        questions = gen.generate(
+            small_vocab,
+            {},
+            book_id=1,
+            lesson_id=1,
+            distractor_pool=SAMPLE_VOCABULARY,
+        )
+        assert len(questions) > 0
+        for q in questions:
+            # With a broader pool, we should still get 4 options
+            assert len(q["options"]) == 4, (
+                f"Expected 4 options with broader pool, got {len(q['options'])}"
+            )
+
+    def test_no_english_in_options(self):
+        """All options must be Chinese characters or pinyin — never English."""
+        gen = VocabularyGenerator()
+        questions = gen.generate(SAMPLE_VOCABULARY, {}, book_id=1, lesson_id=1)
+        for q in questions:
+            subtype = q["question_subtype"]
+            for opt in q["options"]:
+                if subtype == "pinyin_to_char":
+                    # Options should be Chinese characters
+                    assert any("\u4e00" <= c <= "\u9fff" for c in opt), (
+                        f"pinyin_to_char option should be Chinese: {opt!r}"
+                    )
+                else:  # char_to_pinyin
+                    # Options should be pinyin (no CJK)
+                    assert not any("\u4e00" <= c <= "\u9fff" for c in opt), (
+                        f"char_to_pinyin option should be pinyin: {opt!r}"
+                    )
+
+    def test_pinyin_to_char_hides_character(self):
+        """pinyin_to_char questions should NOT reveal the character on card."""
+        gen = VocabularyGenerator()
+        questions = gen.generate(SAMPLE_VOCABULARY, {}, book_id=1, lesson_id=1)
+        for q in questions:
+            if q["question_subtype"] == "pinyin_to_char":
+                assert q["character"] is None, (
+                    f"pinyin_to_char should hide character, got: {q['character']!r}"
+                )
+                assert q["pinyin"] is not None, "pinyin_to_char must show pinyin"
+
+    def test_char_to_pinyin_hides_pinyin(self):
+        """char_to_pinyin questions should NOT reveal the pinyin on card."""
+        gen = VocabularyGenerator()
+        questions = gen.generate(SAMPLE_VOCABULARY, {}, book_id=1, lesson_id=1)
+        for q in questions:
+            if q["question_subtype"] == "char_to_pinyin":
+                assert q["pinyin"] is None, (
+                    f"char_to_pinyin should hide pinyin, got: {q['pinyin']!r}"
+                )
+                assert q["character"] is not None, "char_to_pinyin must show character"
+
+    def test_explanation_contains_traditional_and_pinyin(self):
+        """Explanation must contain the Traditional character and pinyin."""
+        gen = VocabularyGenerator()
+        questions = gen.generate(SAMPLE_VOCABULARY[:4], {}, book_id=1, lesson_id=1)
+        for q in questions:
+            explanation = q["explanation"]
+            # Explanation always contains the full character + pinyin
+            # (even if the card hides one for the quiz)
+            meaning = q.get("meaning", "")
+            # Find the original vocab to get the traditional char
+            orig = [v for v in SAMPLE_VOCABULARY if v["english"] == meaning]
+            if orig:
+                assert orig[0]["traditional"] in explanation, (
+                    f"Character '{orig[0]['traditional']}' not in explanation: {explanation!r}"
+                )
+                assert orig[0]["pinyin"] in explanation, (
+                    f"Pinyin '{orig[0]['pinyin']}' not in explanation: {explanation!r}"
+                )
+
+    def test_explanation_does_not_contain_english_meaning(self):
+        """Explanation must NOT contain the English meaning (shown in question/options)."""
+        gen = VocabularyGenerator()
+        questions = gen.generate(SAMPLE_VOCABULARY[:4], {}, book_id=1, lesson_id=1)
+        for q in questions:
+            explanation = q["explanation"]
+            english = q.get("meaning", "")
+            assert english not in explanation, (
+                f"English meaning '{english}' should not appear in explanation: {explanation!r}"
+            )
+
+    def test_explanation_pos_uses_comma_separator(self):
+        """POS in explanation uses comma, not double-parenthetical."""
+        gen = VocabularyGenerator()
+        # 學 has POS=V; generate a question targeting it
+        vocab_with_pos = [v for v in SAMPLE_VOCABULARY if v.get("part_of_speech")]
+        questions = gen.generate(vocab_with_pos[:4], {}, book_id=1, lesson_id=1)
+        for q in questions:
+            explanation = q["explanation"]
+            # Should NOT have consecutive closing-opening parens like ) (
+            assert ") (" not in explanation, (
+                f"Double-parenthetical found in explanation: {explanation!r}"
+            )
+
     def test_pick_distractors_same_pos_preferred(self):
         """Distractors should prefer same part-of-speech."""
         gen = VocabularyGenerator()
@@ -267,25 +370,21 @@ class TestVocabularyGenerator:
             "english": "to study",
             "part_of_speech": "V",
         }
-        distractors = gen._pick_distractors(
-            target, SAMPLE_VOCABULARY, "char_to_meaning"
-        )
-        # Result should be English meanings for char_to_meaning
+        distractors = gen._pick_distractors(target, SAMPLE_VOCABULARY, "pinyin_to_char")
+        # Result should be Traditional characters for pinyin_to_char
         assert len(distractors) > 0
         for d in distractors:
-            assert d != "to study"  # Not the correct answer
+            assert d != "學"  # Not the correct answer
 
-    def test_pick_distractors_char_to_meaning_returns_english(self):
-        """char_to_meaning distractors should be English strings."""
+    def test_pick_distractors_char_to_pinyin_returns_pinyin(self):
+        """char_to_pinyin distractors should be pinyin strings (no Chinese)."""
         gen = VocabularyGenerator()
         target = SAMPLE_VOCABULARY[0]  # 學
-        distractors = gen._pick_distractors(
-            target, SAMPLE_VOCABULARY, "char_to_meaning"
-        )
-        # All distractors should be ASCII-ish (English)
+        distractors = gen._pick_distractors(target, SAMPLE_VOCABULARY, "char_to_pinyin")
+        # All distractors should be pinyin (ASCII-ish, no CJK)
         for d in distractors:
             assert not any("\u4e00" <= c <= "\u9fff" for c in d), (
-                f"Non-English distractor: {d}"
+                f"Expected pinyin string, got CJK: {d}"
             )
 
     def test_pick_distractors_pinyin_to_char_returns_traditional(self):

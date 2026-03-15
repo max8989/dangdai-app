@@ -79,12 +79,16 @@ class VocabularyQuestion(QuizQuestionBase):
     """Vocabulary exercise question with character, pinyin, meaning."""
 
     exercise_type: Literal[ExerciseType.VOCABULARY] = ExerciseType.VOCABULARY
-    character: str = Field(..., description="Chinese character(s)")
-    pinyin: str = Field(..., description="Pinyin romanization")
+    character: str | None = Field(
+        None, description="Chinese character(s) — None when hidden (pinyin_to_char)"
+    )
+    pinyin: str | None = Field(
+        None, description="Pinyin romanization — None when hidden (char_to_pinyin)"
+    )
     meaning: str = Field(..., description="English meaning")
     question_subtype: str = Field(
         ...,
-        description="Sub-type: char_to_meaning, pinyin_to_char, meaning_to_char, etc.",
+        description="Sub-type: pinyin_to_char or char_to_pinyin",
     )
     options: list[str] = Field(
         ..., min_length=4, max_length=4, description="4 multiple-choice options"

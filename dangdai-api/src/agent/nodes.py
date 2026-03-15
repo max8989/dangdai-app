@@ -33,6 +33,7 @@ from src.agent.prompts import (
 )
 from src.agent.state import QuizGenerationState
 from src.repositories.chapter_repo import ChapterRepository
+from src.repositories.content_repo import ContentRepository
 from src.services.content_service import ContentService
 from src.services.rag_service import RagService
 from src.services.weakness_service import WeaknessService
@@ -308,8 +309,24 @@ async def algorithmic_generate(state: QuizGenerationState) -> dict[str, Any]:
     # Dispatch to generator
     questions: list[dict[str, Any]] = []
     if exercise_type == "vocabulary":
+        # Fetch distractor pool: current chapter + up to 2 past chapters.
+        # get_vocabulary_for_cumulative returns vocab for lesson 1..up_to_lesson_id.
+        # We only want lesson-2..lesson, so we filter afterwards.
+        distractor_pool: list[dict[str, Any]] = vocabulary
+        if lesson > 1:
+            repo = ContentRepository()
+            cumulative = await asyncio.to_thread(
+                repo.get_vocabulary_for_cumulative, book_id, lesson
+            )
+            # Filter to current + 2 past lessons only
+            min_lesson = max(1, lesson - 2)
+            distractor_pool = [
+                v for v in cumulative if v.get("lesson_id", lesson) >= min_lesson
+            ] or vocabulary
         gen = VocabularyGenerator()
-        questions = gen.generate(vocabulary, weakness_profile, book_id, lesson)
+        questions = gen.generate(
+            vocabulary, weakness_profile, book_id, lesson, distractor_pool
+        )
     elif exercise_type == "matching":
         gen_m = MatchingGenerator()
         questions = gen_m.generate(vocabulary, weakness_profile, book_id, lesson)

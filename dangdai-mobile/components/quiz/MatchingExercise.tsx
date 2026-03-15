@@ -47,6 +47,10 @@ type MatchItemState = 'default' | 'selected' | 'matched' | 'incorrect'
  */
 const MatchItem = styled(Button, {
   animation: 'quick',
+  // Only animate transform/opacity — NOT colors. Reanimated cannot interpolate
+  // Tamagui token objects for borderColor/backgroundColor and throws
+  // "[Reanimated] Invalid color value: [object Object]".
+  animateOnly: ['transform', 'opacity'],
   pressStyle: { scale: 0.98 },
   focusStyle: { borderColor: '$borderColorFocus' },
   minHeight: 48,

@@ -207,13 +207,14 @@ class ContentRepository:
 
         Returns:
             List of vocabulary item dictionaries across multiple lessons.
+            Includes lesson_id for downstream filtering.
         """
         for attempt in range(_MAX_RETRIES + 1):
             try:
                 result = (
                     self._client.table("vocabulary")
                     .select(
-                        "traditional, pinyin, english, part_of_speech, "
+                        "lesson_id, traditional, pinyin, english, part_of_speech, "
                         "vocab_section, is_name"
                     )
                     .eq("book_id", book_id)

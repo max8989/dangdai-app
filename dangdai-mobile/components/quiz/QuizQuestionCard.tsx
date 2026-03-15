@@ -97,16 +97,6 @@ export function QuizQuestionCard({
   return (
     <StyledCard feedback={feedback} testID={testID}>
       <YStack alignItems="center" gap="$3" paddingVertical="$2">
-        {/* Question type label */}
-        <Text
-          fontSize="$4"
-          color="$colorSubtle"
-          textAlign="center"
-          testID="question-type-label"
-        >
-          {questionTypeLabel}
-        </Text>
-
         {/* Primary content: character / pinyin / question text */}
         <Text
           fontSize={primaryFontSize}
@@ -129,6 +119,16 @@ export function QuizQuestionCard({
             {secondaryContent}
           </Text>
         ) : null}
+
+        {/* Question prompt label — rendered below character/pinyin per design */}
+        <Text
+          fontSize="$4"
+          color="$colorSubtle"
+          textAlign="center"
+          testID="question-type-label"
+        >
+          {questionTypeLabel}
+        </Text>
       </YStack>
     </StyledCard>
   )

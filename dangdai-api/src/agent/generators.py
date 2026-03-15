@@ -43,16 +43,15 @@ class AlgorithmicGenerator:
 class VocabularyGenerator(AlgorithmicGenerator):
     """Generate vocabulary quiz questions algorithmically from structured data.
 
-    Supports three question subtypes:
-    - char_to_meaning: Given character, choose meaning
-    - pinyin_to_char:  Given pinyin,     choose character
-    - meaning_to_char: Given meaning,    choose character
+    Supports two question subtypes — all options are Chinese (no English in options):
+    - pinyin_to_char:  Given pinyin,     choose character  (card shows pinyin only)
+    - char_to_pinyin:  Given character,  choose pinyin     (card shows character only)
 
     Biases 30-50% of questions toward weak vocabulary items when a weakness
     profile is provided.
     """
 
-    SUBTYPES = ["char_to_meaning", "pinyin_to_char", "meaning_to_char"]
+    SUBTYPES = ["pinyin_to_char", "char_to_pinyin"]
     QUESTION_COUNT = 12
 
     def generate(  # noqa: D102
@@ -61,20 +60,26 @@ class VocabularyGenerator(AlgorithmicGenerator):
         weakness_profile: dict[str, Any],
         book_id: int,
         lesson_id: int,
+        distractor_pool: list[dict[str, Any]] | None = None,
     ) -> list[dict[str, Any]]:
         """Generate vocabulary questions with weakness biasing.
 
         Args:
-            vocabulary: List of vocabulary item dicts from the DB.
+            vocabulary: List of vocabulary item dicts from the DB (current chapter).
             weakness_profile: User weakness data with "weak_vocab" list.
             book_id: Book number (for source_citation).
             lesson_id: Lesson number (for source_citation).
+            distractor_pool: Optional broader pool (current + past chapters)
+                for picking distractors. Falls back to vocabulary if not provided.
 
         Returns:
             List of vocabulary question dicts.
         """
         if not vocabulary:
             return []
+
+        # Use the broader pool for distractors if provided, else current chapter
+        pool = distractor_pool if distractor_pool else vocabulary
 
         # Separate weak vs normal vocab
         weak_vocab_items: list[dict[str, Any]] = weakness_profile.get("weak_vocab", [])
@@ -105,11 +110,9 @@ class VocabularyGenerator(AlgorithmicGenerator):
 
         # Generate questions
         questions: list[dict[str, Any]] = []
-        used_subtypes: list[str] = []
         for i, vocab in enumerate(selected):
             subtype = random.choice(self.SUBTYPES)
-            used_subtypes.append(subtype)
-            distractors = self._pick_distractors(vocab, vocabulary, subtype)
+            distractors = self._pick_distractors(vocab, pool, subtype)
             question = self._build_question(
                 vocab, subtype, distractors, i + 1, book_id, lesson_id
             )
@@ -124,8 +127,8 @@ class VocabularyGenerator(AlgorithmicGenerator):
 
         Args:
             target: The vocabulary item being tested.
-            pool: All vocabulary items for the chapter.
-            subtype: Question subtype (char_to_meaning, pinyin_to_char, meaning_to_char).
+            pool: All vocabulary items (current + past chapters) for distractors.
+            subtype: Question subtype (pinyin_to_char, char_to_pinyin).
 
         Returns:
             List of up to 3 distractor strings.
@@ -148,10 +151,11 @@ class VocabularyGenerator(AlgorithmicGenerator):
 
         selected = random.sample(candidates, min(3, len(candidates)))
 
-        if subtype == "char_to_meaning":
-            return [s.get("english", "") for s in selected if s.get("english")]
+        if subtype == "char_to_pinyin":
+            # Options are pinyin strings
+            return [s.get("pinyin", "") for s in selected if s.get("pinyin")]
         else:
-            # pinyin_to_char and meaning_to_char: options are characters
+            # pinyin_to_char: options are Traditional Chinese characters
             return [s.get("traditional", "") for s in selected if s.get("traditional")]
 
     def _build_question(
@@ -181,27 +185,29 @@ class VocabularyGenerator(AlgorithmicGenerator):
         english = vocab.get("english", "")
         pos = vocab.get("part_of_speech", "")
 
-        if subtype == "char_to_meaning":
-            question_text = (
-                f"What is the English meaning of '{traditional}' ({pinyin})?"
-            )
-            correct_answer = english
-            options = [english] + distractors
-        elif subtype == "pinyin_to_char":
-            question_text = f"Which Traditional Chinese character has the pinyin '{pinyin}'? ({english})"
+        if subtype == "pinyin_to_char":
+            # Card shows pinyin only (character hidden — it's the answer)
+            question_text = "Which character matches this pinyin?"
             correct_answer = traditional
             options = [traditional] + distractors
-        else:  # meaning_to_char
-            question_text = f"Which Traditional Chinese character means '{english}'?"
-            correct_answer = traditional
-            options = [traditional] + distractors
+            display_character: str | None = None
+            display_pinyin = pinyin
+        else:  # char_to_pinyin
+            # Card shows character only (pinyin hidden — it's the answer)
+            question_text = "Which pinyin matches this character?"
+            correct_answer = pinyin
+            options = [pinyin] + distractors
+            display_character = traditional
+            display_pinyin = None
 
         # Shuffle options
         random.shuffle(options)
 
-        pos_note = f" ({pos})" if pos else ""
+        # Explanation: character + pinyin, no English.
+        # POS separated by comma to avoid double-parenthetical.
+        pos_note = f", {pos}" if pos else ""
         explanation = (
-            f"'{traditional}' ({pinyin}) means '{english}'{pos_note}. "
+            f"'{traditional}' ({pinyin}){pos_note}. "
             f"From Book {book_id}, Lesson {lesson_id} vocabulary."
         )
 
@@ -210,8 +216,8 @@ class VocabularyGenerator(AlgorithmicGenerator):
             "exercise_type": "vocabulary",
             "question_subtype": subtype,
             "question_text": question_text,
-            "character": traditional,
-            "pinyin": pinyin,
+            "character": display_character,
+            "pinyin": display_pinyin,
             "meaning": english,
             "correct_answer": correct_answer,
             "options": options,

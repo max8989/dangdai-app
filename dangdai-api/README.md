@@ -8,6 +8,8 @@ Python FastAPI + LangGraph backend for quiz generation and answer validation.
 
 ```bash
 cd dangdai-api
+python -m venv .venv
+source .venv/bin/activate  # on Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 ```
 
@@ -22,6 +24,14 @@ cp .env.example .env
 ```bash
 uvicorn src.api.main:app --reload --port 8000
 ```
+
+To expose the server to other devices on your local network (e.g. a physical phone):
+
+```bash
+uvicorn src.api.main:app --reload --port 8000 --host 0.0.0.0
+```
+
+Then set `EXPO_PUBLIC_API_URL=http://<your-local-ip>:8000` in `dangdai-mobile/.env.local`.
 
 ## LLM Provider Configuration
 
