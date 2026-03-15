@@ -88,7 +88,7 @@ class ValidationService:
                 request.exercise_type.value,
             )
             raise  # Let FastAPI handle it (closes connection silently)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error(
                 "Answer validation timed out after %ds for exercise_type=%s",
                 VALIDATION_TIMEOUT_SECONDS,

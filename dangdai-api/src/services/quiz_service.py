@@ -120,7 +120,7 @@ class QuizService:
                 elapsed,
             )
             raise  # Let FastAPI handle it (closes connection silently)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             elapsed = time.perf_counter() - start
             logger.error(
                 "[QuizService] TIMEOUT after %.1fs (limit=%ds tier=%s) for quiz_id=%s chapter=%d",
