@@ -832,11 +832,12 @@ class TestSeedPremadeExercises:
 class TestProcessChunksIntegration:
     """Integration tests for process_chunks function."""
 
+    @patch("src.utils.llm_factory.get_llm")
     @patch("src.scripts.seed_premade_exercises.extract_exercise_llm")
     @patch("src.scripts.seed_premade_exercises.load_chunks")
     @patch("src.scripts.seed_premade_exercises.time")
     def test_process_chunks_filters_and_extracts(
-        self, mock_time, mock_load, mock_extract
+        self, mock_time, mock_load, mock_extract, mock_get_llm
     ):
         from src.scripts.seed_premade_exercises import process_chunks
 
@@ -870,11 +871,12 @@ class TestProcessChunksIntegration:
         assert result[0]["book_id"] == 1
         assert result[0]["lesson_id"] == 1
 
+    @patch("src.utils.llm_factory.get_llm")
     @patch("src.scripts.seed_premade_exercises.extract_exercise_llm")
     @patch("src.scripts.seed_premade_exercises.load_chunks")
     @patch("src.scripts.seed_premade_exercises.time")
     def test_process_chunks_assigns_exercise_order(
-        self, mock_time, mock_load, mock_extract
+        self, mock_time, mock_load, mock_extract, mock_get_llm
     ):
         from src.scripts.seed_premade_exercises import process_chunks
 
@@ -916,11 +918,12 @@ class TestProcessChunksIntegration:
         # Dry run should return empty list (no LLM calls)
         assert result == []
 
+    @patch("src.utils.llm_factory.get_llm")
     @patch("src.scripts.seed_premade_exercises.extract_exercise_llm")
     @patch("src.scripts.seed_premade_exercises.load_chunks")
     @patch("src.scripts.seed_premade_exercises.time")
     def test_process_chunks_skips_failed_extractions(
-        self, mock_time, mock_load, mock_extract
+        self, mock_time, mock_load, mock_extract, mock_get_llm
     ):
         from src.scripts.seed_premade_exercises import process_chunks
 
@@ -944,11 +947,12 @@ class TestProcessChunksIntegration:
         assert len(result) == 1
         assert result[0]["exercise_type"] == "matching"
 
+    @patch("src.utils.llm_factory.get_llm")
     @patch("src.scripts.seed_premade_exercises.extract_exercise_llm")
     @patch("src.scripts.seed_premade_exercises.load_chunks")
     @patch("src.scripts.seed_premade_exercises.time")
     def test_process_chunks_sets_low_confidence_difficulty_to_none(
-        self, mock_time, mock_load, mock_extract
+        self, mock_time, mock_load, mock_extract, mock_get_llm
     ):
         from src.scripts.seed_premade_exercises import process_chunks
 
@@ -1009,11 +1013,12 @@ class TestProcessChunksIntegration:
         assert result == []
         mock_extract.assert_not_called()
 
+    @patch("src.utils.llm_factory.get_llm")
     @patch("src.scripts.seed_premade_exercises.extract_exercise_llm")
     @patch("src.scripts.seed_premade_exercises.load_chunks")
     @patch("src.scripts.seed_premade_exercises.time")
     def test_process_chunks_deduplicates_same_exercise_type(
-        self, mock_time, mock_load, mock_extract
+        self, mock_time, mock_load, mock_extract, mock_get_llm
     ):
         """When two chunks produce same (book, lesson, exercise_type), keep last."""
         from src.scripts.seed_premade_exercises import process_chunks

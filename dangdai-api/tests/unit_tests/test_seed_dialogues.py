@@ -759,11 +759,12 @@ class TestSeedDialogues:
 class TestDeduplication:
     """Tests for dialogue deduplication in process_chunks."""
 
+    @patch("src.utils.llm_factory.get_llm")
     @patch("src.scripts.seed_dialogues.extract_dialogues_llm")
     @patch("src.scripts.seed_dialogues.load_chunks")
     @patch("src.scripts.seed_dialogues.time")
     def test_deduplicates_same_dialogue_number(
-        self, mock_time, mock_load, mock_extract
+        self, mock_time, mock_load, mock_extract, mock_get_llm
     ):
         """When two chunks produce same (book, lesson, dialogue_number), keep last."""
         from src.scripts.seed_dialogues import process_chunks
