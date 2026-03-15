@@ -162,6 +162,38 @@ class ContentRepository:
                     )
         return []
 
+    def get_vocabulary_biased(
+        self,
+        book_id: int,
+        lesson_id: int,
+        weak_vocab_items: list[str],
+    ) -> list[dict[str, Any]]:
+        """Get vocabulary for a chapter, returning weak items first.
+
+        Fetches all vocabulary for the chapter and reorders so that items
+        matching the weak_vocab_items list appear at the beginning. The
+        caller is responsible for applying the 30-50% weak-item bias.
+
+        Retries once on transient failure before returning empty list.
+
+        Args:
+            book_id: Book number (1-6).
+            lesson_id: Lesson number within the book.
+            weak_vocab_items: List of Traditional Chinese strings that the
+                user struggles with. Items in this list are sorted first.
+
+        Returns:
+            List of vocabulary item dictionaries with weak items at the front.
+        """
+        vocab = self.get_vocabulary(book_id, lesson_id)
+        if not vocab or not weak_vocab_items:
+            return vocab
+
+        weak_set: set[str] = set(weak_vocab_items)
+        weak = [v for v in vocab if v.get("traditional", "") in weak_set]
+        normal = [v for v in vocab if v.get("traditional", "") not in weak_set]
+        return weak + normal
+
     def get_vocabulary_for_cumulative(
         self, book_id: int, up_to_lesson_id: int
     ) -> list[dict[str, Any]]:

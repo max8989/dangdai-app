@@ -125,21 +125,24 @@ class TestParseQuestionsJson:
 
 
 class TestValidateStructure:
-    def test_validates_empty_questions(self):
+    @pytest.mark.asyncio
+    async def test_validates_empty_questions(self):
         state = {"questions": [], "retry_count": 0}
-        result = validate_structure(state)
+        result = await validate_structure(state)
         assert len(result["validation_errors"]) > 0
         assert result["retry_count"] == 1
 
-    def test_validates_missing_fields(self):
+    @pytest.mark.asyncio
+    async def test_validates_missing_fields(self):
         state = {
             "questions": [{"question_id": "q1"}],
             "retry_count": 0,
         }
-        result = validate_structure(state)
+        result = await validate_structure(state)
         assert len(result["validation_errors"]) > 0
 
-    def test_validates_duplicate_question_text(self):
+    @pytest.mark.asyncio
+    async def test_validates_duplicate_question_text(self):
         state = {
             "questions": [
                 {
@@ -159,14 +162,15 @@ class TestValidateStructure:
             ],
             "retry_count": 0,
         }
-        result = validate_structure(state)
+        result = await validate_structure(state)
         # Duplicate question is dropped, valid one kept
         assert len(result["questions"]) == 1
         assert result["questions"][0]["question_id"] == "q1"
         # No validation_errors since we still have valid questions
         assert result["validation_errors"] == []
 
-    def test_validates_duplicate_options(self):
+    @pytest.mark.asyncio
+    async def test_validates_duplicate_options(self):
         state = {
             "questions": [
                 {
@@ -180,12 +184,13 @@ class TestValidateStructure:
             ],
             "retry_count": 0,
         }
-        result = validate_structure(state)
+        result = await validate_structure(state)
         # Only question was invalid and dropped — triggers retry
         assert len(result["questions"]) == 0
         assert any("duplicate options" in e for e in result["validation_errors"])
 
-    def test_validates_correct_answer_not_in_options(self):
+    @pytest.mark.asyncio
+    async def test_validates_correct_answer_not_in_options(self):
         state = {
             "questions": [
                 {
@@ -199,12 +204,13 @@ class TestValidateStructure:
             ],
             "retry_count": 0,
         }
-        result = validate_structure(state)
+        result = await validate_structure(state)
         assert any(
             "correct_answer not in options" in e for e in result["validation_errors"]
         )
 
-    def test_validates_good_questions_pass(self):
+    @pytest.mark.asyncio
+    async def test_validates_good_questions_pass(self):
         state = {
             "questions": [
                 {
@@ -218,14 +224,17 @@ class TestValidateStructure:
             ],
             "retry_count": 0,
         }
-        result = validate_structure(state)
+        result = await validate_structure(state)
         assert result["validation_errors"] == []
-        # validate_structure no longer sets quiz_payload (evaluate_content does)
-        assert "quiz_payload" not in result
+        # Story 4.15: validate_structure now sets quiz_payload directly
+        # (evaluate_content node deprecated — AC #9)
+        assert "quiz_payload" in result
+        assert result["quiz_payload"]["questions"][0]["question_id"] == "q1"
 
-    def test_retry_count_increments_on_error(self):
+    @pytest.mark.asyncio
+    async def test_retry_count_increments_on_error(self):
         state = {"questions": [], "retry_count": 1}
-        result = validate_structure(state)
+        result = await validate_structure(state)
         assert result["retry_count"] == 2
 
 
@@ -476,18 +485,19 @@ class TestEvaluateContentNode:
 
 
 class TestGraphRoutingFunctions:
-    """Tests for graph conditional edge routing functions."""
+    """Tests for graph conditional edge routing functions (Story 4.15 topology)."""
 
-    def test_after_structure_validation_no_errors_routes_to_evaluator(self):
-        """Test routing to evaluate_content when structural validation passes."""
+    def test_after_structure_validation_no_errors_routes_to_end(self):
+        """Test routing to END when validation passes (evaluate_content removed — AC #9)."""
         from src.agent.graph import _after_structure_validation
 
         state = {"validation_errors": [], "retry_count": 0}
         result = _after_structure_validation(state)
-        assert result == "evaluate_content"
+        # Story 4.15: no evaluate_content — goes to END on success
+        assert result == "__end__"
 
     def test_after_structure_validation_errors_routes_to_retry(self):
-        """Test routing to generate_quiz when structural errors exist and retries remain."""
+        """Test routing to generate_quiz when validation errors exist and retries remain."""
         from src.agent.graph import _after_structure_validation
 
         state = {
@@ -505,32 +515,69 @@ class TestGraphRoutingFunctions:
         result = _after_structure_validation(state)
         assert result == "__end__"
 
-    def test_after_content_evaluation_no_errors_routes_to_end(self):
-        """Test routing to END when content evaluation passes."""
-        from src.agent.graph import _after_content_evaluation
+    def test_route_by_tier_vocabulary_routes_to_algorithmic(self):
+        """Test Tier 1 vocabulary routes to algorithmic_generate."""
+        from src.agent.graph import _route_by_tier
 
-        state = {"validation_errors": [], "retry_count": 0}
-        result = _after_content_evaluation(state)
-        assert result == "__end__"
+        state = {"exercise_type": "vocabulary"}
+        result = _route_by_tier(state)
+        assert result == "algorithmic_generate"
 
-    def test_after_content_evaluation_errors_routes_to_retry(self):
-        """Test routing to generate_quiz when content evaluation fails and retries remain."""
-        from src.agent.graph import _after_content_evaluation
+    def test_route_by_tier_matching_routes_to_algorithmic(self):
+        """Test Tier 1 matching routes to algorithmic_generate."""
+        from src.agent.graph import _route_by_tier
 
-        state = {
-            "validation_errors": ["Content evaluation failed"],
-            "retry_count": 1,
-        }
-        result = _after_content_evaluation(state)
-        assert result == "generate_quiz"
+        state = {"exercise_type": "matching"}
+        result = _route_by_tier(state)
+        assert result == "algorithmic_generate"
 
-    def test_after_content_evaluation_max_retries_routes_to_end(self):
-        """Test routing to END when max retries reached after content evaluation."""
-        from src.agent.graph import _after_content_evaluation
+    def test_route_by_tier_fill_in_blank_routes_to_algorithmic(self):
+        """Test Tier 1 fill_in_blank routes to algorithmic_generate."""
+        from src.agent.graph import _route_by_tier
 
-        state = {"validation_errors": ["Error"], "retry_count": 3}
-        result = _after_content_evaluation(state)
-        assert result == "__end__"
+        state = {"exercise_type": "fill_in_blank"}
+        result = _route_by_tier(state)
+        assert result == "algorithmic_generate"
+
+    def test_route_by_tier_grammar_routes_to_structured(self):
+        """Test Tier 2 grammar routes to retrieve_structured_content."""
+        from src.agent.graph import _route_by_tier
+
+        state = {"exercise_type": "grammar"}
+        result = _route_by_tier(state)
+        assert result == "retrieve_structured_content"
+
+    def test_route_by_tier_sentence_construction_routes_to_structured(self):
+        """Test Tier 2 sentence_construction routes to retrieve_structured_content."""
+        from src.agent.graph import _route_by_tier
+
+        state = {"exercise_type": "sentence_construction"}
+        result = _route_by_tier(state)
+        assert result == "retrieve_structured_content"
+
+    def test_route_by_tier_dialogue_completion_routes_to_structured(self):
+        """Test Tier 2 dialogue_completion routes to retrieve_structured_content."""
+        from src.agent.graph import _route_by_tier
+
+        state = {"exercise_type": "dialogue_completion"}
+        result = _route_by_tier(state)
+        assert result == "retrieve_structured_content"
+
+    def test_route_by_tier_reading_comprehension_routes_to_structured(self):
+        """Test Tier 2 reading_comprehension routes to retrieve_structured_content."""
+        from src.agent.graph import _route_by_tier
+
+        state = {"exercise_type": "reading_comprehension"}
+        result = _route_by_tier(state)
+        assert result == "retrieve_structured_content"
+
+    def test_route_by_tier_mixed_routes_to_structured(self):
+        """Test mixed type routes to retrieve_structured_content (Tier 2 path)."""
+        from src.agent.graph import _route_by_tier
+
+        state = {"exercise_type": "mixed"}
+        result = _route_by_tier(state)
+        assert result == "retrieve_structured_content"
 
 
 # -----------------------------------------------------------------------
@@ -643,7 +690,8 @@ class TestRetrieveStructuredContentNode:
 class TestValidateStructureGrammarCoverage:
     """Tests for grammar coverage validation in validate_structure (AC #3)."""
 
-    def test_full_grammar_coverage_passes(self):
+    @pytest.mark.asyncio
+    async def test_full_grammar_coverage_passes(self):
         """Test that all grammar points covered = no retry."""
         state = {
             "questions": [
@@ -670,12 +718,13 @@ class TestValidateStructureGrammarCoverage:
                 {"title_english": "Using 在"},
             ],
         }
-        result = validate_structure(state)
+        result = await validate_structure(state)
         assert result["validation_errors"] == []
         assert result["retry_count"] == 0
 
-    def test_missing_grammar_coverage_triggers_retry(self):
-        """Test that missing grammar point coverage triggers retry."""
+    @pytest.mark.asyncio
+    async def test_missing_grammar_coverage_triggers_retry(self):
+        """Test that missing grammar point coverage triggers retry (min(4,total) check)."""
         state = {
             "questions": [
                 {
@@ -693,13 +742,14 @@ class TestValidateStructureGrammarCoverage:
                 {"title_english": "Using 在"},
             ],
         }
-        result = validate_structure(state)
+        result = await validate_structure(state)
         assert result["retry_count"] == 1
         assert any("Using 在" in e for e in result["validation_errors"])
-        assert "evaluator_feedback" in result
-        assert "Using 在" in result["evaluator_feedback"]
+        # Story 4.15: evaluator_feedback removed — feedback in validation_errors
+        assert "evaluator_feedback" not in result
 
-    def test_no_grammar_points_skips_coverage_check(self):
+    @pytest.mark.asyncio
+    async def test_no_grammar_points_skips_coverage_check(self):
         """Test that empty grammar_points_list skips coverage validation."""
         state = {
             "questions": [
@@ -714,11 +764,12 @@ class TestValidateStructureGrammarCoverage:
             "retry_count": 0,
             "grammar_points_list": [],
         }
-        result = validate_structure(state)
+        result = await validate_structure(state)
         assert result["validation_errors"] == []
         assert result["retry_count"] == 0
 
-    def test_no_grammar_points_key_skips_coverage_check(self):
+    @pytest.mark.asyncio
+    async def test_no_grammar_points_key_skips_coverage_check(self):
         """Test that missing grammar_points_list key skips coverage."""
         state = {
             "questions": [
@@ -732,7 +783,7 @@ class TestValidateStructureGrammarCoverage:
             ],
             "retry_count": 0,
         }
-        result = validate_structure(state)
+        result = await validate_structure(state)
         assert result["validation_errors"] == []
 
 
@@ -816,7 +867,7 @@ class TestFormatStructuredDialogues:
 
 
 class TestGraphTopologyUpdated:
-    """Tests confirming graph uses retrieve_structured_content node."""
+    """Tests confirming graph topology after Story 4.15 (3-tier hybrid)."""
 
     def test_graph_has_retrieve_structured_content_node(self):
         """Confirm the compiled graph includes retrieve_structured_content."""
@@ -833,8 +884,22 @@ class TestGraphTopologyUpdated:
         node_names = list(graph.nodes.keys())
         assert "retrieve_content" not in node_names
 
-    def test_graph_still_has_all_other_nodes(self):
-        """Verify query_weakness, generate_quiz, validate_structure, evaluate_content remain."""
+    def test_graph_has_algorithmic_generate_node(self):
+        """Confirm algorithmic_generate (Tier 1) node exists in graph (AC #9)."""
+        from src.agent.graph import graph
+
+        node_names = list(graph.nodes.keys())
+        assert "algorithmic_generate" in node_names
+
+    def test_graph_does_not_have_evaluate_content_node(self):
+        """Confirm evaluate_content node removed from graph (AC #9)."""
+        from src.agent.graph import graph
+
+        node_names = list(graph.nodes.keys())
+        assert "evaluate_content" not in node_names
+
+    def test_graph_has_required_tier2_nodes(self):
+        """Verify Tier 2 nodes: query_weakness, generate_quiz, validate_structure."""
         from src.agent.graph import graph
 
         node_names = list(graph.nodes.keys())
@@ -842,26 +907,16 @@ class TestGraphTopologyUpdated:
             "query_weakness",
             "generate_quiz",
             "validate_structure",
-            "evaluate_content",
         ]:
             assert expected in node_names
 
 
 class TestBackwardCompatibility:
-    """Tests verifying the quiz response format is unchanged (AC #4)."""
+    """Tests verifying the quiz response format is unchanged (AC #8)."""
 
     @pytest.mark.asyncio
-    @patch("src.agent.nodes.get_llm")
-    async def test_evaluate_content_produces_same_payload_format(self, mock_llm_client):
-        """Test evaluate_content still produces quiz_payload with questions list."""
-        from src.agent.nodes import evaluate_content
-
-        mock_llm = MagicMock()
-        mock_response = MagicMock()
-        mock_response.content = '{"passed": true, "issues": []}'
-        mock_llm.ainvoke = AsyncMock(return_value=mock_response)
-        mock_llm_client.return_value = mock_llm
-
+    async def test_validate_structure_produces_same_payload_format(self):
+        """Test validate_structure produces quiz_payload with questions list (Story 4.15)."""
         state = {
             "questions": [
                 {
@@ -877,7 +932,7 @@ class TestBackwardCompatibility:
             "validation_errors": [],
         }
 
-        result = await evaluate_content(state)
+        result = await validate_structure(state)
 
         # Verify backward-compatible payload structure
         assert "quiz_payload" in result
@@ -902,3 +957,17 @@ class TestStateStructuredContentFields:
         annotations = QuizGenerationState.__annotations__
         assert "structured_content" in annotations
         assert "grammar_points_list" in annotations
+
+    def test_state_has_generation_tier_field(self):
+        """Verify QuizGenerationState accepts generation_tier (Story 4.15)."""
+        from src.agent.state import QuizGenerationState
+
+        annotations = QuizGenerationState.__annotations__
+        assert "generation_tier" in annotations
+
+    def test_state_does_not_have_evaluator_feedback(self):
+        """Verify evaluator_feedback removed from state (AC #9)."""
+        from src.agent.state import QuizGenerationState
+
+        annotations = QuizGenerationState.__annotations__
+        assert "evaluator_feedback" not in annotations

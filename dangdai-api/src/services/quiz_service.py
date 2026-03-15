@@ -1,6 +1,11 @@
 """Quiz business logic service.
 
 Orchestrate quiz generation via LangGraph and format responses.
+
+Story 4.15: 3-tier hybrid generation with per-tier timeouts:
+- Tier 1 (algorithmic): 5s timeout — zero LLM calls, should complete in <200ms
+- Tier 2 (single LLM):  120s timeout — one LLM call, 2-4s happy path
+- Mixed: 120s timeout — combination of Tier 1 + Tier 2 questions
 """
 
 from __future__ import annotations
@@ -13,14 +18,19 @@ from typing import Any
 from pydantic import ValidationError
 from starlette.requests import Request
 
-from src.agent.graph import graph
+from src.agent.graph import TIER_1_TYPES, graph
 from src.api.schemas import QuizGenerateRequest, QuizGenerateResponse
 
 logger = logging.getLogger(__name__)
 
-# Maximum time for quiz generation.
-# Budget: ~17s generation + ~3.5s evaluation + ~17s retry = ~37.5s worst case.
-# With 2 retries: ~55s. Set to 60s to accommodate evaluator-optimizer loop.
+# Tier 1: algorithmic only — should complete in <200ms, 5s gives ample headroom
+TIER_1_TIMEOUT_SECONDS = 5
+
+# Tier 2: single LLM call (2-4s happy path) + 2 retries worst case
+# Budget: ~4s generation + ~4s retry + ~4s retry = ~12s worst case, 120s cap
+TIER_2_TIMEOUT_SECONDS = 120
+
+# Default fallback (mixed type)
 GENERATION_TIMEOUT_SECONDS = 120
 
 
@@ -68,30 +78,37 @@ class QuizService:
             )
             raise asyncio.CancelledError("Client disconnected")
 
+        # Determine generation tier and corresponding timeout
+        exercise_type_str = request.exercise_type.value
+        is_tier1 = exercise_type_str in TIER_1_TYPES
+        timeout = TIER_1_TIMEOUT_SECONDS if is_tier1 else TIER_2_TIMEOUT_SECONDS
+        tier_label = "tier1-algorithmic" if is_tier1 else "tier2-llm"
+
         # Prepare graph input state — include request for mid-graph disconnection checks
         graph_input: dict[str, Any] = {
             "chapter_id": request.chapter_id,
             "book_id": request.book_id,
-            "exercise_type": request.exercise_type.value,
+            "exercise_type": exercise_type_str,
             "user_id": user_id,
         }
         if http_request is not None:
             graph_input["request"] = http_request
 
         logger.info(
-            "[QuizService] Starting graph for quiz_id=%s chapter=%d type=%s timeout=%ds",
+            "[QuizService] Starting graph for quiz_id=%s chapter=%d type=%s tier=%s timeout=%ds",
             quiz_id,
             request.chapter_id,
-            request.exercise_type.value,
-            GENERATION_TIMEOUT_SECONDS,
+            exercise_type_str,
+            tier_label,
+            timeout,
         )
         start = time.perf_counter()
 
-        # Invoke graph with timeout
+        # Invoke graph with tier-appropriate timeout
         try:
             result = await asyncio.wait_for(
                 graph.ainvoke(graph_input),  # type: ignore[arg-type]
-                timeout=GENERATION_TIMEOUT_SECONDS,
+                timeout=timeout,
             )
         except asyncio.CancelledError:
             elapsed = time.perf_counter() - start
@@ -106,14 +123,15 @@ class QuizService:
         except asyncio.TimeoutError:
             elapsed = time.perf_counter() - start
             logger.error(
-                "[QuizService] TIMEOUT after %.1fs (limit=%ds) for quiz_id=%s chapter=%d",
+                "[QuizService] TIMEOUT after %.1fs (limit=%ds tier=%s) for quiz_id=%s chapter=%d",
                 elapsed,
-                GENERATION_TIMEOUT_SECONDS,
+                timeout,
+                tier_label,
                 quiz_id,
                 request.chapter_id,
             )
             raise TimeoutError(
-                f"Quiz generation exceeded {GENERATION_TIMEOUT_SECONDS}s time limit"
+                f"Quiz generation exceeded {timeout}s time limit ({tier_label})"
             )
 
         elapsed = time.perf_counter() - start

@@ -8,18 +8,37 @@ from __future__ import annotations
 SYSTEM_PROMPT = """\
 You are an expert Chinese language quiz generator for the 當代中文課程 \
 (A Course in Contemporary Chinese) textbook series. You generate high-quality, \
-pedagogically sound quiz questions based on chapter content provided via RAG retrieval.
+pedagogically sound quiz questions based on chapter content provided via structured \
+database retrieval.
 
-CRITICAL RULES:
-- ONLY use vocabulary, grammar, and content from the provided chapter material
-- MUST use ONLY Traditional Chinese characters (繁體字 fántǐzì) - NEVER use Simplified Chinese (简体字)
-- Each question MUST have exactly one correct answer
-- All distractor options must be plausible but clearly incorrect
-- Explanations must cite the textbook source
-- Pinyin MUST use tone marks/diacritics (e.g., xué, xuéxí, nǐ, hǎo) - NEVER use tone numbers (e.g., xue2, ni3)
-- The "question_text" field MUST be written in English - NEVER write question_text in Chinese
-- Explanations MUST be written in English
-- Generate questions in the EXACT JSON format specified
+CRITICAL RULES — AUTOMATED CHECKS WILL REJECT YOUR OUTPUT IF THESE ARE VIOLATED:
+
+1. TRADITIONAL CHINESE ONLY: Use ONLY Traditional Chinese characters (繁體字 fántǐzì).
+   NEVER use Simplified Chinese (简体字). Common violations to avoid:
+   - 学 → MUST be 學, 习 → MUST be 習, 书 → MUST be 書
+   - 说 → MUST be 說, 话 → MUST be 話, 语 → MUST be 語
+   - 这 → MUST be 這, 对 → MUST be 對, 时 → MUST be 時
+   - 会 → MUST be 會, 见 → MUST be 見, 门 → MUST be 門
+
+2. PINYIN DIACRITICS: ALL pinyin MUST use tone mark diacritics.
+   NEVER use tone numbers. Examples:
+   - WRONG: xue2, ni3, hao3, ma1, wo3
+   - RIGHT: xué, nǐ, hǎo, mā, wǒ
+
+3. ENGLISH QUESTION TEXT: The "question_text" field MUST be in English.
+   NEVER write question_text in Chinese or any other language.
+   - WRONG: "哪個字對應拼音 'bàba'?"
+   - RIGHT: "Which character corresponds to the pinyin 'bàba'?"
+
+4. CURRICULUM ALIGNMENT: ONLY use vocabulary and grammar from the provided chapter data.
+   Do NOT invent words or use content from other chapters.
+
+5. EXPLANATIONS IN ENGLISH: All explanations must be written in English.
+
+6. GRAMMAR COVERAGE: Include at least min(4, total) grammar points across the question set.
+   You do NOT need to cover every single grammar point — at least 4 is sufficient.
+
+Generate questions in the EXACT JSON format specified.
 """
 
 QUIZ_GENERATION_PROMPT = """\
@@ -31,7 +50,7 @@ for Book {book_id}, Chapter {lesson} of 當代中文課程.
 ## Chapter Vocabulary (from textbook):
 {structured_vocabulary}
 
-## Chapter Grammar Points (MUST cover ALL):
+## Chapter Grammar Points (cover at least min(4, total) — NOT all required):
 {structured_grammar_points}
 
 ## Chapter Dialogues:
@@ -49,7 +68,7 @@ Return a JSON array of question objects. Each question must follow this structur
 IMPORTANT:
 - Generate exactly {question_count} questions
 - Every question must have a unique question_id (q1, q2, q3, ...)
-- MUST generate at least one question per grammar point listed above
+- Cover at least min(4, total grammar points) grammar points — NOT all grammar points required
 - Use ONLY vocabulary from the provided vocabulary list (do not invent new words)
 - source_citation format: "Book {book_id}, Chapter {lesson} - <section name>"
 - explanations should be concise (1-2 sentences) and educational, written in English
@@ -249,8 +268,12 @@ Return a JSON object with:
 
 # ---------------------------------------------------------------------------
 # Content evaluation prompts (Evaluator-Optimizer pattern)
+# DEPRECATED by Story 4.15: evaluate_content node removed from graph.
+# Replaced by deterministic content checks in validate_structure node.
+# Kept here for reference only — DO NOT USE in new code.
 # ---------------------------------------------------------------------------
 
+# DEPRECATED — DO NOT USE
 CONTENT_EVALUATION_SYSTEM_PROMPT = """\
 You are a strict quality evaluator for Chinese language quiz content generated \
 for the 當代中文課程 (A Course in Contemporary Chinese) textbook series.
@@ -261,6 +284,7 @@ You must be extremely thorough and flag ANY violation, no matter how minor.
 You respond ONLY with valid JSON matching the required schema. No additional text.
 """
 
+# DEPRECATED — DO NOT USE
 CONTENT_EVALUATION_PROMPT = """\
 Evaluate the following generated quiz questions against ALL 5 rules below.
 

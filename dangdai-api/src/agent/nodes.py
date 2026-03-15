@@ -14,10 +14,16 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 from typing import Any
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
+from src.agent.generators import (
+    FillInBlankGenerator,
+    MatchingGenerator,
+    VocabularyGenerator,
+)
 from src.agent.prompts import (
     CONTENT_EVALUATION_PROMPT,
     CONTENT_EVALUATION_SYSTEM_PROMPT,
@@ -183,6 +189,7 @@ async def retrieve_structured_content(
             "retrieved_content": chunks,
             "structured_content": {},
             "grammar_points_list": [],
+            "generation_tier": "tier2",
         }
 
     elapsed = (time.perf_counter() - start) * 1000
@@ -199,6 +206,7 @@ async def retrieve_structured_content(
         "structured_content": content,
         "grammar_points_list": grammar_points,
         "retrieved_content": content.get("rag_chunks", []),
+        "generation_tier": "tier2",
     }
 
 
@@ -233,6 +241,115 @@ async def query_weakness(state: QuizGenerationState) -> dict[str, Any]:
     logger.info("Weakness profile for user %s: %s", user_id, profile)
 
     return {"weakness_profile": profile}
+
+
+async def algorithmic_generate(state: QuizGenerationState) -> dict[str, Any]:
+    """Generate quiz questions algorithmically (Tier 1) — zero LLM calls.
+
+    Dispatches to the appropriate Tier 1 generator based on exercise_type:
+    - vocabulary    → VocabularyGenerator
+    - matching      → MatchingGenerator
+    - fill_in_blank → FillInBlankGenerator
+
+    Runs structural validation inline (no grammar coverage check for Tier 1
+    since data comes directly from the database).
+
+    Checks for client disconnection before database queries.
+
+    Args:
+        state: Current graph state with chapter_id, book_id, exercise_type,
+               structured_content, weakness_profile.
+
+    Returns:
+        State update with quiz_payload (Tier 1 sets payload directly).
+
+    Raises:
+        asyncio.CancelledError: If client disconnects before database queries.
+    """
+    import time
+
+    start = time.perf_counter()
+    book_id = state["book_id"]
+    chapter_id = state["chapter_id"]
+    exercise_type = state["exercise_type"]
+    weakness_profile = state.get("weakness_profile", {})
+
+    logger.info(
+        "[Node:algorithmic_generate] START type=%s book=%d chapter=%d",
+        exercise_type,
+        book_id,
+        chapter_id,
+    )
+
+    # Check for client disconnection before DB queries
+    request = state.get("request")
+    if request and await request.is_disconnected():
+        logger.info("[Node:algorithmic_generate] Client disconnected, aborting")
+        raise asyncio.CancelledError("Client disconnected")
+
+    _, lesson = ChapterRepository.parse_chapter_id(chapter_id)
+
+    # Use structured content already loaded (by retrieve_structured_content)
+    # or fetch fresh if not present (direct Tier 1 path without prior node)
+    structured_content = state.get("structured_content", {})
+    vocabulary: list[dict[str, Any]] = structured_content.get("vocabulary", [])
+    grammar_points: list[dict[str, Any]] = structured_content.get("grammar_points", [])
+
+    # If structured content wasn't pre-loaded, fetch it now
+    if not vocabulary and not grammar_points:
+        content_service = ContentService()
+        content = await asyncio.to_thread(
+            content_service.retrieve_chapter_content, book_id, lesson, exercise_type
+        )
+        vocabulary = content.get("vocabulary", [])
+        grammar_points = content.get("grammar_points", [])
+        structured_content = content
+
+    # Dispatch to generator
+    questions: list[dict[str, Any]] = []
+    if exercise_type == "vocabulary":
+        gen = VocabularyGenerator()
+        questions = gen.generate(vocabulary, weakness_profile, book_id, lesson)
+    elif exercise_type == "matching":
+        gen_m = MatchingGenerator()
+        questions = gen_m.generate(vocabulary, weakness_profile, book_id, lesson)
+    elif exercise_type == "fill_in_blank":
+        gen_f = FillInBlankGenerator()
+        questions = gen_f.generate(
+            grammar_points, vocabulary, weakness_profile, book_id, lesson
+        )
+    else:
+        logger.warning(
+            "[Node:algorithmic_generate] Unknown Tier 1 type '%s', returning empty",
+            exercise_type,
+        )
+
+    elapsed = (time.perf_counter() - start) * 1000
+    logger.info(
+        "[Node:algorithmic_generate] DONE %d questions in %.0fms",
+        len(questions),
+        elapsed,
+    )
+
+    if not questions:
+        return {
+            "questions": [],
+            "generation_tier": "tier1",
+            "validation_errors": [
+                f"Algorithmic generation produced no questions for type={exercise_type}"
+            ],
+            "retry_count": 1,
+            "quiz_payload": {},
+        }
+
+    return {
+        "questions": questions,
+        "generation_tier": "tier1",
+        "validation_errors": [],
+        "retry_count": 0,
+        "quiz_payload": {"questions": questions},
+        "structured_content": structured_content,
+    }
 
 
 async def generate_quiz(state: QuizGenerationState) -> dict[str, Any]:
@@ -337,14 +454,19 @@ async def generate_quiz(state: QuizGenerationState) -> dict[str, Any]:
         output_schema=output_schema,
     )
 
-    # Append evaluator feedback for self-correction on retry
-    evaluator_feedback = state.get("evaluator_feedback", "")
-    if evaluator_feedback:
+    # Append retry feedback for self-correction on retry (Story 4.15: uses
+    # validation_errors from validate_structure — evaluator_feedback removed per AC #9)
+    retry_feedback = ""
+    validation_errors_for_retry = state.get("validation_errors", [])
+    if validation_errors_for_retry and state.get("retry_count", 0) > 0:
+        retry_feedback = "\n".join(validation_errors_for_retry)
+
+    if retry_feedback:
         prompt_text += (
-            "\n\n## CRITICAL: Previous Attempt Failed Content Evaluation\n"
+            "\n\n## CRITICAL: Previous Attempt Failed Validation\n"
             "The following issues were found in your previous generation. "
             "You MUST fix ALL of these issues in this attempt:\n\n"
-            f"{evaluator_feedback}\n\n"
+            f"{retry_feedback}\n\n"
             "Pay special attention to:\n"
             "- Use ONLY Traditional Chinese characters (繁體字) — NEVER Simplified\n"
             "- Pinyin MUST use tone diacritics (nǐ, xué) — NEVER tone numbers\n"
@@ -412,36 +534,413 @@ async def generate_quiz(state: QuizGenerationState) -> dict[str, Any]:
         return {"questions": [], "validation_errors": [f"LLM generation failed: {e}"]}
 
 
-def validate_structure(state: QuizGenerationState) -> dict[str, Any]:
-    """Validate generated quiz questions for structural correctness.
+# ---------------------------------------------------------------------------
+# Deterministic content quality checks (Tier 2 validation — AC #6)
+# ---------------------------------------------------------------------------
+
+# Known Simplified → Traditional mapping (common violations by LLMs)
+# Covers the most frequently confused characters in Chinese language learning content.
+_SIMPLIFIED_TO_TRADITIONAL: dict[str, str] = {
+    # ── Verbs & common words ──
+    "学": "學",
+    "习": "習",
+    "说": "說",
+    "话": "話",
+    "语": "語",
+    "见": "見",
+    "让": "讓",
+    "请": "請",
+    "进": "進",
+    "远": "遠",
+    "运": "運",
+    "过": "過",
+    "还": "還",
+    "写": "寫",
+    "读": "讀",
+    "认": "認",
+    "识": "識",
+    "听": "聽",
+    "爱": "愛",
+    "来": "來",
+    "给": "給",
+    "发": "發",
+    "从": "從",
+    "为": "為",
+    "带": "帶",
+    "别": "別",
+    "办": "辦",
+    "变": "變",
+    "帮": "幫",
+    "报": "報",
+    "边": "邊",
+    "称": "稱",
+    "传": "傳",
+    "错": "錯",
+    "担": "擔",
+    "当": "當",
+    "动": "動",
+    "断": "斷",
+    "对": "對",
+    "尔": "爾",
+    "费": "費",
+    "丰": "豐",
+    "负": "負",
+    "干": "幹",
+    "顾": "顧",
+    "观": "觀",
+    "汉": "漢",
+    "号": "號",
+    "华": "華",
+    "换": "換",
+    "画": "畫",
+    "获": "獲",
+    "击": "擊",
+    "极": "極",
+    "继": "繼",
+    "际": "際",
+    "价": "價",
+    "检": "檢",
+    "简": "簡",
+    "将": "將",
+    "较": "較",
+    "节": "節",
+    "结": "結",
+    "经": "經",
+    "举": "舉",
+    "据": "據",
+    "决": "決",
+    "军": "軍",
+    "开": "開",
+    "课": "課",
+    "块": "塊",
+    "类": "類",
+    "离": "離",
+    "联": "聯",
+    "两": "兩",
+    "临": "臨",
+    "领": "領",
+    "乱": "亂",
+    "论": "論",
+    "买": "買",
+    "卖": "賣",
+    "满": "滿",
+    "没": "沒",
+    "们": "們",
+    "梦": "夢",
+    "难": "難",
+    "脑": "腦",
+    "内": "內",
+    "农": "農",
+    "欧": "歐",
+    "盘": "盤",
+    "篇": "篇",
+    "强": "強",
+    "桥": "橋",
+    "亲": "親",
+    "区": "區",
+    "权": "權",
+    "确": "確",
+    "热": "熱",
+    "软": "軟",
+    "设": "設",
+    "声": "聲",
+    "师": "師",
+    "实": "實",
+    "势": "勢",
+    "书": "書",
+    "属": "屬",
+    "数": "數",
+    "随": "隨",
+    "岁": "歲",
+    "台": "臺",
+    "态": "態",
+    "题": "題",
+    "条": "條",
+    "铁": "鐵",
+    "头": "頭",
+    "图": "圖",
+    "团": "團",
+    "万": "萬",
+    "网": "網",
+    "问": "問",
+    "务": "務",
+    "现": "現",
+    "线": "線",
+    "乡": "鄉",
+    "响": "響",
+    "向": "嚮",
+    "协": "協",
+    "兴": "興",
+    "须": "須",
+    "选": "選",
+    "样": "樣",
+    "药": "藥",
+    "业": "業",
+    "义": "義",
+    "艺": "藝",
+    "阴": "陰",
+    "应": "應",
+    "拥": "擁",
+    "用": "用",
+    "优": "優",
+    "邮": "郵",
+    "鱼": "魚",
+    "员": "員",
+    "院": "院",
+    "乐": "樂",
+    "贬": "貶",
+    "证": "證",
+    "只": "隻",
+    "质": "質",
+    "终": "終",
+    "众": "眾",
+    "组": "組",
+    "总": "總",
+    "钟": "鐘",
+    # ── Nouns / things ──
+    "国": "國",
+    "个": "個",
+    "场": "場",
+    "车": "車",
+    "东": "東",
+    "风": "風",
+    "间": "間",
+    "关": "關",
+    "机": "機",
+    "级": "級",
+    "门": "門",
+    "马": "馬",
+    "鸟": "鳥",
+    "钱": "錢",
+    "时": "時",
+    "云": "雲",
+    "长": "長",
+    "点": "點",
+    "电": "電",
+    "飞": "飛",
+    "龙": "龍",
+    "这": "這",
+    "会": "會",
+    "几": "幾",
+}
+_SIMPLIFIED_CHARS: frozenset[str] = frozenset(_SIMPLIFIED_TO_TRADITIONAL.keys())
+
+# Regex patterns for deterministic checks
+_TONE_NUMBER_PATTERN = re.compile(r"[a-züā-ǖA-Z][1-5]", re.IGNORECASE)
+_CJK_PATTERN = re.compile(r"[\u4e00-\u9fff]")
+
+
+def _check_simplified_chinese(text: str) -> list[str]:
+    """Detect Simplified Chinese characters in text.
+
+    Args:
+        text: Text to check.
+
+    Returns:
+        List of issue strings (empty if no violations).
+    """
+    issues: list[str] = []
+    for char in text:
+        if char in _SIMPLIFIED_CHARS:
+            trad = _SIMPLIFIED_TO_TRADITIONAL[char]
+            issues.append(f"Simplified '{char}' found — should be Traditional '{trad}'")
+    return issues
+
+
+def _check_pinyin_format(text: str) -> list[str]:
+    """Detect tone number patterns in pinyin text (e.g., ni3, xue2).
+
+    Args:
+        text: Text to check.
+
+    Returns:
+        List of issue strings (empty if no violations).
+    """
+    matches = _TONE_NUMBER_PATTERN.findall(text)
+    if matches:
+        return [f"Tone numbers detected: {', '.join(matches)} — must use diacritics"]
+    return []
+
+
+def _check_question_language(question_text: str) -> list[str]:
+    """Detect if question_text is written primarily in Chinese (should be English).
+
+    Allows question_text to reference Chinese characters inline
+    (e.g., "What does 學 mean?") — these are valid English question texts.
+    Flags only when the question itself is written in Chinese (i.e., CJK
+    characters make up the majority of meaningful characters).
+
+    Args:
+        question_text: The question_text field to check.
+
+    Returns:
+        List of issue strings (empty if no violations).
+    """
+    if not question_text:
+        return []
+
+    cjk_chars = [c for c in question_text if "\u4e00" <= c <= "\u9fff"]
+    # Count alphabetic (Latin) characters as "English" signal
+    latin_chars = [
+        c for c in question_text if c.isalpha() and not ("\u4e00" <= c <= "\u9fff")
+    ]
+
+    # If CJK chars outnumber Latin chars, the question is written in Chinese
+    if len(cjk_chars) > len(latin_chars):
+        return ["question_text appears to be written in Chinese — must be in English"]
+    return []
+
+
+def _check_curriculum_alignment(
+    questions: list[dict[str, Any]], vocab_set: set[str]
+) -> list[str]:
+    """Verify Chinese text in questions exists in the chapter's vocabulary.
+
+    Only checks short single-word values (≤4 chars) to avoid false positives
+    on full sentences or compound phrases not in the vocab list.
+
+    Args:
+        questions: List of question dicts to validate.
+        vocab_set: Set of Traditional Chinese strings for the chapter.
+
+    Returns:
+        List of issue strings (empty if no violations).
+    """
+    issues: list[str] = []
+    for q in questions:
+        for field in ["character", "correct_answer"]:
+            value = q.get(field, "")
+            if value and any("\u4e00" <= c <= "\u9fff" for c in value):
+                if len(value) <= 4 and value not in vocab_set:
+                    qid = q.get("question_id", "?")
+                    issues.append(
+                        f"Question {qid}: '{value}' not in chapter vocabulary"
+                    )
+    return issues
+
+
+def _run_deterministic_content_checks(
+    questions: list[dict[str, Any]],
+    vocab_set: set[str],
+) -> list[str]:
+    """Run all 4 deterministic content quality checks on generated questions.
+
+    Checks:
+    1. No Simplified Chinese characters in Chinese text fields
+    2. No tone-number pinyin (e.g., ni3 → must be nǐ)
+    3. question_text must be in English (no CJK)
+    4. Curriculum alignment: Chinese single-words must be in chapter vocab
+
+    Args:
+        questions: List of question dicts to validate.
+        vocab_set: Set of Traditional Chinese strings for curriculum check.
+
+    Returns:
+        Aggregated list of issue strings across all questions.
+    """
+    all_issues: list[str] = []
+
+    chinese_fields = [
+        "character",
+        "pinyin",
+        "sentence",
+        "sentence_with_blanks",
+        "passage",
+        "correct_answer",
+        "options",
+        "left_items",
+        "right_items",
+        "scrambled_words",
+        "word_bank",
+    ]
+
+    for q in questions:
+        qid = q.get("question_id", "?")
+
+        # Check question_text is in English (no CJK)
+        qt = q.get("question_text", "")
+        for issue in _check_question_language(qt):
+            all_issues.append(f"[{qid}] {issue}")
+
+        # Check pinyin field specifically
+        pinyin_val = q.get("pinyin", "")
+        if pinyin_val:
+            for issue in _check_pinyin_format(pinyin_val):
+                all_issues.append(f"[{qid}] pinyin: {issue}")
+
+        # Check all Chinese text fields for Simplified chars
+        for field in chinese_fields:
+            val = q.get(field)
+            if val is None:
+                continue
+            values_to_check: list[str] = []
+            if isinstance(val, str):
+                values_to_check = [val]
+            elif isinstance(val, list):
+                values_to_check = [str(v) for v in val if v]
+
+            for text in values_to_check:
+                for issue in _check_simplified_chinese(text):
+                    all_issues.append(f"[{qid}] {field}: {issue}")
+
+        # Check dialogue bubbles
+        bubbles = q.get("dialogue_bubbles", [])
+        if isinstance(bubbles, list):
+            for bubble in bubbles:
+                if isinstance(bubble, dict):
+                    bubble_text = bubble.get("text", "")
+                    for issue in _check_simplified_chinese(bubble_text):
+                        all_issues.append(f"[{qid}] dialogue_bubbles.text: {issue}")
+
+    # Curriculum alignment check
+    if vocab_set:
+        for issue in _check_curriculum_alignment(questions, vocab_set):
+            all_issues.append(issue)
+
+    return all_issues
+
+
+async def validate_structure(state: QuizGenerationState) -> dict[str, Any]:
+    """Validate generated quiz questions for structural and content correctness.
 
     Performs rule-based validation (no LLM call):
     - Correct answers exist
     - Options are distinct
     - No duplicate questions
     - Required fields present
+    - Deterministic content quality checks (Tier 2 only):
+      * No Simplified Chinese characters
+      * No tone-number pinyin
+      * question_text in English
+      * Curriculum alignment (vocab set membership)
+    - Grammar coverage: at least min(4, total_grammar_points) covered
 
-    Questions that fail validation are dropped rather than failing the entire
-    quiz. Only triggers a retry if zero valid questions remain.
+    Questions that fail structural checks are dropped. Only triggers a retry
+    if zero valid questions remain or content/grammar checks fail.
 
-    Content quality checks (Traditional Chinese, pinyin, etc.) are handled
-    by the evaluate_content node downstream.
+    The evaluate_content LLM node is NOT called (deprecated by this story).
+
+    Declared async (Story 4.15 review fix) so the now-heavier regex validation
+    work does not block the event loop thread.
 
     Args:
         state: Current graph state with questions.
 
     Returns:
-        State update with valid questions, validation_errors, and retry_count.
+        State update with valid questions, validation_errors, retry_count,
+        and quiz_payload (set on success).
     """
     questions = state.get("questions", [])
     retry_count = state.get("retry_count", 0)
+    generation_tier = state.get("generation_tier", "tier2")
     errors: list[str] = []
     valid_questions: list[dict[str, Any]] = []
 
     logger.info(
-        "[Node:validate_structure] START questions=%d retry=%d",
+        "[Node:validate_structure] START questions=%d retry=%d tier=%s",
         len(questions),
         retry_count,
+        generation_tier,
     )
 
     if not questions:
@@ -509,33 +1008,64 @@ def validate_structure(state: QuizGenerationState) -> dict[str, Any]:
     # Only trigger retry if no valid questions remain
     needs_retry = len(valid_questions) == 0
 
-    # Grammar coverage validation (AC #3 — FR58)
-    grammar_points = state.get("grammar_points_list", [])
+    # Deterministic content quality checks (Tier 2 only — AC #6)
+    # Tier 1 data comes from DB so these checks are skipped
+    content_feedback = ""
+    if generation_tier == "tier2" and valid_questions and not needs_retry:
+        structured_content = state.get("structured_content", {})
+        vocab_list: list[dict[str, Any]] = structured_content.get("vocabulary", [])
+        vocab_set: set[str] = {
+            v.get("traditional", "") for v in vocab_list if v.get("traditional")
+        }
+
+        content_issues = _run_deterministic_content_checks(valid_questions, vocab_set)
+        if content_issues:
+            content_feedback = (
+                "Content quality check failures:\n"
+                + "\n".join(f"  - {issue}" for issue in content_issues[:10])
+                + "\n\nFix all issues: use Traditional Chinese only, "
+                "use pinyin diacritics (not tone numbers), "
+                "write question_text in English."
+            )
+            logger.warning(
+                "[Node:validate_structure] Deterministic content checks FAILED: "
+                "%d issues: %s",
+                len(content_issues),
+                content_issues[:5],
+            )
+            needs_retry = True
+
+    # Grammar coverage validation — relaxed to min(4, total) instead of ALL (AC #6)
+    MIN_GRAMMAR_COVERAGE = 4
+    grammar_points_list = state.get("grammar_points_list", [])
     grammar_feedback = ""
-    if grammar_points and valid_questions and not needs_retry:
+    if grammar_points_list and valid_questions and not needs_retry:
         covered_grammar: set[str] = set()
         for question in valid_questions:
             gp = question.get("grammar_pattern")
             if gp:
                 covered_grammar.add(gp)
 
-        missing = [
-            gp["title_english"]
-            for gp in grammar_points
-            if gp.get("title_english") and gp["title_english"] not in covered_grammar
-        ]
-
-        if missing:
+        required_coverage = min(MIN_GRAMMAR_COVERAGE, len(grammar_points_list))
+        if len(covered_grammar) < required_coverage:
+            missing = [
+                gp["title_english"]
+                for gp in grammar_points_list
+                if gp.get("title_english")
+                and gp["title_english"] not in covered_grammar
+            ]
             grammar_feedback = (
-                f"Missing grammar coverage for: {', '.join(missing)}. "
+                f"Only {len(covered_grammar)}/{required_coverage} grammar points covered. "
+                f"Missing: {', '.join(missing[:5])}. "
                 "Generate questions covering these grammar patterns. "
                 "Include the 'grammar_pattern' field in each question."
             )
             logger.warning(
-                "[Node:validate_structure] Grammar coverage incomplete: "
-                "missing %d/%d points: %s",
-                len(missing),
-                len(grammar_points),
+                "[Node:validate_structure] Grammar coverage: %d/%d covered, "
+                "need %d, missing: %s",
+                len(covered_grammar),
+                len(grammar_points_list),
+                required_coverage,
                 missing,
             )
             needs_retry = True
@@ -546,16 +1076,28 @@ def validate_structure(state: QuizGenerationState) -> dict[str, Any]:
         "retry_count": retry_count + (1 if needs_retry else 0),
     }
 
-    # Append grammar feedback to evaluator_feedback for retry self-correction
-    if grammar_feedback:
-        existing_feedback = state.get("evaluator_feedback", "")
-        combined = (
-            f"{existing_feedback}\n\n{grammar_feedback}"
-            if existing_feedback
-            else grammar_feedback
+    # On success: set quiz_payload directly (evaluate_content node deprecated)
+    if not needs_retry:
+        result_dict["quiz_payload"] = {"questions": valid_questions}
+        logger.info(
+            "[Node:validate_structure] All checks PASSED — quiz_payload set with %d questions",
+            len(valid_questions),
         )
-        result_dict["evaluator_feedback"] = combined
-        result_dict["validation_errors"] = [grammar_feedback]
+
+    # Build retry feedback for self-correction (replaces evaluator_feedback)
+    combined_feedback_parts = []
+    if content_feedback:
+        combined_feedback_parts.append(content_feedback)
+    if grammar_feedback:
+        combined_feedback_parts.append(grammar_feedback)
+
+    if combined_feedback_parts:
+        combined_feedback = "\n\n".join(combined_feedback_parts)
+        result_dict["validation_errors"] = [combined_feedback]
+        logger.info(
+            "[Node:validate_structure] Retry feedback prepared (%d chars)",
+            len(combined_feedback),
+        )
 
     return result_dict
 

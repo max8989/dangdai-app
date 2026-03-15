@@ -18,7 +18,8 @@ class QuizGenerationState(TypedDict, total=False):
 
     Optional fields (populated by graph nodes):
         retrieved_content, weakness_profile, questions,
-        validation_errors, retry_count, quiz_payload, request
+        validation_errors, retry_count, quiz_payload, request,
+        generation_tier
     """
 
     # Input (set at invocation)
@@ -33,6 +34,10 @@ class QuizGenerationState(TypedDict, total=False):
     # if the client has navigated away.
     request: Request
 
+    # Tier routing (set by route_by_tier node — Story 4.15)
+    # Values: "tier1" (algorithmic) | "tier2" (single LLM) | "mixed"
+    generation_tier: str
+
     # RAG output (set by retrieve_content node — supplementary only)
     retrieved_content: list[dict[str, Any]]
 
@@ -43,15 +48,12 @@ class QuizGenerationState(TypedDict, total=False):
     # Weakness profile (set by query_weakness node)
     weakness_profile: dict[str, Any]
 
-    # Generation output (set by generate_quiz node)
+    # Generation output (set by generate_quiz or algorithmic_generate node)
     questions: list[dict[str, Any]]
 
-    # Validation (set by validate_structure and evaluate_content nodes)
+    # Validation (set by validate_structure node)
     validation_errors: list[str]
     retry_count: int
 
-    # Evaluator feedback for self-correction (set by evaluate_content node)
-    evaluator_feedback: str
-
-    # Final output (set on successful content evaluation)
+    # Final output (set on successful validation)
     quiz_payload: dict[str, Any]
