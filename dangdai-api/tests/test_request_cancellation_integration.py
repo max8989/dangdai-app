@@ -739,8 +739,9 @@ class TestValidationServiceCheckpoint:
         connected_request.is_disconnected.assert_called_once()
 
     @pytest.mark.asyncio
+    @patch("src.services.validation_service.get_llm")
     async def test_validation_cancellation_logs_info(
-        self, caplog: pytest.LogCaptureFixture
+        self, mock_get_llm: MagicMock, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Positive cancellation: INFO log emitted at validate_answer checkpoint.
 

@@ -516,9 +516,10 @@ class TestRequestCancellation:
         mock_http_request.is_disconnected.assert_called_once()
 
     @pytest.mark.asyncio
+    @patch("src.services.validation_service.get_llm")
     @patch("src.api.dependencies.settings")
     async def test_answer_validation_cancels_when_client_disconnects(
-        self, mock_settings
+        self, mock_settings, mock_get_llm
     ):
         """Answer validation raises CancelledError when client disconnects before LLM.
 
