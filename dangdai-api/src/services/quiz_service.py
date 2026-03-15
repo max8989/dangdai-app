@@ -107,7 +107,7 @@ class QuizService:
         # Invoke graph with tier-appropriate timeout
         try:
             result = await asyncio.wait_for(
-                graph.ainvoke(graph_input),  # type: ignore[arg-type]
+                graph.ainvoke(graph_input),  # type: ignore[call-overload, arg-type]
                 timeout=timeout,
             )
         except asyncio.CancelledError:
