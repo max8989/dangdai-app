@@ -5,7 +5,7 @@ Define API schemas for request validation and response serialization.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Annotated, Literal, Union
 
 from pydantic import BaseModel, Field
@@ -26,7 +26,7 @@ class HealthResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class ExerciseType(str, Enum):
+class ExerciseType(StrEnum):
     """Supported exercise types for quiz generation."""
 
     VOCABULARY = "vocabulary"
@@ -216,7 +216,7 @@ class ErrorResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class ValidationExerciseType(str, Enum):
+class ValidationExerciseType(StrEnum):
     """Exercise types that require LLM-based answer validation."""
 
     SENTENCE_CONSTRUCTION = "sentence_construction"
