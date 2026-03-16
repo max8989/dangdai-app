@@ -24,6 +24,13 @@ Consult these artifacts before making architectural decisions or implementing ne
 
 - **Context7 MCP**: Always use the Context7 MCP tool (`resolve-library-id` then `query-docs`) to look up documentation for any library or framework (React Native, Expo, Tamagui, TanStack Query, Zustand, Supabase, FastAPI, LangGraph, etc.). Do not rely on training data alone.
 - **Supabase MCP**: Whenever doing anything with Supabase (schema changes, migrations, querying tables, RLS policies, checking advisors, generating types), use the Supabase MCP tools (`list_tables`, `execute_sql`, `apply_migration`, `generate_typescript_types`, `get_advisors`, etc.) instead of writing SQL manually or guessing schema.
+- **Context Mode MCP**: Use `ctx_execute` / `ctx_execute_file` instead of raw Bash for any command whose output may exceed 20 lines (logs, test runs, git history, API calls, build output, dependency trees, etc.). This keeps large output out of the context window. Use the helper skills below as needed:
+  - `context-mode` — core routing skill; auto-triggers on large-output commands
+  - `ctx-stats` — show context savings for the current session
+  - `ctx-doctor` — run diagnostics (runtimes, hooks, FTS5, versions)
+  - `ctx-upgrade` — update context-mode from GitHub
+  - `ctx-cloud-setup` — connect to Context Mode Cloud
+  - `ctx-cloud-status` — show cloud sync health and event statistics
 
 ## Build / Lint / Test Commands
 
@@ -157,5 +164,5 @@ dangdai-app/
 ├── _bmad/               # BMAD framework (agents, workflows, config)
 ├── _bmad-output/        # Planning & implementation artifacts
 ├── .claude/commands/    # Claude Code BMAD commands
-└── .opencode/           # OpenCode IDE agents + commands
+└── .Claude/           # Claude Code IDE agents + commands
 ```
