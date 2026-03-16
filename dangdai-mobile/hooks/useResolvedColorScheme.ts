@@ -10,7 +10,7 @@
  */
 
 import { useEffect } from 'react'
-import { Appearance, useColorScheme } from 'react-native'
+import { Appearance, Platform, useColorScheme } from 'react-native'
 import { useSettingsStore } from '../stores/useSettingsStore'
 
 export function useResolvedColorScheme(): 'light' | 'dark' {
@@ -27,8 +27,11 @@ export function useResolvedColorScheme(): 'light' | 'dark' {
   // Force the native iOS/Android appearance to match the user's choice.
   // This ensures translucent navigation chrome, alerts, and pickers
   // use the correct color scheme rather than the OS default.
+  // setColorScheme is not available on web, so guard with a platform check.
   useEffect(() => {
-    Appearance.setColorScheme(themePreference === 'system' ? null : themePreference)
+    if (Platform.OS !== 'web') {
+      Appearance.setColorScheme(themePreference === 'system' ? null : themePreference)
+    }
   }, [themePreference])
 
   return resolved
