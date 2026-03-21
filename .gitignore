@@ -1,1 +1,42 @@
+# RAG submodule artifacts
 dangdai-rag/*
+
+# Test artifacts and reports
+test-results/
+playwright-report/
+playwright-transform-cache-*/
+_bmad-output/test-artifacts/
+
+# Build and cache directories
+metro-cache/
+metro-file-map-*
+node-compile-cache/
+v8-compile-cache-*/
+jest_rs/
+update-check/
+.expo/
+dist/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+
+# Environment files (keep .env.example)
+.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

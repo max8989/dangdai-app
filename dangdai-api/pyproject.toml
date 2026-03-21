@@ -38,7 +38,21 @@ include = ["src*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-markers = ["asyncio: mark test as async"]
+testpaths = ["tests"]
+markers = [
+    "asyncio: mark test as async",
+    "unit: fast, no I/O, no network (run in pre-commit)",
+    "integration: requires live services (Supabase, LLM) — skip in CI unless env vars set",
+    "api: HTTP-level API tests via httpx TestClient",
+    "slow: expected run time > 10 s",
+]
+addopts = [
+    "--strict-markers",
+    "--tb=short",
+    "-q",
+]
+# Coverage: run with `pytest --cov=src --cov-report=term-missing`
+# (pytest-cov is optional; add to dev dependencies to enable)
 
 [tool.ruff]
 target-version = "py311"
