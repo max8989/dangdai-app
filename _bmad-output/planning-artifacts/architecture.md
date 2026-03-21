@@ -11,8 +11,10 @@ date: 'Sat Feb 14 2026'
 lastStep: 8
 status: 'complete'
 completedAt: '2026-02-14'
-updatedAt: 'Sat Mar 14 2026'
+updatedAt: '2026-03-21'
 updateHistory:
+  - date: '2026-03-21'
+    changes: 'Major architecture shift: Pre-generated exercises as default. ALL exercise types (vocabulary, matching, fill_in_blank, grammar, sentence_construction, dialogue_completion, reading_comprehension, mixed) now served from premade_exercises table by default. On-the-fly LangGraph pipeline retired from real-time use — repurposed as offline batch tool for populating premade_exercises. Added comprehensive test strategy: Playwright E2E discovery tests (8 types × 15 lessons for Book 1) + Python-side premade exercise coverage tests. Retired AI-generated exercise path from frontend.'
   - date: 'Sat Mar 14 2026'
     changes: 'Major architecture redesign: Hybrid Quiz Generation (3-Tier). Replaced 2-LLM-call pipeline (generator + evaluator) with tiered approach. Tier 1 (vocabulary, matching, fill_in_blank) uses algorithmic generation from structured tables — zero LLM calls, <200ms, $0. Tier 2 (grammar, sentence_construction, dialogue_completion, reading_comprehension) uses single LLM call — no evaluator, 2-4s, ~$0.012. Tier 3: LLM evaluator removed entirely, replaced by deterministic rule-based validation (regex for simplified Chinese, pinyin format, CJK in question_text, vocab set-membership). Grammar coverage relaxed to min(4, total) grammar points. Monthly cost reduced ~55-70% ($80→$25-35). Latency reduced ~40-95% depending on exercise type.'
   - date: 'Sat Feb 21 2026'
@@ -88,62 +90,47 @@ _This document builds collaboratively through step-by-step discovery. Sections a
 ```
 Mobile App (Expo) ──┬──▶ Supabase (Auth, Progress, User Data, Performance Memory)
                     │     ├──▶ Structured Content (vocabulary, dialogues, grammar_points)
-                    │     └──▶ Premade Exercises (premade_exercises — direct read, no LLM)
+                    │     └──▶ Premade Exercises (premade_exercises — PRIMARY exercise source, no LLM)
                     │
-                    └──▶ Python Backend (FastAPI + LangGraph)
+                    └──▶ Python Backend (FastAPI)
                               │
-                              ├──▶ Supabase Structured Content (vocabulary, grammar_points, dialogues — PRIMARY source)
-                              ├──▶ Supabase pgvector (RAG retrieval — SUPPLEMENTARY, culture/pronunciation context)
                               ├──▶ Supabase question_results (weakness profile query)
-                              ├──▶ LLM API - Azure OpenAI gpt-4o (quiz generation + complex answer validation)
-                              ├──▶ LangGraph Structure Validation Node (rule-based self-check)
-                              └──▶ LangGraph Content Evaluator Node (LLM-based quality gate)
+                              └──▶ Health check / utility endpoints
+
+Offline Batch Pipeline (LangGraph — NOT real-time):
+                              │
+                              ├──▶ Supabase Structured Content (vocabulary, grammar_points, dialogues)
+                              ├──▶ LLM API - Azure OpenAI gpt-4o (exercise generation)
+                              ├──▶ LangGraph Validation Node (rule-based quality checks)
+                              └──▶ Output: premade_exercises table rows
 ```
 
-**Quiz Generation Flow (Detailed) -- Hybrid 3-Tier Generation:**
+**Exercise Flow (Pre-Generated — DEFAULT for all exercise types):**
 ```
-1. Mobile: POST /api/quizzes/generate { chapter_id, exercise_type, user_jwt }
-2. Agent: Verify JWT → Determine generation tier based on exercise_type:
-   - Tier 1 (vocabulary, matching, fill_in_blank): Algorithmic generation, no LLM
-   - Tier 2 (grammar, sentence_construction, dialogue_completion, reading_comprehension): Single LLM call
-   - Mixed: Blend of Tier 1 + Tier 2 questions
-
---- Tier 1 Flow (vocabulary, matching, fill_in_blank) — instant, $0 ---
-3a. Agent: Query structured content from Supabase (vocabulary + grammar_points tables)
-4a. Agent: Query weakness profile from question_results (bias toward weak items)
-5a. Agent: Algorithmically generate questions:
-    - Vocabulary: Pick N vocab items (30-50% weak-biased), choose subtype, pick distractors by POS
-    - Matching: Pick 4-6 vocab pairs, shuffle right column
-    - Fill-in-Blank: Use grammar_points.examples[], mask key words, build word bank from chapter vocab
-6a. Agent: Rule-based validation (structural + deterministic content checks)
-7a. Agent: Return structured quiz payload with answer keys + explanations + source citations
-
---- Tier 2 Flow (grammar, sentence_construction, dialogue_completion, reading_comprehension) — 2-4s, ~$0.012 ---
-3b. Agent: Query weakness profile from question_results (aggregation)
-4b. Agent: Retrieve structured content from Supabase:
-    a. vocabulary table: all vocab for this chapter
-    b. grammar_points table: all grammar points (cover at least min(4, total) grammar points)
-    c. dialogues table: dialogue lines (for reading_comprehension, dialogue_completion)
-5b. Agent: Single LLM call (Azure OpenAI gpt-4o) generates quiz using structured content as context,
-    with pre-generated explanations, biased 30-50% toward weak areas
-6b. Agent: Rule-based validation (structural checks + deterministic content quality checks:
-    regex simplified Chinese detection, pinyin format, CJK in question_text, vocab set-membership)
-    - If validation fails: retry generate_quiz with feedback (max 2 retries)
-7b. Agent: Return structured quiz payload with answer keys + explanations + source citations
-
---- Common Post-Generation Flow ---
-8. Mobile: Local validation for simple types (Vocabulary, Grammar, Matching, Fill-in-Blank, Reading)
-9. Mobile: LLM call via agent for complex types (Sentence Construction, Dialogue Completion) when answer differs from key
-10. Mobile: Save per-question results to question_results + update exercise_type_progress
+1. Mobile: Query premade_exercises table from Supabase for chapter (book_id, lesson_id)
+2. Mobile: Display exercise list grouped by exercise_type with completion status
+3. User selects an exercise → content JSONB fetched (lazy loading)
+4. Mobile: premadeExerciseAdapter transforms content JSONB → QuizQuestion[] format
+5. Mobile: Exercise rendered locally using existing quiz UI components
+6. Mobile: Local validation against stored correct answers (no LLM call)
+7. Mobile: Save per-question results to question_results + update exercise_type_progress
+8. Mobile: Completion screen with score and chapter progress update
 ```
 
-**Premade Exercise Flow (NEW — no LLM needed):**
+**Supported premade exercise types (all 8):**
+- vocabulary, grammar, fill_in_blank, matching
+- dialogue_completion, sentence_construction, reading_comprehension, mixed
+
+**Offline Batch Generation Pipeline (LangGraph — populates premade_exercises):**
 ```
-1. Mobile: GET premade exercises for chapter from Supabase (premade_exercises table)
-2. Mobile: Display exercise list with completion status per exercise
-3. User selects a premade exercise → exercises rendered locally from stored structured content
-4. Mobile: Local validation against stored correct answers
-5. Mobile: Save per-question results to question_results + update exercise_type_progress
+RETIRED FROM REAL-TIME USE. Now runs as a batch script to pre-populate exercises.
+
+1. Script reads structured content (vocabulary, grammar_points, dialogues) from Supabase
+2. For Tier 1 types (vocabulary, matching, fill_in_blank): algorithmic generation, no LLM
+3. For Tier 2 types (grammar, sentence_construction, dialogue_completion, reading_comprehension): single LLM call
+4. Rule-based validation (structural + deterministic content checks)
+5. Validated exercises written to premade_exercises table with proper JSONB content schemas
+6. Mixed type: blend of Tier 1 + Tier 2 questions, also pre-generated
 ```
 
 ### Cross-Cutting Concerns Identified
@@ -1242,9 +1229,11 @@ Users can manually delete paused quizzes:
 # 8. Verify paused_quizzes record deleted
 ```
 
-### Quiz Generation Quality: Hybrid 3-Tier Generation with Deterministic Validation
+### Quiz Generation Quality: Pre-Generated Exercises with Offline Batch Pipeline
 
-This section defines the hybrid quiz generation architecture that replaces the previous 2-LLM-call pipeline (generator + evaluator) with a tiered approach: algorithmic generation for simple exercise types, single LLM call for complex types, and deterministic rule-based validation for all types.
+> **ARCHITECTURE CHANGE (2026-03-21):** All exercise types now default to pre-generated content served from the `premade_exercises` table. The hybrid 3-tier pipeline described below is **retired from real-time use** and repurposed as an **offline batch tool** for populating the `premade_exercises` table. No LLM calls occur during user-facing exercise flows.
+
+This section defines the batch generation pipeline used to populate `premade_exercises`. It uses a tiered approach: algorithmic generation for simple exercise types, single LLM call for complex types, and deterministic rule-based validation for all types.
 
 #### Problem Statement (Motivation for Redesign)
 
@@ -1419,18 +1408,23 @@ class QuizGenerationState(TypedDict, total=False):
 | **Mixed** | 4-7s, $0.02 | **2-4s, ~$0.008** | Tier 1 portion free |
 | **Monthly (100 users, 10 quizzes/wk)** | ~$80/month | **~$25-35/month** | ~55-70% savings |
 
-#### Enforcement Guidelines (Updated)
+#### Enforcement Guidelines (Updated 2026-03-21)
 
-**All AI Agents implementing quiz generation MUST:**
-1. Route exercise types to the correct generation tier (Tier 1: vocabulary/matching/fill_in_blank, Tier 2: grammar/sentence_construction/dialogue_completion/reading_comprehension)
-2. **Never** use LLM calls for Tier 1 exercise types — these must be algorithmic
-3. Use exactly **one** LLM call for Tier 2 exercise types — no evaluator
-4. Use the enhanced `validate_structure` node with deterministic content quality checks for ALL tiers
-5. Cap retries at 2 (existing `MAX_RETRIES`) — after 2 failed validations, return best attempt with warning
-6. Use Azure OpenAI gpt-4o as default model (configurable via environment variables)
-7. The `evaluate_content` node and `CONTENT_EVALUATION_*` prompts are **deprecated and must not be used**
-8. Tier 1 generators must include `explanation` and `source_citation` fields derived from structured data
-9. Grammar coverage requires min(4, total_grammar_points) — same grammar point may appear in multiple questions
+**All AI Agents MUST:**
+1. **All exercise types are pre-generated.** The user-facing app reads exclusively from `premade_exercises` — no real-time LLM calls for exercise generation
+2. The LangGraph pipeline is an **offline batch tool only** — used to populate `premade_exercises`, never invoked during a user session
+3. The `POST /api/quizzes/generate` endpoint is **deprecated** for user-facing flows — retained only for batch generation scripts
+4. Pre-generated exercises must cover all 8 types × all lessons for each book before the book is considered complete
+5. Exercise content JSONB must conform to the type-specific schemas (fill_in_blank, matching, dialogue_completion, sentence_construction, reading/reading_comprehension)
+6. The `premadeExerciseAdapter` is the single source of truth for transforming content JSONB → QuizQuestion[] format
+7. All validation is local (no LLM) — correct answers are stored in the content JSONB
+
+**Batch pipeline rules (offline only):**
+8. Route exercise types to the correct generation tier (Tier 1: vocabulary/matching/fill_in_blank, Tier 2: grammar/sentence_construction/dialogue_completion/reading_comprehension)
+9. **Never** use LLM calls for Tier 1 exercise types — these must be algorithmic
+10. Use exactly **one** LLM call for Tier 2 exercise types — no evaluator
+11. Tier 1 generators must include `explanation` and `source_citation` fields derived from structured data
+12. Grammar coverage requires min(4, total_grammar_points) — same grammar point may appear in multiple questions
 
 ### LLM Provider Configuration Architecture
 
@@ -2781,13 +2775,43 @@ All 31 NFRs addressed architecturally:
 9. Structured content tables provide reliable, consistent curriculum data — eliminates RAG hallucination risk for core exercise content
 10. Premade workbook exercises provide instant, LLM-free practice — reducing costs and latency for users
 
+### Exercise Testing Strategy (Added 2026-03-21)
+
+All exercise types are pre-generated and served from `premade_exercises`. A comprehensive two-layer test strategy ensures coverage and correctness:
+
+**Layer 1: Playwright E2E Discovery Tests (`exercise-discovery.test.ts`)**
+
+Purpose: Discover broken exercise modules by testing all 8 types × 15 lessons for Book 1 as a real user.
+
+- Logs in with Supabase test credentials from `.env.local`
+- For each lesson (1-15) and each exercise type:
+  1. Navigates to the exercise selection screen
+  2. Checks if premade exercises exist for that type/lesson
+  3. Opens each available premade exercise
+  4. Validates the exercise renders correctly (question card visible, content populated)
+  5. Attempts to interact with the exercise (select an answer, submit)
+  6. Validates feedback is shown
+- Reports a matrix of pass/fail per exercise type × lesson
+- Uses existing auth fixture, merged-fixtures pattern, and premade exercise navigation
+
+**Layer 2: Python-Side Premade Exercise Coverage Tests (`test_premade_exercises_coverage.py`)**
+
+Purpose: Validate that real Book 1 RAG content produces valid exercises and that stored premade exercises have correct JSONB schemas.
+
+- Loads `dangdai-rag/output_chunks/book1_chunks.json` for real content
+- Tests each Tier 1 generator (VocabularyGenerator, MatchingGenerator, FillInBlankGenerator) against each of the 15 lessons
+- Validates premade exercise content JSONB against type-specific schemas
+- Validates the `adaptPremadeContent` transformation produces valid QuizQuestion[] output
+- Tests edge cases: empty content, missing fields, malformed JSONB
+
 **Areas for Future Enhancement:**
 1. Database schema refinement based on usage patterns
 2. Caching strategy optimization post-MVP (materialized weakness profiles)
-3. E2E testing infrastructure
+3. ~~E2E testing infrastructure~~ (DONE — Playwright infrastructure in place)
 4. Performance monitoring integration
 5. Supabase RPC function for weakness profile aggregation (if direct SQL queries become slow)
 6. Extend structured content to Books 5-6 (data sources available)
+7. Extend exercise discovery tests to Books 2-4 as content is seeded
 
 ### Implementation Handoff
 

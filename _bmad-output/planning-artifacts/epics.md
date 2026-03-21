@@ -2,8 +2,10 @@
 stepsCompleted: ['step-01-validate-prerequisites', 'step-02-design-epics', 'step-03-create-stories', 'step-04-final-validation']
 workflowComplete: true
 completedAt: 2026-02-15
-updatedAt: 2026-03-14
+updatedAt: 2026-03-21
 updateHistory:
+  - date: '2026-03-21'
+    changes: 'Pre-generated exercises as default: Added Story 4.16 (Migrate All Exercise Types to Pre-Generated Default), Story 12.1 (Playwright E2E Exercise Discovery Tests), Story 12.2 (Python-Side Premade Exercise Coverage Tests). Added Epic 12 (Exercise Quality & Test Automation). Updated Epic 4 goal — on-the-fly generation retired, all types served from premade_exercises. Updated FR12 mapping.'
   - date: '2026-03-14'
     changes: 'Hybrid Quiz Generation redesign: Added Story 4.15 (Hybrid 3-Tier Quiz Generation). Tier 1 (vocabulary, matching, fill_in_blank) uses algorithmic generation from structured tables — zero LLM calls. Tier 2 (grammar, sentence_construction, dialogue_completion, reading_comprehension) uses single LLM call — evaluator removed. Updated FR12, FR13, FR58. Updated NFR1, NFR27, NFR31. Updated Epic 4 goal. Supersedes Story 4.13 evaluator-optimizer pattern.'
   - date: '2026-03-09'
@@ -266,7 +268,7 @@ This document provides the complete epic and story breakdown for dangdai-app, de
 | FR9 | Epic 3 | User can select any chapter |
 | FR10 | Epic 3 | User can see chapter completion status (per-exercise-type indicators) |
 | FR11 | Epic 4 (Stories 4.14, 4.15) | System retrieves chapter content from structured content tables (PRIMARY) |
-| FR12 | Epic 4 (Story 4.15) | System generates quiz via hybrid 3-tier: algorithmic (Tier 1) or single LLM call (Tier 2) |
+| FR12 | Epic 4 (Story 4.16) | System serves all exercise types from pre-generated content (premade_exercises table). Batch pipeline (Story 4.15) populates exercises offline |
 | FR13 | Epic 4 (Story 4.15) | System validates generated questions using deterministic rule-based checks (no LLM evaluator) |
 | FR14 | Epic 4 | System returns structured quiz with explanations and source citations |
 | FR15 | Epic 4 | User can select exercise type per chapter (7 types + Mixed) |
@@ -1332,6 +1334,46 @@ So that I experience near-instant quiz delivery for simple exercise types and fa
 
 ---
 
+### Story 4.16: Migrate All Exercise Types to Pre-Generated Default
+
+As a learner,
+I want all exercise types to be served instantly from pre-generated content without any AI generation delay,
+So that every exercise loads instantly and I never wait for LLM generation.
+
+**Acceptance Criteria:**
+
+**Given** I open the Exercise Type Selection screen for any chapter
+**When** the screen loads
+**Then** all exercises are served from the `premade_exercises` table (no API call to `/api/quizzes/generate`)
+**And** the "AI-Generated Exercises" section is removed from the UI
+**And** all 8 exercise types (vocabulary, grammar, fill_in_blank, matching, dialogue_completion, sentence_construction, reading_comprehension, mixed) are available as premade exercises
+
+**Given** I tap any exercise type for a Book 1 chapter
+**When** the exercise loads
+**Then** content is fetched from `premade_exercises` table via Supabase client
+**And** the `premadeExerciseAdapter` transforms content JSONB → QuizQuestion[] format
+**And** the exercise renders using existing quiz UI components
+**And** validation is entirely local (no LLM call)
+
+**Given** the batch generation pipeline has run for a book
+**When** I view chapters for that book
+**Then** all 8 exercise types have pre-generated content available for every lesson
+
+**Given** the `POST /api/quizzes/generate` endpoint exists
+**When** this story is complete
+**Then** the endpoint is deprecated for user-facing flows (retained only for batch scripts)
+**And** the frontend no longer calls this endpoint
+
+**Implementation notes:**
+- Update Exercise Type Selection screen to remove "AI-Generated Exercises" section
+- All exercise type cards navigate to `/quiz/premade` route (not `/quiz/loading`)
+- Extend `premadeExerciseAdapter` to handle `vocabulary` and `grammar` types if not already supported
+- Create batch seeding script that generates exercises for all 8 types × all lessons using the existing generators + LLM pipeline
+- Ensure `premade_exercises` table has rows for all 8 types per lesson for Book 1
+- Supersedes real-time use of Story 4.15's hybrid pipeline
+
+---
+
 ## Epic 5: Chapter Assessment & Mastery
 
 **Goal:** Enable users to take comprehensive chapter tests spanning multiple exercise types and achieve chapter mastery requiring exercise type coverage.
@@ -2101,3 +2143,87 @@ So that I can practice official workbook content instantly without waiting for A
 **When** I view it in the Exercise Type Selection screen
 **Then** the exercise card shows a completion indicator (e.g., checkmark, "Done")
 **And** I can retake it to improve my score
+
+---
+
+## Epic 12: Exercise Quality & Test Automation
+
+**Goal:** Establish comprehensive automated test coverage for all pre-generated exercise types, enabling an agent to discover broken exercise modules and fix them systematically.
+
+**User Outcome:** All 8 exercise types work correctly for all 15 Book 1 lessons. Broken modules are discovered automatically via test suites, producing actionable reports that guide an agent to fix issues.
+
+### Story 12.1: Playwright E2E Exercise Discovery Tests
+
+As a developer,
+I want an automated Playwright test suite that tests all 8 exercise types across all 15 Book 1 lessons like a real user,
+So that broken exercise modules are discovered automatically and I have a clear matrix of what works and what doesn't.
+
+**Acceptance Criteria:**
+
+**Given** the test suite runs with valid Supabase credentials in `.env.local`
+**When** the test iterates all 8 exercise types × 15 lessons (120 combinations)
+**Then** for each combination:
+  1. Navigate to the exercise selection screen for the chapter
+  2. Check if premade exercises exist for that exercise type
+  3. Open the premade exercise
+  4. Verify the exercise renders correctly (question card visible, content populated)
+  5. Attempt to interact (select answer, submit)
+  6. Verify feedback is displayed (correct/incorrect overlay)
+
+**Given** a premade exercise does not exist for a type/lesson combination
+**When** the test checks for it
+**Then** the test is marked as `skipped` (not failed) with a message indicating missing content
+
+**Given** a premade exercise exists but fails to render or interact correctly
+**When** the test runs
+**Then** the test fails with a descriptive error message including exercise type, lesson number, and failure point
+
+**Given** all 120 combinations have been tested
+**When** the test suite completes
+**Then** a summary report shows pass/fail/skip per exercise type × lesson in the Playwright HTML report
+
+**Implementation notes:**
+- File: `dangdai-mobile/tests/exercise-discovery.test.ts`
+- Uses existing auth fixture and merged-fixtures pattern
+- Uses `test.describe` per exercise type with parameterized lessons
+- Navigation: exercise selection screen → premade exercise card tap → exercise rendering
+- Timeout: 30s per exercise (premade exercises are instant, but rendering may need time)
+- Skips gracefully when credentials not configured or premade exercises don't exist
+
+---
+
+### Story 12.2: Python-Side Premade Exercise Coverage Tests
+
+As a developer,
+I want Python tests that validate premade exercise content schemas and generator output against real Book 1 data,
+So that I can ensure all pre-generated exercises have valid content JSONB and generators produce correct output.
+
+**Acceptance Criteria:**
+
+**Given** real Book 1 content from `dangdai-rag/output_chunks/book1_chunks.json`
+**When** the test loads vocabulary and grammar sections for each of the 15 lessons
+**Then** VocabularyGenerator produces valid questions with correct structure
+**And** MatchingGenerator produces valid questions with correct structure
+**And** FillInBlankGenerator produces valid questions with correct structure
+**And** each generator handles edge cases (empty vocab, missing grammar points)
+
+**Given** premade exercise content JSONB from the database (or fixture data)
+**When** the test validates each exercise type's content schema
+**Then** fill_in_blank content has `sentences` array with `text_with_blanks`, `word_bank`, `correct_answers`
+**And** matching content has `pairs` array with `left`, `right` fields
+**And** dialogue_completion content has `lines` array, `options`, `correct_answer`
+**And** sentence_construction content has `sentences` array with `scrambled_words`, `correct_order`
+**And** reading/reading_comprehension content has `passage`, `questions` array with `question`, `options`, `correct_answer`
+
+**Given** content JSONB is validated against schemas
+**When** the premadeExerciseAdapter equivalent logic transforms it
+**Then** valid QuizQuestion-compatible dicts are produced for each exercise type
+**And** no exercise type returns an empty result for valid content
+
+**Implementation notes:**
+- File: `dangdai-api/tests/test_premade_exercises_coverage.py`
+- Load real RAG chunks for test data (not mocked)
+- Test all 3 Tier 1 generators with real content per lesson
+- Validate content JSONB schemas with jsonschema or manual assertions
+- Use `@pytest.mark.unit` for schema validation, `@pytest.mark.integration` for tests needing DB
+- ~45-60 test cases covering all types × lessons + edge cases
