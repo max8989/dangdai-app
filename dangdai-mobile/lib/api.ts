@@ -106,6 +106,9 @@ export const api = {
   /**
    * Generate a quiz via the backend API.
    *
+   * @deprecated Story 4.16 — No longer called from user-facing flows. All exercises
+   * now use pre-generated content from the premade_exercises table.
+   *
    * @param params - Quiz generation parameters (chapterId, bookId, exerciseType).
    * @returns The generated quiz response.
    * @throws {QuizGenerationError} Typed error with category and user-friendly message.

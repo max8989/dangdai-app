@@ -1,13 +1,11 @@
 /**
  * Exercise Type Selection Screen
  *
- * Displays two sections for a chapter:
- * 1. "Workbook Exercises" — premade exercises from the database (hidden if none exist)
- * 2. "AI-Generated Exercises" — 2-column grid of 8 exercise type cards
+ * Displays all exercise types for a chapter, served from the premade_exercises table.
+ * All exercises are pre-generated — no AI generation at runtime.
  *
  * Navigation:
- * - AI exercise type tap → /quiz/loading with chapterId, bookId, exerciseType params
- * - Premade exercise tap → /quiz/premade (placeholder for Epic 11)
+ * - Exercise card tap → /quiz/premade with exerciseId, chapterId, bookId params
  * - Browse buttons → /chapter/[chapterId]/vocabulary|grammar|dialogues
  *
  * Browse buttons are conditionally shown based on content availability.
@@ -18,24 +16,19 @@
  * Story 3.5: Exercise Type Selection Screen
  * Story 3.7: Wire Browse Screen Navigation — conditional browse button visibility
  * Stories 11.5, 11.6, 11.7: Navigation wired up here
+ * Story 4.16: Migrate all exercise types to pre-generated default
  */
 
 import { ScrollView } from 'react-native'
 import { YStack, XStack, Text, H2, Button } from 'tamagui'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import {
-  Shuffle,
   BookOpen,
   MessageSquare,
-  PenTool,
-  Link,
   MessageCircle,
-  LayoutGrid,
-  FileText,
   ChevronLeft,
 } from '@tamagui/lucide-icons'
 
-import { ExerciseTypeCard } from '../../../components/chapter/ExerciseTypeCard'
 import { PremadeExerciseCard } from '../../../components/chapter/PremadeExerciseCard'
 import { useExerciseTypeProgress } from '../../../hooks/useExerciseTypeProgress'
 import { usePremadeExercises } from '../../../hooks/usePremadeExercises'
@@ -44,31 +37,7 @@ import { useVocabularyCount } from '../../../hooks/useVocabulary'
 import { useGrammarPointsCount } from '../../../hooks/useGrammarPoints'
 import { useDialoguesCount } from '../../../hooks/useDialogues'
 import { BOOKS } from '../../../constants/books'
-import type { ExerciseType } from '../../../types/quiz'
 import type { ExerciseTypeProgress } from '../../../components/chapter/ExerciseTypeCard'
-
-// ─── Exercise Types Constant ──────────────────────────────────────────────────
-
-/**
- * All 8 exercise type cards: Mixed + 7 specific types.
- * Mixed is always first (top-left in the 2-column grid).
- */
-const EXERCISE_TYPES = [
-  {
-    type: 'mixed' as ExerciseType,
-    label: 'Mixed',
-    icon: Shuffle,
-    isMixed: true,
-    subtitle: 'AI picks exercises based on your weak areas',
-  },
-  { type: 'vocabulary' as ExerciseType, label: 'Vocabulary', icon: BookOpen },
-  { type: 'grammar' as ExerciseType, label: 'Grammar', icon: MessageSquare },
-  { type: 'fill_in_blank' as ExerciseType, label: 'Fill in Blank', icon: PenTool },
-  { type: 'matching' as ExerciseType, label: 'Matching', icon: Link },
-  { type: 'dialogue_completion' as ExerciseType, label: 'Dialogue', icon: MessageCircle },
-  { type: 'sentence_construction' as ExerciseType, label: 'Sentence Builder', icon: LayoutGrid },
-  { type: 'reading_comprehension' as ExerciseType, label: 'Reading', icon: FileText },
-] as const
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -103,10 +72,9 @@ export default function ExercisesScreen() {
     }
   }
 
-  // Fetch premade exercises (gracefully handles missing table — returns [] on 42P01)
+  // Fetch premade exercises — all 8 types served from premade_exercises table (Story 4.16)
   // Hook is disabled when bookId=0 or lessonId=0 via its own `enabled` guard
   const { data: premadeExercises } = usePremadeExercises(bookId, lessonId)
-  const hasPremadeExercises = (premadeExercises?.length ?? 0) > 0
 
   // Fetch content availability for conditional browse button visibility (Story 3.7)
   // Always called unconditionally (Rules of Hooks); disabled when bookId=0 or lessonId=0
@@ -141,18 +109,6 @@ export default function ExercisesScreen() {
   }
 
   // ─── Navigation Handlers ────────────────────────────────────────────────────
-
-  const handleAIExercisePress = (exerciseType: ExerciseType) => {
-    router.push({
-      pathname: '/quiz/loading',
-      params: {
-        chapterId: chapterIdNum.toString(),
-        bookId: chapter.bookId.toString(),
-        exerciseType,
-        quizType: exerciseType,
-      },
-    })
-  }
 
   const handlePremadeExercisePress = (exerciseId: string) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -249,71 +205,20 @@ export default function ExercisesScreen() {
             </XStack>
           )}
 
-          {/* Workbook Exercises Section — hidden when no premade exercises exist */}
-          {hasPremadeExercises && (
-            <YStack gap="$3" testID="premade-exercises-section">
-              <H2 fontSize="$6" fontWeight="bold" testID="premade-section-header">
-                Workbook Exercises
-              </H2>
-              <YStack gap="$2">
-                {(premadeExercises ?? []).map((exercise) => (
-                  <PremadeExerciseCard
-                    key={exercise.id}
-                    exercise={exercise}
-                    progress={progressMap[exercise.exercise_type] ?? null}
-                    onPress={() => handlePremadeExercisePress(exercise.id)}
-                  />
-                ))}
-              </YStack>
-            </YStack>
-          )}
-
-          {/* AI-Generated Exercises Section */}
-          <YStack gap="$3" testID="ai-exercises-section">
-            <H2 fontSize="$6" fontWeight="bold" testID="ai-section-header">
-              AI-Generated Exercises
+          {/* Exercises Section — all 8 types served from premade_exercises table (Story 4.16) */}
+          <YStack gap="$3" testID="premade-exercises-section">
+            <H2 fontSize="$6" fontWeight="bold" testID="premade-section-header">
+              Exercises
             </H2>
-
-            {/* 2-column grid of exercise type cards */}
-            <YStack gap="$2" testID="exercise-type-grid">
-              {/* Render cards in pairs for 2-column layout */}
-              {Array.from({ length: Math.ceil(EXERCISE_TYPES.length / 2) }, (_, rowIndex) => {
-                const leftCard = EXERCISE_TYPES[rowIndex * 2]
-                const rightCard = EXERCISE_TYPES[rowIndex * 2 + 1]
-
-                // Use left card type as stable row key (always defined)
-                const rowKey = leftCard.type
-
-                return (
-                  <XStack key={rowKey} gap="$2">
-                    {leftCard && (
-                      <ExerciseTypeCard
-                        type={leftCard.type}
-                        label={leftCard.label}
-                        icon={<leftCard.icon size={20} />}
-                        subtitle={'subtitle' in leftCard ? leftCard.subtitle : undefined}
-                        progress={progressMap[leftCard.type] ?? null}
-                        onPress={() => handleAIExercisePress(leftCard.type)}
-                        isMixed={'isMixed' in leftCard ? leftCard.isMixed : false}
-                      />
-                    )}
-                    {rightCard ? (
-                      <ExerciseTypeCard
-                        type={rightCard.type}
-                        label={rightCard.label}
-                        icon={<rightCard.icon size={20} />}
-                        subtitle={'subtitle' in rightCard ? rightCard.subtitle : undefined}
-                        progress={progressMap[rightCard.type] ?? null}
-                        onPress={() => handleAIExercisePress(rightCard.type)}
-                        isMixed={false}
-                      />
-                    ) : (
-                      /* Empty spacer to maintain grid alignment */
-                      <YStack flex={1} />
-                    )}
-                  </XStack>
-                )
-              })}
+            <YStack gap="$2">
+              {(premadeExercises ?? []).map((exercise) => (
+                <PremadeExerciseCard
+                  key={exercise.id}
+                  exercise={exercise}
+                  progress={progressMap[exercise.exercise_type] ?? null}
+                  onPress={() => handlePremadeExercisePress(exercise.id)}
+                />
+              ))}
             </YStack>
           </YStack>
         </YStack>

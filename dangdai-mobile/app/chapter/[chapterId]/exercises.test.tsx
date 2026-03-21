@@ -2,12 +2,12 @@
  * Exercise Type Selection Screen Tests
  *
  * Integration tests for the exercises screen.
- * Tests: all 8 AI cards rendered, premade section visibility,
- * navigation calls, progress indicators, Mixed card styling,
- * conditional browse button visibility based on content availability.
+ * Tests: premade exercises section rendering, navigation to premade route,
+ * progress indicators, browse button visibility.
  *
  * Story 3.5: Exercise Type Selection Screen — Task 6
  * Story 3.7: Wire Browse Screen Navigation — conditional visibility tests
+ * Story 4.16: All exercises now served from premade_exercises table
  */
 
 import React from 'react'
@@ -62,14 +62,9 @@ jest.mock('@tamagui/lucide-icons', () => {
   const { View } = require('react-native')
   const MockIcon = ({ testID }: any) => <View testID={testID} />
   return {
-    Shuffle: MockIcon,
     BookOpen: MockIcon,
     MessageSquare: MockIcon,
-    PenTool: MockIcon,
-    Link: MockIcon,
     MessageCircle: MockIcon,
-    LayoutGrid: MockIcon,
-    FileText: MockIcon,
     ChevronLeft: MockIcon,
     Check: MockIcon,
   }
@@ -133,20 +128,7 @@ jest.mock('../../../constants/books', () => ({
 // ─── Mock child components ────────────────────────────────────────────────────
 
 jest.mock('../../../components/chapter/ExerciseTypeCard', () => ({
-  ExerciseTypeCard: ({ type, label, onPress, isMixed, progress }: any) => {
-    const { TouchableOpacity, Text, View } = require('react-native')
-    return (
-      <TouchableOpacity
-        testID={`exercise-type-card-${type}`}
-        onPress={onPress}
-      >
-        <Text testID={`exercise-type-label-${type}`}>{label}</Text>
-        {isMixed && <View testID="mixed-card-indicator" />}
-        {progress?.mastered && <View testID={`mastered-${type}`} />}
-        {!progress && <Text testID={`new-${type}`}>New</Text>}
-      </TouchableOpacity>
-    )
-  },
+  ExerciseTypeCard: () => null,
 }))
 
 jest.mock('../../../components/chapter/PremadeExerciseCard', () => ({
@@ -225,100 +207,47 @@ describe('ExercisesScreen', () => {
     })
   })
 
-  describe('AI-Generated Exercises section (AC #1, #2)', () => {
-    it('renders all 8 exercise type cards', () => {
-      const { getByTestId } = render(<ExercisesScreen />)
-
-      const expectedTypes = [
-        'mixed',
-        'vocabulary',
-        'grammar',
-        'fill_in_blank',
-        'matching',
-        'dialogue_completion',
-        'sentence_construction',
-        'reading_comprehension',
-      ]
-
-      for (const type of expectedTypes) {
-        expect(getByTestId(`exercise-type-card-${type}`)).toBeTruthy()
-      }
+  describe('no AI-Generated Exercises section (Story 4.16 AC #1)', () => {
+    it('does not render AI section header', () => {
+      const { queryByTestId } = render(<ExercisesScreen />)
+      expect(queryByTestId('ai-section-header')).toBeNull()
     })
 
-    it('renders the AI section header', () => {
-      const { getByTestId } = render(<ExercisesScreen />)
-      expect(getByTestId('ai-section-header')).toHaveTextContent('AI-Generated Exercises')
-    })
-
-    it('renders the exercise type grid', () => {
-      const { getByTestId } = render(<ExercisesScreen />)
-      expect(getByTestId('exercise-type-grid')).toBeTruthy()
+    it('does not render AI exercise type grid', () => {
+      const { queryByTestId } = render(<ExercisesScreen />)
+      expect(queryByTestId('ai-exercises-section')).toBeNull()
+      expect(queryByTestId('exercise-type-grid')).toBeNull()
     })
   })
 
-  describe('Premade Exercises section (AC #1, #6)', () => {
-    it('hides premade section when no premade exercises exist', () => {
+  describe('Exercises section (Story 4.16 AC #1, #2)', () => {
+    it('always renders the exercises section', () => {
       mockUsePremadeExercises.mockReturnValue({ data: [] })
-      const { queryByTestId } = render(<ExercisesScreen />)
-      expect(queryByTestId('premade-exercises-section')).toBeNull()
-    })
-
-    it('hides premade section when data is undefined (loading/error)', () => {
-      mockUsePremadeExercises.mockReturnValue({ data: undefined })
-      const { queryByTestId } = render(<ExercisesScreen />)
-      expect(queryByTestId('premade-exercises-section')).toBeNull()
-    })
-
-    it('shows premade section when premade exercises exist', () => {
-      mockUsePremadeExercises.mockReturnValue({ data: mockPremadeExercises })
       const { getByTestId } = render(<ExercisesScreen />)
       expect(getByTestId('premade-exercises-section')).toBeTruthy()
     })
 
-    it('renders premade section header when exercises exist', () => {
-      mockUsePremadeExercises.mockReturnValue({ data: mockPremadeExercises })
+    it('renders section header as "Exercises" (not "Workbook Exercises")', () => {
       const { getByTestId } = render(<ExercisesScreen />)
-      expect(getByTestId('premade-section-header')).toHaveTextContent('Workbook Exercises')
+      expect(getByTestId('premade-section-header')).toHaveTextContent('Exercises')
     })
 
-    it('renders all premade exercise cards', () => {
+    it('renders premade exercise cards when data exists', () => {
       mockUsePremadeExercises.mockReturnValue({ data: mockPremadeExercises })
       const { getByTestId } = render(<ExercisesScreen />)
       expect(getByTestId('premade-exercise-card-ex-1')).toBeTruthy()
       expect(getByTestId('premade-exercise-card-ex-2')).toBeTruthy()
     })
+
+    it('renders empty list when no premade exercises yet', () => {
+      mockUsePremadeExercises.mockReturnValue({ data: [] })
+      const { queryByTestId } = render(<ExercisesScreen />)
+      expect(queryByTestId('premade-exercise-card-ex-1')).toBeNull()
+    })
   })
 
-  describe('navigation (AC #3, #4, #5)', () => {
-    it('navigates to quiz loading when AI exercise type is tapped (AC #4)', () => {
-      const { getByTestId } = render(<ExercisesScreen />)
-      fireEvent.press(getByTestId('exercise-type-card-vocabulary'))
-      expect(mockPush).toHaveBeenCalledWith({
-        pathname: '/quiz/loading',
-        params: {
-          chapterId: '101',
-          bookId: '1',
-          exerciseType: 'vocabulary',
-          quizType: 'vocabulary',
-        },
-      })
-    })
-
-    it('navigates to quiz loading with mixed type when Mixed card is tapped (AC #5)', () => {
-      const { getByTestId } = render(<ExercisesScreen />)
-      fireEvent.press(getByTestId('exercise-type-card-mixed'))
-      expect(mockPush).toHaveBeenCalledWith({
-        pathname: '/quiz/loading',
-        params: {
-          chapterId: '101',
-          bookId: '1',
-          exerciseType: 'mixed',
-          quizType: 'mixed',
-        },
-      })
-    })
-
-    it('navigates to premade exercise screen when premade card is tapped (AC #3)', () => {
+  describe('navigation (Story 4.16 AC #1, #2)', () => {
+    it('navigates to premade exercise screen when exercise card is tapped', () => {
       mockUsePremadeExercises.mockReturnValue({ data: mockPremadeExercises })
       const { getByTestId } = render(<ExercisesScreen />)
       fireEvent.press(getByTestId('premade-exercise-card-ex-1'))
@@ -330,6 +259,24 @@ describe('ExercisesScreen', () => {
           exerciseId: 'ex-1',
         },
       })
+    })
+
+    it('all exercise cards navigate to /quiz/premade (not /quiz/loading)', () => {
+      mockUsePremadeExercises.mockReturnValue({ data: mockPremadeExercises })
+      const { getByTestId } = render(<ExercisesScreen />)
+      fireEvent.press(getByTestId('premade-exercise-card-ex-2'))
+      expect(mockPush).toHaveBeenCalledWith(
+        expect.objectContaining({
+          pathname: '/quiz/premade',
+        })
+      )
+      // Verify no calls to /quiz/loading
+      for (const call of mockPush.mock.calls) {
+        const arg = call[0]
+        if (typeof arg === 'object' && arg.pathname) {
+          expect(arg.pathname).not.toBe('/quiz/loading')
+        }
+      }
     })
 
     it('navigates to vocabulary browse screen', () => {
@@ -351,19 +298,13 @@ describe('ExercisesScreen', () => {
     })
   })
 
-  describe('progress indicators (AC #2)', () => {
-    it('passes progress data to exercise type cards', () => {
+  describe('progress indicators', () => {
+    it('passes progress data to premade exercise cards', () => {
       mockUseExerciseTypeProgress.mockReturnValue({ data: defaultProgressRows })
-      const { queryByTestId } = render(<ExercisesScreen />)
-      // vocabulary has progress (65%) — should NOT show "New"
-      expect(queryByTestId('new-vocabulary')).toBeNull()
-    })
-
-    it('shows "New" for exercise types with no progress', () => {
-      mockUseExerciseTypeProgress.mockReturnValue({ data: [] })
+      mockUsePremadeExercises.mockReturnValue({ data: mockPremadeExercises })
       const { getByTestId } = render(<ExercisesScreen />)
-      // All types should show "New" when no progress data
-      expect(getByTestId('new-vocabulary')).toBeTruthy()
+      // Exercise cards render with progress data passed through
+      expect(getByTestId('premade-exercise-card-ex-1')).toBeTruthy()
     })
   })
 

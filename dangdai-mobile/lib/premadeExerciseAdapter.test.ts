@@ -349,6 +349,210 @@ describe('adaptPremadeContent — dialogue_completion', () => {
   })
 })
 
+// ─── Vocabulary tests (Story 4.16) ───────────────────────────────────────────
+
+describe('adaptPremadeContent — vocabulary', () => {
+  const vocabularyContent = {
+    questions: [
+      {
+        question_id: 1,
+        question_text: 'What does 學 mean?',
+        question_type: 'multiple_choice',
+        options: ['to study', 'to eat', 'to go', 'to see'],
+        correct_answer: 'to study',
+        explanation: '學 (xué) means "to study/learn"',
+        source_citation: 'Book 1, Lesson 1 vocabulary',
+      },
+      {
+        question_id: 2,
+        question_text: 'What does 吃 mean?',
+        question_type: 'multiple_choice',
+        options: ['to study', 'to eat', 'to go', 'to see'],
+        correct_answer: 'to eat',
+        explanation: '吃 (chī) means "to eat"',
+        source_citation: 'Book 1, Lesson 1 vocabulary',
+      },
+    ],
+  }
+
+  it('returns one QuizQuestion per vocabulary question', () => {
+    const result = adaptPremadeContent('vocabulary', vocabularyContent)
+    expect(result).toHaveLength(2)
+  })
+
+  it('sets exercise_type to vocabulary', () => {
+    const result = adaptPremadeContent('vocabulary', vocabularyContent)
+    expect(result[0].exercise_type).toBe('vocabulary')
+    expect(result[1].exercise_type).toBe('vocabulary')
+  })
+
+  it('maps question_text correctly', () => {
+    const result = adaptPremadeContent('vocabulary', vocabularyContent)
+    expect(result[0].question_text).toBe('What does 學 mean?')
+  })
+
+  it('maps options correctly', () => {
+    const result = adaptPremadeContent('vocabulary', vocabularyContent)
+    expect(result[0].options).toEqual(['to study', 'to eat', 'to go', 'to see'])
+  })
+
+  it('maps correct_answer correctly', () => {
+    const result = adaptPremadeContent('vocabulary', vocabularyContent)
+    expect(result[0].correct_answer).toBe('to study')
+  })
+
+  it('maps explanation correctly', () => {
+    const result = adaptPremadeContent('vocabulary', vocabularyContent)
+    expect(result[0].explanation).toBe('學 (xué) means "to study/learn"')
+  })
+
+  it('maps source_citation correctly', () => {
+    const result = adaptPremadeContent('vocabulary', vocabularyContent)
+    expect(result[0].source_citation).toBe('Book 1, Lesson 1 vocabulary')
+  })
+
+  it('generates question_id with premade-vocab prefix', () => {
+    const result = adaptPremadeContent('vocabulary', vocabularyContent)
+    expect(result[0].question_id).toBe('premade-vocab-0')
+    expect(result[1].question_id).toBe('premade-vocab-1')
+  })
+
+  it('returns empty array when questions is missing', () => {
+    const result = adaptPremadeContent('vocabulary', {})
+    expect(result).toHaveLength(0)
+  })
+
+  it('returns empty array when questions is empty', () => {
+    const result = adaptPremadeContent('vocabulary', { questions: [] })
+    expect(result).toHaveLength(0)
+  })
+})
+
+// ─── Grammar tests (Story 4.16) ─────────────────────────────────────────────
+
+describe('adaptPremadeContent — grammar', () => {
+  const grammarContent = {
+    questions: [
+      {
+        question_id: 1,
+        question_text: 'Choose the correct usage of 了',
+        question_type: 'multiple_choice',
+        options: ['他吃了飯', '他了吃飯', '他吃飯了了', '了他吃飯'],
+        correct_answer: '他吃了飯',
+        explanation: '了 is placed after the verb to indicate completion',
+        source_citation: 'Book 1, Lesson 3 grammar',
+      },
+    ],
+  }
+
+  it('returns one QuizQuestion per grammar question', () => {
+    const result = adaptPremadeContent('grammar', grammarContent)
+    expect(result).toHaveLength(1)
+  })
+
+  it('sets exercise_type to grammar', () => {
+    const result = adaptPremadeContent('grammar', grammarContent)
+    expect(result[0].exercise_type).toBe('grammar')
+  })
+
+  it('maps question_text correctly', () => {
+    const result = adaptPremadeContent('grammar', grammarContent)
+    expect(result[0].question_text).toBe('Choose the correct usage of 了')
+  })
+
+  it('maps options correctly', () => {
+    const result = adaptPremadeContent('grammar', grammarContent)
+    expect(result[0].options).toEqual(['他吃了飯', '他了吃飯', '他吃飯了了', '了他吃飯'])
+  })
+
+  it('maps correct_answer correctly', () => {
+    const result = adaptPremadeContent('grammar', grammarContent)
+    expect(result[0].correct_answer).toBe('他吃了飯')
+  })
+
+  it('maps explanation and source_citation correctly', () => {
+    const result = adaptPremadeContent('grammar', grammarContent)
+    expect(result[0].explanation).toBe('了 is placed after the verb to indicate completion')
+    expect(result[0].source_citation).toBe('Book 1, Lesson 3 grammar')
+  })
+
+  it('generates question_id with premade-grammar prefix', () => {
+    const result = adaptPremadeContent('grammar', grammarContent)
+    expect(result[0].question_id).toBe('premade-grammar-0')
+  })
+
+  it('returns empty array when questions is missing', () => {
+    const result = adaptPremadeContent('grammar', {})
+    expect(result).toHaveLength(0)
+  })
+
+  it('returns empty array when questions is empty', () => {
+    const result = adaptPremadeContent('grammar', { questions: [] })
+    expect(result).toHaveLength(0)
+  })
+})
+
+// ─── Mixed tests (Story 4.16) ───────────────────────────────────────────────
+
+describe('adaptPremadeContent — mixed', () => {
+  const mixedContent = {
+    questions: [
+      {
+        question_id: 1,
+        question_text: 'What does 學 mean?',
+        question_type: 'multiple_choice',
+        options: ['to study', 'to eat', 'to go', 'to see'],
+        correct_answer: 'to study',
+        explanation: '學 (xué) means "to study/learn"',
+        source_citation: 'Book 1, Lesson 1',
+      },
+      {
+        question_id: 2,
+        question_text: 'Choose the correct usage of 了',
+        question_type: 'multiple_choice',
+        options: ['他吃了飯', '他了吃飯', '他吃飯了了', '了他吃飯'],
+        correct_answer: '他吃了飯',
+        explanation: '了 is placed after the verb to indicate completion',
+        source_citation: 'Book 1, Lesson 3',
+      },
+    ],
+  }
+
+  it('returns one QuizQuestion per mixed question', () => {
+    const result = adaptPremadeContent('mixed', mixedContent)
+    expect(result).toHaveLength(2)
+  })
+
+  it('sets exercise_type to mixed', () => {
+    const result = adaptPremadeContent('mixed', mixedContent)
+    expect(result[0].exercise_type).toBe('mixed')
+    expect(result[1].exercise_type).toBe('mixed')
+  })
+
+  it('maps question data correctly', () => {
+    const result = adaptPremadeContent('mixed', mixedContent)
+    expect(result[0].question_text).toBe('What does 學 mean?')
+    expect(result[0].correct_answer).toBe('to study')
+    expect(result[0].options).toEqual(['to study', 'to eat', 'to go', 'to see'])
+  })
+
+  it('generates question_id with premade-mixed prefix', () => {
+    const result = adaptPremadeContent('mixed', mixedContent)
+    expect(result[0].question_id).toBe('premade-mixed-0')
+    expect(result[1].question_id).toBe('premade-mixed-1')
+  })
+
+  it('returns empty array when questions is missing', () => {
+    const result = adaptPremadeContent('mixed', {})
+    expect(result).toHaveLength(0)
+  })
+
+  it('returns empty array when questions is empty', () => {
+    const result = adaptPremadeContent('mixed', { questions: [] })
+    expect(result).toHaveLength(0)
+  })
+})
+
 // ─── Unknown exercise type tests ──────────────────────────────────────────────
 
 describe('adaptPremadeContent — unknown exercise type', () => {

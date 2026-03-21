@@ -1,6 +1,11 @@
 /**
  * Quiz Generation Hook
  *
+ * @deprecated Story 4.16 — All exercise types now use pre-generated content from
+ * the premade_exercises table. This hook is no longer used in user-facing flows.
+ * Retained only for the quiz loading screen (which is no longer navigated to)
+ * and potential batch testing use cases.
+ *
  * TanStack Query mutation hook for generating quizzes via the backend API.
  * Uses useMutation (not useQuery) because quiz generation is a side-effect
  * triggered by user action, not a cacheable query.
