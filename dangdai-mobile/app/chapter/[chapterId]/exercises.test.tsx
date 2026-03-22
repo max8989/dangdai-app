@@ -221,13 +221,20 @@ describe('ExercisesScreen', () => {
   })
 
   describe('Exercises section (Story 4.16 AC #1, #2)', () => {
-    it('always renders the exercises section', () => {
+    it('hides exercises section when no premade exercises', () => {
       mockUsePremadeExercises.mockReturnValue({ data: [] })
-      const { getByTestId } = render(<ExercisesScreen />)
-      expect(getByTestId('premade-exercises-section')).toBeTruthy()
+      const { queryByTestId } = render(<ExercisesScreen />)
+      expect(queryByTestId('premade-exercises-section')).toBeNull()
     })
 
-    it('renders section header as "Exercises" (not "Workbook Exercises")', () => {
+    it('hides exercises section during loading (data undefined)', () => {
+      mockUsePremadeExercises.mockReturnValue({ data: undefined })
+      const { queryByTestId } = render(<ExercisesScreen />)
+      expect(queryByTestId('premade-exercises-section')).toBeNull()
+    })
+
+    it('renders section header as "Exercises" when data exists', () => {
+      mockUsePremadeExercises.mockReturnValue({ data: mockPremadeExercises })
       const { getByTestId } = render(<ExercisesScreen />)
       expect(getByTestId('premade-section-header')).toHaveTextContent('Exercises')
     })

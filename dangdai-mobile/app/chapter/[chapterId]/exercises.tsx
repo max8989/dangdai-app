@@ -206,21 +206,23 @@ export default function ExercisesScreen() {
           )}
 
           {/* Exercises Section — all 8 types served from premade_exercises table (Story 4.16) */}
-          <YStack gap="$3" testID="premade-exercises-section">
-            <H2 fontSize="$6" fontWeight="bold" testID="premade-section-header">
-              Exercises
-            </H2>
-            <YStack gap="$2">
-              {(premadeExercises ?? []).map((exercise) => (
-                <PremadeExerciseCard
-                  key={exercise.id}
-                  exercise={exercise}
-                  progress={progressMap[exercise.exercise_type] ?? null}
-                  onPress={() => handlePremadeExercisePress(exercise.id)}
-                />
-              ))}
+          {premadeExercises && premadeExercises.length > 0 && (
+            <YStack gap="$3" testID="premade-exercises-section">
+              <H2 fontSize="$6" fontWeight="bold" testID="premade-section-header">
+                Exercises
+              </H2>
+              <YStack gap="$2">
+                {premadeExercises.map((exercise) => (
+                  <PremadeExerciseCard
+                    key={exercise.id}
+                    exercise={exercise}
+                    progress={progressMap[exercise.exercise_type] ?? null}
+                    onPress={() => handlePremadeExercisePress(exercise.id)}
+                  />
+                ))}
+              </YStack>
             </YStack>
-          </YStack>
+          )}
         </YStack>
       </ScrollView>
     </>

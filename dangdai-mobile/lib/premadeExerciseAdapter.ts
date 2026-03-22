@@ -292,71 +292,27 @@ interface MultipleChoiceContent {
   questions: MultipleChoiceQuestion[]
 }
 
-// ─── Vocabulary adapter ──────────────────────────────────────────────────────
+// ─── Multiple-choice adapter (vocabulary, grammar, mixed) ────────────────────
 
 /**
- * Adapt vocabulary content to QuizQuestion[].
- * Each question in the content becomes one QuizQuestion with multiple-choice format.
+ * Adapt multiple-choice content to QuizQuestion[].
+ * Used by vocabulary, grammar, and mixed exercise types which share the same
+ * content JSONB structure (questions array with options + correct_answer).
  */
-function adaptVocabulary(content: Record<string, unknown>): QuizQuestion[] {
+function adaptMultipleChoice(
+  content: Record<string, unknown>,
+  exerciseType: string,
+  idPrefix: string,
+): QuizQuestion[] {
   const typed = content as unknown as MultipleChoiceContent
   if (!typed.questions || !Array.isArray(typed.questions) || typed.questions.length === 0) {
-    console.warn('[premadeExerciseAdapter] vocabulary: missing or empty questions array')
+    console.warn(`[premadeExerciseAdapter] ${exerciseType}: missing or empty questions array`)
     return []
   }
 
   return typed.questions.map((q, index): QuizQuestion => ({
-    question_id: `premade-vocab-${index}`,
-    exercise_type: 'vocabulary',
-    question_text: q.question_text,
-    correct_answer: q.correct_answer,
-    explanation: q.explanation ?? '',
-    source_citation: q.source_citation ?? '',
-    options: q.options,
-  }))
-}
-
-// ─── Grammar adapter ─────────────────────────────────────────────────────────
-
-/**
- * Adapt grammar content to QuizQuestion[].
- * Each question in the content becomes one QuizQuestion with multiple-choice format.
- */
-function adaptGrammar(content: Record<string, unknown>): QuizQuestion[] {
-  const typed = content as unknown as MultipleChoiceContent
-  if (!typed.questions || !Array.isArray(typed.questions) || typed.questions.length === 0) {
-    console.warn('[premadeExerciseAdapter] grammar: missing or empty questions array')
-    return []
-  }
-
-  return typed.questions.map((q, index): QuizQuestion => ({
-    question_id: `premade-grammar-${index}`,
-    exercise_type: 'grammar',
-    question_text: q.question_text,
-    correct_answer: q.correct_answer,
-    explanation: q.explanation ?? '',
-    source_citation: q.source_citation ?? '',
-    options: q.options,
-  }))
-}
-
-// ─── Mixed adapter ───────────────────────────────────────────────────────────
-
-/**
- * Adapt mixed content to QuizQuestion[].
- * Delegates to type-specific adapters based on each question's question_type or exercise_type.
- * Falls back to multiple-choice format for questions without a recognized type.
- */
-function adaptMixed(content: Record<string, unknown>): QuizQuestion[] {
-  const typed = content as unknown as MultipleChoiceContent
-  if (!typed.questions || !Array.isArray(typed.questions) || typed.questions.length === 0) {
-    console.warn('[premadeExerciseAdapter] mixed: missing or empty questions array')
-    return []
-  }
-
-  return typed.questions.map((q, index): QuizQuestion => ({
-    question_id: `premade-mixed-${index}`,
-    exercise_type: 'mixed',
+    question_id: `premade-${idPrefix}-${index}`,
+    exercise_type: exerciseType,
     question_text: q.question_text,
     correct_answer: q.correct_answer,
     explanation: q.explanation ?? '',
@@ -392,11 +348,11 @@ export function adaptPremadeContent(
     case 'reading_comprehension':
       return adaptReadingComprehension(content)
     case 'vocabulary':
-      return adaptVocabulary(content)
+      return adaptMultipleChoice(content, 'vocabulary', 'vocab')
     case 'grammar':
-      return adaptGrammar(content)
+      return adaptMultipleChoice(content, 'grammar', 'grammar')
     case 'mixed':
-      return adaptMixed(content)
+      return adaptMultipleChoice(content, 'mixed', 'mixed')
     default:
       console.warn(`[premadeExerciseAdapter] Unknown exercise type: ${exerciseType}`)
       return []

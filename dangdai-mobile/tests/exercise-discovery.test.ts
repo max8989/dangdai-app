@@ -24,7 +24,10 @@ import type { SupabaseSession } from './support/fixtures/auth-fixture'
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-const SUPABASE_STORAGE_KEY = 'sb-qhsjaybldyqsavjimxes-auth-token'
+// Derive storage key from Supabase URL: sb-<project-ref>-auth-token
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? ''
+const projectRef = supabaseUrl.match(/\/\/([^.]+)\./)?.[1] ?? 'unknown'
+const SUPABASE_STORAGE_KEY = `sb-${projectRef}-auth-token`
 
 const BOOK_ID = 1
 const TOTAL_LESSONS = 15

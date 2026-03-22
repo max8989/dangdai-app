@@ -17,7 +17,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import asyncio
 import logging
 import sys
 import time
@@ -102,12 +101,19 @@ def generate_tier1_exercises(
         )
         if not questions:
             return None
-        # MatchingGenerator returns list of question dicts with pairs
-        # Wrap into content JSONB format expected by adaptMatching
+        # MatchingGenerator returns dicts with left_items/right_items arrays
+        # Convert to pairs format expected by adaptMatching
         all_pairs = []
         for q in questions:
-            pairs = q.get("pairs", [])
-            all_pairs.extend(pairs)
+            left_items = q.get("left_items", [])
+            right_items = q.get("right_items", [])
+            correct_pairs = q.get("correct_pairs", [])
+            for left_idx, right_idx in correct_pairs:
+                if left_idx < len(left_items) and right_idx < len(right_items):
+                    all_pairs.append({
+                        "left": left_items[left_idx],
+                        "right": right_items[right_idx],
+                    })
         return {"pairs": all_pairs} if all_pairs else None
 
     if exercise_type == "fill_in_blank":
@@ -126,7 +132,7 @@ def generate_tier1_exercises(
         sentences = []
         for q in questions:
             sentences.append({
-                "text_with_blanks": q.get("question_text", ""),
+                "text_with_blanks": q.get("sentence_with_blanks", q.get("question_text", "")),
                 "word_bank": q.get("word_bank", q.get("options", [])),
                 "correct_answers": [q.get("correct_answer", "")],
                 "explanation": q.get("explanation", ""),
@@ -200,9 +206,8 @@ def generate_mixed_exercises(
         logger.warning("No questions for mixed type, book=%d lesson=%d", book_id, lesson_id)
         return None
 
-    # Re-index question_ids
-    for i, q in enumerate(mixed_questions):
-        q["question_id"] = i + 1
+    # Re-index question_ids (copy dicts to avoid mutating originals)
+    mixed_questions = [{**q, "question_id": i + 1} for i, q in enumerate(mixed_questions)]
 
     return {"questions": mixed_questions}
 
