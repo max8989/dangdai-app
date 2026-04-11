@@ -39,32 +39,37 @@ resource "azurerm_container_app" "api" {
 
       env {
         name  = "LLM_PROVIDER"
-        value = "azure_openai"
+        value = "openai"
       }
 
       env {
-        name  = "AZURE_OPENAI_ENDPOINT"
-        value = azurerm_cognitive_account.openai.endpoint
+        name        = "OPENAI_API_KEY"
+        secret_name = "openai-api-key"
       }
 
       env {
-        name        = "AZURE_OPENAI_API_KEY"
-        secret_name = "azure-openai-api-key"
-      }
-
-      env {
-        name  = "AZURE_OPENAI_DEPLOYMENT_NAME"
-        value = var.azure_openai_deployment_name
+        name  = "OPENAI_MODEL"
+        value = var.openai_model
       }
 
       env {
         name  = "LLM_MODEL"
-        value = "gpt-4o"
+        value = var.openai_model
       }
 
       env {
-        name  = "AZURE_OPENAI_API_VERSION"
-        value = var.azure_openai_api_version
+        name  = "LLM_MAX_TOKENS"
+        value = "4096"
+      }
+
+      env {
+        name  = "GENERATION_TIMEOUT_SECONDS"
+        value = "25"
+      }
+
+      env {
+        name  = "MAX_RETRIES"
+        value = "0"
       }
 
       env {
@@ -116,8 +121,8 @@ resource "azurerm_container_app" "api" {
   }
 
   secret {
-    name  = "azure-openai-api-key"
-    value = azurerm_cognitive_account.openai.primary_access_key
+    name  = "openai-api-key"
+    value = var.openai_api_key
   }
 
   secret {

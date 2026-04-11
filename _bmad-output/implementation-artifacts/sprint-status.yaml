@@ -34,7 +34,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-02-15
-last_updated: "2026-03-21"
+last_updated: "2026-04-11"
 project: dangdai-app
 project_key: NOKEY
 tracking_system: file-system
@@ -97,6 +97,7 @@ development_status:
   4-14-migrate-quiz-generation-to-structured-content: done
   4-15-hybrid-quiz-generation-3-tier: done
   4-16-migrate-all-exercise-types-to-pregenerated-default: review
+  4-17-on-the-fly-ai-generation-openai-gpt5-single-call: ready-for-dev
   epic-4-retrospective: done
 
   # Epic 5: Chapter Assessment & Mastery

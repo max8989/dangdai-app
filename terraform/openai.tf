@@ -1,38 +1,10 @@
-# Azure OpenAI Service
-resource "azurerm_cognitive_account" "openai" {
-  name                = "${var.project_name}-openai"
-  location            = var.azure_openai_location
-  resource_group_name = azurerm_resource_group.main.name
-  kind                = "OpenAI"
-  sku_name            = "S0"
-
-  custom_subdomain_name = "${var.project_name}-openai"
-}
-
-# GPT-4o Deployment
-resource "azurerm_cognitive_deployment" "gpt4o" {
-  name                 = var.azure_openai_deployment_name
-  cognitive_account_id = azurerm_cognitive_account.openai.id
-
-  model {
-    format  = "OpenAI"
-    name    = "gpt-4o"
-    version = "2024-11-20"
-  }
-
-  sku {
-    name     = "Standard"
-    capacity = var.azure_openai_tpm_limit
-  }
-}
-
-output "azure_openai_endpoint" {
-  description = "Azure OpenAI endpoint URL"
-  value       = azurerm_cognitive_account.openai.endpoint
-}
-
-output "azure_openai_primary_key" {
-  description = "Azure OpenAI primary access key"
-  value       = azurerm_cognitive_account.openai.primary_access_key
-  sensitive   = true
-}
+# OpenAI Provider Configuration
+#
+# As of Story 4.17 (2026-04-11), the backend uses OpenAI directly (gpt-5) instead of
+# Azure OpenAI Service. There is no Azure resource to provision — OpenAI is consumed
+# as an external SaaS API via OPENAI_API_KEY (stored as a Container App secret; see
+# container_apps.tf).
+#
+# The previous `azurerm_cognitive_account.openai` and `azurerm_cognitive_deployment.gpt4o`
+# resources were removed in Story 4.17. If you need to roll back to Azure OpenAI, restore
+# them from git history and set LLM_PROVIDER=azure_openai in container_apps.tf.

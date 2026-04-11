@@ -24,8 +24,10 @@ classification:
   projectContext: brownfield
   quizGeneration: ai_dynamic_rag_adaptive
   initialScope: friends_group
-lastEdited: 'Sun Mar 08 2026'
+lastEdited: 'Sat Apr 11 2026'
 editHistory:
+  - date: 'Sat Apr 11 2026'
+    changes: 'Re-introduced on-the-fly AI-generated exercises as a user-opt-in alongside premade exercises. User picks Premade or Generate-with-AI per exercise type at the selection screen. Provider swapped from Azure OpenAI → OpenAI (gpt-5). Generation collapsed from 2 LLM calls to 1 (validation metadata baked into the generation payload — zero runtime LLM calls for answer validation). Added FR59-FR62 for user-choice, on-the-fly generation, cancellation, and cache-on-generate behavior. NFR1 latency budget updated to 15-20s for on-the-fly generation; NFR31 cost ceiling relaxed (quality over cost per product decision).'
   - date: 'Sun Mar 08 2026'
     changes: 'Structured content architecture: Added structured content tables (vocabulary, dialogues, grammar_points) as primary source for quiz generation, replacing RAG-only approach. Added premade workbook exercises (premade_exercises table). Expanded content scope from Books 1-2 to Books 1-4. Added FR51-FR58 for premade exercises, content browsing, and grammar coverage. Updated NFRs for structured content reliability. Chapter view redesigned to show premade + custom AI exercises.'
   - date: 'Thu Feb 20 2026'
@@ -326,7 +328,7 @@ Pierre logs in that evening. Friend group stays engaged.
 - **Database:** Supabase (PostgreSQL)
 - **Structured content tables (PRIMARY):** `vocabulary` (~3,000 items), `grammar_points` (~200-300 points), `dialogues` (~108 dialogues), `premade_exercises` (~375 exercises) — covering Books 1-4 (54 lessons)
 - **Vector storage (SUPPLEMENTARY):** Supabase pgvector (`dangdai_chunks` table with embeddings) — used only for culture notes, pronunciation context, not for primary exercise generation
-- **LLM:** External API (Azure OpenAI gpt-4o) for quiz generation via LangGraph agent (monitor costs)
+- **LLM:** External API (OpenAI gpt-5, single structured-output call) for on-the-fly exercise generation. Provider is configurable via `LLM_PROVIDER` env var; Azure OpenAI retained as rollback.
 - **Content coverage:** Books 1-4 with structured vocabulary, grammar, dialogues, and premade workbook exercises. Content seeded from Flash-card.tsv, textbook chunks/PDFs, and workbook chunks.
 
 ### Adaptive Learning Infrastructure
@@ -443,11 +445,19 @@ Pierre logs in that evening. Friend group stays engaged.
 
 - **FR58:** AI-generated quizzes for a chapter MUST cover all grammar points listed in the grammar_points table for that chapter — the structure validation node enforces this before returning the quiz
 
+### On-the-Fly AI Exercise Generation (Story 4.17)
+
+- **FR59:** At the Exercise Type Selection screen, each exercise type card offers two actions: **Premade** (instant, from `premade_exercises`) and **Generate with AI** (on-the-fly, ~15-20s). Premade is the default; Generate-with-AI is opt-in.
+- **FR60:** When the user taps Generate-with-AI, the app displays a cancellable loading screen with tips while the backend produces a fresh exercise via a single OpenAI gpt-5 structured-output call. The user can cancel at any time (back button, cancel button, or navigation away), which aborts the backend request.
+- **FR61:** Generated exercises are cached into the `premade_exercises` table on success (upsert), so subsequent users see them as Premade without regenerating. Cache key: (book_id, lesson_id, exercise_type).
+- **FR62:** On any generation failure (timeout, API error, validation fail, user cancel), the app shows an error toast and returns to the Exercise Type Selection screen. There is no automatic retry — the user may tap Generate-with-AI again to retry manually.
+- **FR63:** The single-call generation pipeline produces validation metadata (acceptable answer variants, explanations, source citations) inline with the exercise payload. Runtime answer validation is entirely local — no second LLM call during exercise play. The deprecated `/api/quizzes/validate-answer` endpoint is removed.
+
 ## Non-Functional Requirements
 
 ### Performance
 
-- **NFR1:** RAG retrieval + LLM quiz generation completes within 8 seconds for standard quiz (10 questions), loading indicator displayed with progress
+- **NFR1:** On-the-fly AI exercise generation completes within 15-20 seconds for a standard exercise (10 questions). Loading screen displays tips carousel with a visible cancel affordance throughout. Premade exercises load in <500ms.
 - **NFR2:** Screen navigation completes within 500ms
 - **NFR3:** App launches to usable state within 3 seconds
 - **NFR4:** Weakness profile calculation completes within 2 seconds after quiz submission
@@ -498,4 +508,5 @@ Pierre logs in that evening. Friend group stays engaged.
 - **NFR28:** Structured content coverage: 100% of chapters in Books 1-4 have vocabulary, grammar points, and dialogues in the structured content tables
 - **NFR29:** Adaptive quiz content: when weakness profile is available, 30-50% of generated questions target documented weak areas
 - **NFR30:** Generated exercises follow workbook formatting patterns (matching, fill-in-blank structure, dialogue format)
-- **NFR31:** LLM cost per quiz generation stays under $0.05 per 10-question quiz
+- **NFR31:** LLM cost per on-the-fly exercise generation is not a hard constraint — quality is prioritized over cost per product decision (Story 4.17). The cache-on-generate behavior (FR61) amortizes cost across users. Monitor monthly OpenAI spend via dashboard; set a soft alert at $100/month for MVP.
+- **NFR32:** On-the-fly generation requests MUST be cancellable. The backend honors FastAPI `Request.is_disconnected()` and aborts the underlying OpenAI call. Cache write is skipped on cancelled requests.

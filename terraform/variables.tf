@@ -46,35 +46,23 @@ variable "supabase_jwt_secret" {
   sensitive   = true
 }
 
+variable "openai_api_key" {
+  description = "OpenAI API key (primary LLM provider as of Story 4.17)"
+  type        = string
+  sensitive   = true
+}
+
+variable "openai_model" {
+  description = "OpenAI model name used for exercise generation"
+  type        = string
+  default     = "gpt-5"
+}
+
 variable "llm_api_key" {
-  description = "LLM API key (legacy, deprecated)"
+  description = "LLM API key (legacy, deprecated — retained only so existing secret references don't break)"
   type        = string
   sensitive   = true
   default     = ""
-}
-
-variable "azure_openai_api_version" {
-  description = "Azure OpenAI API version"
-  type        = string
-  default     = "2024-02-15-preview"
-}
-
-variable "azure_openai_location" {
-  description = "Azure region for the OpenAI resource"
-  type        = string
-  default     = "eastus"
-}
-
-variable "azure_openai_deployment_name" {
-  description = "Azure OpenAI model deployment name"
-  type        = string
-  default     = "gpt-4o"
-}
-
-variable "azure_openai_tpm_limit" {
-  description = "Azure OpenAI tokens per minute rate limit (in thousands)"
-  type        = number
-  default     = 30
 }
 
 variable "langsmith_api_key" {

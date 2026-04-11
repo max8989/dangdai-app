@@ -11,8 +11,10 @@ date: 'Sat Feb 14 2026'
 lastStep: 8
 status: 'complete'
 completedAt: '2026-02-14'
-updatedAt: '2026-03-21'
+updatedAt: '2026-04-11'
 updateHistory:
+  - date: '2026-04-11'
+    changes: 'Major architecture shift: Real-time "Generate with AI" exercise path re-introduced alongside pre-generated exercises. Provider swapped from Azure OpenAI → OpenAI direct. Default model upgraded to gpt-5. Generation pipeline collapsed from 2 LLM calls (generate + validate-answer) to a single structured-output call that bakes runtime validation metadata (acceptable answer variants, equivalence rubric) directly into the exercise payload — zero runtime LLM calls during exercise play. Exercise Type Selection screen now offers a per-type choice: "Premade" (instant, served from premade_exercises) or "AI-Generated" (on-the-fly, ~15-20s, OpenAI gpt-5). AI-generated exercises are cached in premade_exercises (upsert) so subsequent users/sessions hit the cache. Mobile AI-generation requests use AbortController cancellation — navigating away or cancelling aborts the backend request. Error path: single-shot, on failure show error toast and pop back to selection (no retry).'
   - date: '2026-03-21'
     changes: 'Major architecture shift: Pre-generated exercises as default. ALL exercise types (vocabulary, matching, fill_in_blank, grammar, sentence_construction, dialogue_completion, reading_comprehension, mixed) now served from premade_exercises table by default. On-the-fly LangGraph pipeline retired from real-time use — repurposed as offline batch tool for populating premade_exercises. Added comprehensive test strategy: Playwright E2E discovery tests (8 types × 15 lessons for Book 1) + Python-side premade exercise coverage tests. Retired AI-generated exercise path from frontend.'
   - date: 'Sat Mar 14 2026'
@@ -80,7 +82,7 @@ _This document builds collaboratively through step-by-step discovery. Sections a
 | Backend (Data) | Supabase (PostgreSQL + Auth) | User data, progress, auth |
 | Backend (AI) | Python (FastAPI + LangGraph) | RAG queries, quiz generation |
 | Vector Store | Supabase pgvector | Dangdai content embeddings |
-| LLM | Azure OpenAI gpt-4o (configurable) | Quiz generation + content evaluation |
+| LLM | OpenAI gpt-5 (configurable) | On-the-fly exercise generation (single structured-output call with baked-in validation metadata) |
 | Min iOS | 13.0+ | - |
 | Min Android | API 21 (5.0)+ | - |
 | Connectivity | Online-only | MVP constraint |
@@ -90,22 +92,25 @@ _This document builds collaboratively through step-by-step discovery. Sections a
 ```
 Mobile App (Expo) ──┬──▶ Supabase (Auth, Progress, User Data, Performance Memory)
                     │     ├──▶ Structured Content (vocabulary, dialogues, grammar_points)
-                    │     └──▶ Premade Exercises (premade_exercises — PRIMARY exercise source, no LLM)
+                    │     └──▶ Premade Exercises (premade_exercises — INSTANT exercise source, no LLM)
                     │
                     └──▶ Python Backend (FastAPI)
                               │
+                              ├──▶ POST /api/exercises/generate (on-the-fly, single LLM call)
+                              │      └──▶ OpenAI gpt-5 (structured-output; generation + validation
+                              │            metadata baked in — NO separate validate call)
+                              │      └──▶ Upserts result into premade_exercises (cache)
                               ├──▶ Supabase question_results (weakness profile query)
                               └──▶ Health check / utility endpoints
-
-Offline Batch Pipeline (LangGraph — NOT real-time):
-                              │
-                              ├──▶ Supabase Structured Content (vocabulary, grammar_points, dialogues)
-                              ├──▶ LLM API - Azure OpenAI gpt-4o (exercise generation)
-                              ├──▶ LangGraph Validation Node (rule-based quality checks)
-                              └──▶ Output: premade_exercises table rows
 ```
 
-**Exercise Flow (Pre-Generated — DEFAULT for all exercise types):**
+**Exercise Flow — User Choice at Selection Time:**
+
+At the Exercise Type Selection screen, each exercise type card exposes **two actions**:
+- **Premade (instant)** — served from `premade_exercises` table, no LLM call
+- **Generate with AI (~15-20s)** — on-the-fly generation via OpenAI gpt-5, single call
+
+**Path A — Premade (default, instant):**
 ```
 1. Mobile: Query premade_exercises table from Supabase for chapter (book_id, lesson_id)
 2. Mobile: Display exercise list grouped by exercise_type with completion status
@@ -117,21 +122,45 @@ Offline Batch Pipeline (LangGraph — NOT real-time):
 8. Mobile: Completion screen with score and chapter progress update
 ```
 
+**Path B — On-the-Fly AI Generation (opt-in, ~15-20s):**
+```
+1. Mobile: User taps "Generate with AI" on an exercise type card
+2. Mobile: Navigate to loading screen with cancellable AbortController + tips carousel
+3. Mobile: POST /api/exercises/generate { book_id, lesson_id, exercise_type, user_id }
+   ├─ AbortController.signal bound to fetch — user-cancel aborts request
+   └─ User back/navigate-away also triggers abort
+4. Backend: Query structured content (vocabulary + grammar_points + dialogues) +
+             weakness profile (question_results aggregation)
+5. Backend: SINGLE OpenAI gpt-5 structured-output call produces:
+   - Question list with correct_answer per question
+   - Inline validation metadata: acceptable_answer_variants[], semantic_rubric,
+     distractor pool, explanation, source_citation
+6. Backend: Deterministic rule-based validation (traditional Chinese, pinyin diacritics,
+            CJK in question_text, vocab set-membership, grammar coverage)
+7. Backend: Upsert result into premade_exercises (cache for future users/sessions)
+8. Backend: Return exercise payload to mobile
+9. Mobile: premadeExerciseAdapter transforms payload → QuizQuestion[] format (same adapter as Path A)
+10. Mobile: Exercise rendered + local validation (validation metadata baked in — no runtime LLM call)
+11. Mobile: Save results to question_results + update exercise_type_progress
+12. Mobile: Completion screen
+
+Error path: On any failure (timeout, API error, validation fail), show error toast
+            and pop back to Exercise Type Selection. No automatic retry.
+Cancel path: AbortController fires → fetch rejected → loading screen pops back silently.
+```
+
 **Supported premade exercise types (all 8):**
 - vocabulary, grammar, fill_in_blank, matching
 - dialogue_completion, sentence_construction, reading_comprehension, mixed
 
-**Offline Batch Generation Pipeline (LangGraph — populates premade_exercises):**
-```
-RETIRED FROM REAL-TIME USE. Now runs as a batch script to pre-populate exercises.
+**Dual-Mode Generation Pipeline (as of 2026-04-11):**
 
-1. Script reads structured content (vocabulary, grammar_points, dialogues) from Supabase
-2. For Tier 1 types (vocabulary, matching, fill_in_blank): algorithmic generation, no LLM
-3. For Tier 2 types (grammar, sentence_construction, dialogue_completion, reading_comprehension): single LLM call
-4. Rule-based validation (structural + deterministic content checks)
-5. Validated exercises written to premade_exercises table with proper JSONB content schemas
-6. Mixed type: blend of Tier 1 + Tier 2 questions, also pre-generated
-```
+The generation pipeline now runs in **two modes**, sharing the same code path where possible:
+
+1. **Real-time mode** (Path B above) — triggered by user tapping "Generate with AI". Uses OpenAI gpt-5 single call with structured output. Result cached to `premade_exercises` (upsert). Latency budget: 15-20s. Cancellable via FastAPI `Request.is_disconnected()`.
+2. **Offline batch mode** — the existing seeding script (`src/scripts/seed_all_premade_exercises.py`) continues to pre-populate `premade_exercises` for Book 1 out-of-the-box, so users see instant premade options without waiting for anyone to generate first. Tier 1 types still use algorithmic generation (no LLM).
+
+Both modes write to the same `premade_exercises` table — the real-time mode is effectively a user-driven cache warmer. The `evaluate_content` (second LLM call) node is permanently removed; all validation metadata is produced by the single generation call and verified by deterministic rule checks.
 
 ### Cross-Cutting Concerns Identified
 
@@ -361,8 +390,9 @@ HAVING ROUND(COUNT(*) FILTER (WHERE correct)::decimal / COUNT(*) * 100) < 70;
 | **Auth Token Passing** | Supabase JWT in Authorization header | Python backend verifies JWT with Supabase |
 
 **Endpoints (Python Backend):**
-- `POST /api/quizzes/generate` - Generate quiz for chapter + exercise type. Accepts `{ chapter_id, book_id, exercise_type, user_jwt }`. Agent queries weakness profile, retrieves structured content (vocabulary + grammar_points + dialogues), generates quiz with pre-generated explanations using structured content as context. Returns structured quiz payload. ALL grammar points for the chapter are covered.
-- `POST /api/quizzes/validate-answer` - **Hybrid validation endpoint** for complex exercise types (Sentence Construction, Dialogue Completion). Accepts `{ question, user_answer, correct_answer, exercise_type }`. LLM evaluates whether the answer is valid (correct/incorrect + alternative answers shown). Only called when local validation is insufficient.
+- `POST /api/exercises/generate` - **On-the-fly AI exercise generation** (single OpenAI gpt-5 call). Accepts `{ chapter_id, book_id, exercise_type, user_jwt }`. Backend queries structured content + weakness profile, makes ONE structured-output LLM call that produces the full exercise payload including per-question validation metadata (acceptable answer variants, semantic equivalence rubric, explanations, source citations). Runs rule-based deterministic validation. Upserts result into `premade_exercises` (cache). Returns exercise payload. Supports cancellation via FastAPI `Request.is_disconnected()`. Target latency: 15-20s.
+- `POST /api/quizzes/generate` - **DEPRECATED** (Story 4.16). Retained only for the offline batch seeding script. User-facing flows call `/api/exercises/generate` instead.
+- `POST /api/quizzes/validate-answer` - **REMOVED** (Story 4.17). The single generation call now bakes validation metadata directly into the exercise payload — no runtime LLM call is needed for free-text answer validation. Runtime validation matches against `acceptable_answer_variants[]` (case-insensitive, punctuation-normalized) and falls back to the stored `semantic_rubric` for edge cases.
 - `GET /api/health` - Health check
 
 **Endpoints (Supabase Direct — Mobile reads):**
@@ -370,7 +400,7 @@ HAVING ROUND(COUNT(*) FILTER (WHERE correct)::decimal / COUNT(*) * 100) < 70;
 - Chapter vocabulary: `supabase.from('vocabulary').select('*').eq('book_id', bookId).eq('lesson_id', lessonId)` — for chapter vocabulary display
 - Chapter grammar: `supabase.from('grammar_points').select('*').eq('book_id', bookId).eq('lesson_id', lessonId)` — for grammar reference
 
-**Answer Validation Strategy (Hybrid):**
+**Answer Validation Strategy (All-Local as of Story 4.17):**
 
 | Exercise Type | Validation Method | Latency |
 |---------------|-------------------|---------|
@@ -379,16 +409,16 @@ HAVING ROUND(COUNT(*) FILTER (WHERE correct)::decimal / COUNT(*) * 100) < 70;
 | Fill-in-the-Blank | Local (exact match from answer key) | <100ms |
 | Matching | Local (pair comparison from answer key) | <100ms |
 | Reading Comprehension | Local (exact match from answer key) | <100ms |
-| Sentence Construction | **LLM via agent** (multiple valid orderings possible) | ~1-3s |
-| Dialogue Completion | **LLM via agent** (multiple valid responses possible) | ~1-3s |
+| Sentence Construction | Local (match against `acceptable_answer_variants[]` from payload) | <100ms |
+| Dialogue Completion | Local (match against `acceptable_answer_variants[]` from payload) | <100ms |
 
-For Sentence Construction and Dialogue Completion:
-1. Mobile first checks against the pre-generated correct answer locally
-2. If the user's answer matches → instant correct feedback
-3. If the user's answer differs → call `POST /api/quizzes/validate-answer` for LLM evaluation
-4. LLM returns: `{ is_correct: bool, explanation: string, alternatives: string[] }`
-5. If `is_correct`: show "Your answer is also valid!" with alternatives
-6. If not correct: show correct answer + explanation
+For Sentence Construction and Dialogue Completion, the exercise payload (from either premade seeding or on-the-fly generation) includes an `acceptable_answer_variants` array per question — a list of semantically equivalent valid answers produced by the LLM at generation time. Runtime validation:
+1. Normalize user answer (lowercase, strip punctuation, collapse whitespace)
+2. Match against each `acceptable_answer_variants[i]` normalized the same way
+3. If any match → correct; show explanation and "Other valid answers" list
+4. If no match → incorrect; show canonical `correct_answer` + explanation
+
+This eliminates the runtime `/api/quizzes/validate-answer` LLM call entirely. All semantic-equivalence reasoning happens once, at generation time, and travels with the exercise.
 
 **Pre-Generated Explanations:**
 Every question in the quiz payload includes a `explanation` field and `source_citation` field, generated by the LLM at quiz creation time. These are displayed on the feedback card after each answer (correct or incorrect). No additional LLM call needed at answer time for explanations.
@@ -405,27 +435,24 @@ Every question in the quiz payload includes a `explanation` field and `source_ci
 **Azure Architecture:**
 ```
 Azure Resource Group
-├── Azure OpenAI Service
-│   ├── Resource: dangdai-openai (East US)
-│   ├── Deployment: gpt-4o
-│   ├── Token Limit: 30K TPM
-│   └── Cost: Pay-as-you-go (~$0.02-0.045 per quiz)
-│
 └── Azure Container Apps
-    ├── dangdai-api (Python/LangGraph)
+    ├── dangdai-api (Python/FastAPI + LangGraph)
     │   ├── Scale: 0-10 instances
     │   ├── Memory: 1GB
     │   └── CPU: 0.5 vCPU
     └── Environment Variables
-        ├── LLM_PROVIDER=azure_openai
-        ├── AZURE_OPENAI_API_KEY (from Key Vault)
-        ├── AZURE_OPENAI_ENDPOINT
-        ├── AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
-        ├── AZURE_OPENAI_MODEL=gpt-4o
+        ├── LLM_PROVIDER=openai
+        ├── OPENAI_API_KEY (from Key Vault)
+        ├── OPENAI_MODEL=gpt-5
         ├── SUPABASE_URL
         ├── SUPABASE_SERVICE_KEY (from Key Vault)
         └── LANGSMITH_API_KEY (optional)
+
+External Services:
+└── OpenAI API (api.openai.com) — gpt-5 structured output for exercise generation
 ```
+
+> **NOTE (2026-04-11):** Azure OpenAI Service is no longer used. Terraform (Story 4.17) destroys the `azurerm_cognitive_account.openai` and `azurerm_cognitive_deployment.gpt4o` resources on apply. OpenAI is called directly from the FastAPI backend; the `openai-api-key` Container App secret is populated from the new `openai_api_key` Terraform variable (required, sensitive).
 
 ### Error Handling Strategy
 
@@ -1408,41 +1435,48 @@ class QuizGenerationState(TypedDict, total=False):
 | **Mixed** | 4-7s, $0.02 | **2-4s, ~$0.008** | Tier 1 portion free |
 | **Monthly (100 users, 10 quizzes/wk)** | ~$80/month | **~$25-35/month** | ~55-70% savings |
 
-#### Enforcement Guidelines (Updated 2026-03-21)
+#### Enforcement Guidelines (Updated 2026-04-11)
 
-**All AI Agents MUST:**
-1. **All exercise types are pre-generated.** The user-facing app reads exclusively from `premade_exercises` — no real-time LLM calls for exercise generation
-2. The LangGraph pipeline is an **offline batch tool only** — used to populate `premade_exercises`, never invoked during a user session
-3. The `POST /api/quizzes/generate` endpoint is **deprecated** for user-facing flows — retained only for batch generation scripts
-4. Pre-generated exercises must cover all 8 types × all lessons for each book before the book is considered complete
-5. Exercise content JSONB must conform to the type-specific schemas (fill_in_blank, matching, dialogue_completion, sentence_construction, reading/reading_comprehension)
-6. The `premadeExerciseAdapter` is the single source of truth for transforming content JSONB → QuizQuestion[] format
-7. All validation is local (no LLM) — correct answers are stored in the content JSONB
+**User-facing exercise flow MUST:**
+1. Offer a per-exercise-type choice at the Exercise Type Selection screen: **Premade (instant)** OR **Generate with AI (~15-20s)**
+2. Default to Premade when available in `premade_exercises` — "Generate with AI" is opt-in
+3. For the AI-generate path, call `POST /api/exercises/generate` (NOT the deprecated `/api/quizzes/generate`)
+4. Bind an `AbortController` to the fetch — user cancel, back-navigation, or unmount MUST abort the backend request
+5. On any error (timeout, API error, validation fail), show an error toast and return to the Exercise Type Selection screen. **No automatic retry.**
+6. Runtime answer validation is ALWAYS local (no LLM). Use `acceptable_answer_variants[]` from the payload for free-text exercise types.
+7. The `premadeExerciseAdapter` is the single source of truth for transforming content JSONB → QuizQuestion[] format — same adapter for both paths.
 
-**Batch pipeline rules (offline only):**
-8. Route exercise types to the correct generation tier (Tier 1: vocabulary/matching/fill_in_blank, Tier 2: grammar/sentence_construction/dialogue_completion/reading_comprehension)
-9. **Never** use LLM calls for Tier 1 exercise types — these must be algorithmic
-10. Use exactly **one** LLM call for Tier 2 exercise types — no evaluator
-11. Tier 1 generators must include `explanation` and `source_citation` fields derived from structured data
-12. Grammar coverage requires min(4, total_grammar_points) — same grammar point may appear in multiple questions
+**Backend `/api/exercises/generate` MUST:**
+8. Use exactly **ONE** OpenAI structured-output call per request. No second validation LLM call.
+9. Include `acceptable_answer_variants[]` and `semantic_rubric` fields in the generation schema for free-text exercise types (sentence_construction, dialogue_completion)
+10. Run deterministic rule-based validation (traditional Chinese, pinyin diacritics, CJK in question_text, vocab set-membership) after generation
+11. **Upsert** the generated exercise into `premade_exercises` (cache) on success — subsequent users may see it as premade
+12. Honor `Request.is_disconnected()` — if the client disconnects mid-generation, abort the LLM call and return without writing to cache
+13. Complete within 25 seconds or raise a timeout error
+
+**Offline batch pipeline (unchanged):**
+14. Seeds Book 1 at minimum so Premade is always an option. Tier 1 (vocabulary/matching/fill_in_blank) uses algorithmic generation, no LLM. Tier 2 uses the same single-call pipeline as the real-time path.
+15. Grammar coverage requires min(4, total_grammar_points) — same grammar point may appear in multiple questions
 
 ### LLM Provider Configuration Architecture
 
-This section defines the configurable LLM provider architecture that allows switching between Azure OpenAI, OpenAI, and other providers without code changes.
+> **UPDATED 2026-04-11 (Story 4.17):** Default provider is now **OpenAI direct** (not Azure OpenAI). Default model is **gpt-5**. The provider abstraction layer is retained so Azure OpenAI can still be selected via `LLM_PROVIDER=azure_openai` if needed for rollback, but production runs on OpenAI.
+
+This section defines the configurable LLM provider architecture.
 
 #### Provider Strategy Pattern
 
-The backend uses a **provider abstraction layer** to support multiple LLM providers while maintaining consistent quiz generation logic.
+The backend uses a **provider abstraction layer** to support multiple LLM providers while maintaining consistent generation logic.
 
-**Design Principle:** All LLM calls go through a factory that instantiates the correct provider based on environment configuration. The quiz generation graph is provider-agnostic.
+**Design Principle:** All LLM calls go through a factory that instantiates the correct provider based on environment configuration. The exercise generation code is provider-agnostic.
 
 #### Supported Providers
 
 | Provider | Models Available | Primary Use Case |
 |----------|------------------|------------------|
-| **Azure OpenAI** (Default) | gpt-4o, gpt-4o-mini, gpt-4-turbo, gpt-4 | Production deployment with Azure credits. Best for Traditional Chinese + structured output. |
-| **OpenAI** | gpt-4o, gpt-4-turbo, gpt-4.1, gpt-4o-mini | Development/testing, fallback provider |
-| **Custom/Local** | Any LangChain-compatible model | Future extensibility (e.g., Azure AI Phi-4, local models) |
+| **OpenAI** (Default) | gpt-5, gpt-4.1, gpt-4o | Production default — best Traditional Chinese quality + structured output reliability + fastest gpt-5 availability |
+| **Azure OpenAI** | gpt-4o, gpt-4o-mini, gpt-4-turbo | Rollback option. No longer primary. |
+| **Custom/Local** | Any LangChain-compatible model | Future extensibility |
 
 #### Configuration Schema
 
@@ -1450,37 +1484,39 @@ The backend uses a **provider abstraction layer** to support multiple LLM provid
 
 ```bash
 # Provider Selection
-LLM_PROVIDER=azure_openai          # Options: "azure_openai", "openai", "custom"
+LLM_PROVIDER=openai                # Options: "openai" (default), "azure_openai", "custom"
 
-# Azure OpenAI Configuration (when LLM_PROVIDER=azure_openai)
+# OpenAI Configuration (when LLM_PROVIDER=openai) — PRIMARY
+OPENAI_API_KEY=<your-key>
+OPENAI_MODEL=gpt-5                 # Default. Alternatives: gpt-4.1, gpt-4o
+
+# Azure OpenAI Configuration (when LLM_PROVIDER=azure_openai) — ROLLBACK ONLY
 AZURE_OPENAI_API_KEY=<your-key>
 AZURE_OPENAI_ENDPOINT=https://<your-resource>.openai.azure.com/
 AZURE_OPENAI_API_VERSION=2024-02-15-preview
-AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o   # Your deployment name in Azure
-AZURE_OPENAI_MODEL=gpt-4o             # Underlying model
-
-# OpenAI Configuration (when LLM_PROVIDER=openai)
-OPENAI_API_KEY=<your-key>
-OPENAI_MODEL=gpt-4o                   # Options: gpt-4o, gpt-4o-mini, gpt-4-turbo, gpt-4.1
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
+AZURE_OPENAI_MODEL=gpt-4o
 
 # Model Parameters (apply to all providers)
 LLM_TEMPERATURE=0.7
-LLM_MAX_TOKENS=2048
+LLM_MAX_TOKENS=4096                # Increased for single-call pipeline (generation + validation metadata)
 LLM_TOP_P=1.0
 
-# Quiz Generation Settings
-MAX_RETRIES=2
-GENERATION_TIMEOUT_SECONDS=30
+# Exercise Generation Settings
+GENERATION_TIMEOUT_SECONDS=25      # 15-20s target + buffer; request aborted on user cancel
+MAX_RETRIES=0                      # Single-shot on real-time path; errors surface to user immediately
 ```
 
 #### Default Configuration (Production)
 
 | Setting | Value | Rationale |
 |---------|-------|-----------|
-| **LLM_PROVIDER** | `azure_openai` | Leverages $200/month Azure credit |
-| **AZURE_OPENAI_MODEL** | `gpt-4o` | Best balance of cost, Traditional Chinese quality, structured output reliability |
+| **LLM_PROVIDER** | `openai` | Direct OpenAI API — best access to latest models (gpt-5), no Azure deployment overhead |
+| **OPENAI_MODEL** | `gpt-5` | Highest-quality generation; cost is not a primary constraint per product decision. Structured output with inline validation metadata works well. |
 | **Temperature** | `0.7` | Balanced creativity for diverse questions while maintaining accuracy |
-| **Max Tokens** | `2048` | Sufficient for 10-question quiz + explanations + source citations |
+| **Max Tokens** | `4096` | Single-call pipeline emits generation + validation metadata in one payload, needs more headroom |
+| **Max Retries** | `0` | Real-time path is single-shot; on failure show error and go back (per product decision) |
+| **Timeout** | `25s` | Matches 15-20s target latency + buffer; cancellable via `Request.is_disconnected()` |
 
 #### Cost Analysis by Provider/Model
 
@@ -1518,20 +1554,33 @@ from langchain_openai import AzureChatOpenAI, ChatOpenAI
 from langchain_core.language_models import BaseChatModel
 import os
 
-def get_llm(temperature: float = 0.7, max_tokens: int = 2048) -> BaseChatModel:
+def get_llm(temperature: float = 0.7, max_tokens: int = 4096) -> BaseChatModel:
     """
     Factory function to instantiate the correct LLM provider based on environment.
-    
+
+    Default provider is OpenAI (gpt-5) as of Story 4.17.
+
     Returns:
         BaseChatModel: Configured LLM instance
-        
+
     Raises:
         ValueError: If LLM_PROVIDER is invalid or required env vars are missing
     """
-    provider = os.getenv("LLM_PROVIDER", "azure_openai")
-    
-    if provider == "azure_openai":
-        # Azure OpenAI configuration
+    provider = os.getenv("LLM_PROVIDER", "openai")  # OpenAI is now the default
+
+    if provider == "openai":
+        # OpenAI configuration (PRIMARY)
+        if not os.getenv("OPENAI_API_KEY"):
+            raise ValueError("Missing OPENAI_API_KEY")
+
+        return ChatOpenAI(
+            model=os.getenv("OPENAI_MODEL", "gpt-5"),
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+
+    elif provider == "azure_openai":
+        # Azure OpenAI configuration (rollback option)
         required_vars = [
             "AZURE_OPENAI_API_KEY",
             "AZURE_OPENAI_ENDPOINT",
@@ -1540,7 +1589,7 @@ def get_llm(temperature: float = 0.7, max_tokens: int = 2048) -> BaseChatModel:
         missing = [var for var in required_vars if not os.getenv(var)]
         if missing:
             raise ValueError(f"Missing Azure OpenAI config: {missing}")
-        
+
         return AzureChatOpenAI(
             azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
             api_version=os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview"),
@@ -1548,18 +1597,7 @@ def get_llm(temperature: float = 0.7, max_tokens: int = 2048) -> BaseChatModel:
             max_tokens=max_tokens,
             model=os.getenv("AZURE_OPENAI_MODEL", "gpt-4o"),
         )
-    
-    elif provider == "openai":
-        # OpenAI configuration
-        if not os.getenv("OPENAI_API_KEY"):
-            raise ValueError("Missing OPENAI_API_KEY")
-        
-        return ChatOpenAI(
-            model=os.getenv("OPENAI_MODEL", "gpt-4o"),
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
-    
+
     else:
         raise ValueError(f"Unsupported LLM_PROVIDER: {provider}")
 ```
@@ -2374,7 +2412,7 @@ dangdai-api/
 ```
 terraform/
 ├── main.tf                           # Azure provider, resource group
-├── openai.tf                         # Azure OpenAI resource provisioning
+├── openai.tf                         # Placeholder — Azure OpenAI resources removed in Story 4.17; OpenAI is external SaaS
 ├── container_apps.tf                 # Azure Container Apps environment
 ├── key_vault.tf                      # Azure Key Vault for secrets (API keys)
 ├── variables.tf                      # Input variables
@@ -2388,28 +2426,28 @@ terraform/
 
 ```bash
 # === LLM Provider Configuration ===
-# Options: "azure_openai", "openai"
-LLM_PROVIDER=azure_openai
+# Options: "openai" (default), "azure_openai"
+LLM_PROVIDER=openai
 
-# === Azure OpenAI (when LLM_PROVIDER=azure_openai) ===
+# === OpenAI (when LLM_PROVIDER=openai) — PRIMARY ===
+OPENAI_API_KEY=your-openai-api-key
+OPENAI_MODEL=gpt-5
+
+# === Azure OpenAI (when LLM_PROVIDER=azure_openai) — ROLLBACK ===
 AZURE_OPENAI_API_KEY=your-azure-openai-api-key
 AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
 AZURE_OPENAI_API_VERSION=2024-02-15-preview
 AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
 AZURE_OPENAI_MODEL=gpt-4o
 
-# === OpenAI (when LLM_PROVIDER=openai) ===
-OPENAI_API_KEY=your-openai-api-key
-OPENAI_MODEL=gpt-4o
-
 # === LLM Parameters ===
 LLM_TEMPERATURE=0.7
-LLM_MAX_TOKENS=2048
+LLM_MAX_TOKENS=4096
 LLM_TOP_P=1.0
 
-# === Quiz Generation ===
-MAX_RETRIES=2
-GENERATION_TIMEOUT_SECONDS=30
+# === Exercise Generation ===
+MAX_RETRIES=0
+GENERATION_TIMEOUT_SECONDS=25
 
 # === Supabase ===
 SUPABASE_URL=https://your-project.supabase.co
