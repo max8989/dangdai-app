@@ -166,6 +166,6 @@ development_status:
 
   # Epic 12: Exercise Quality & Test Automation
   epic-12: in-progress
-  12-1-playwright-e2e-exercise-discovery-tests: ready-for-dev
+  12-1-playwright-e2e-exercise-discovery-tests: review
   12-2-python-side-premade-exercise-coverage-tests: ready-for-dev
   epic-12-retrospective: optional

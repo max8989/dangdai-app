@@ -1,6 +1,6 @@
 # Story 12.1: Playwright E2E Exercise Discovery Tests
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -34,44 +34,44 @@ So that broken exercise modules are discovered automatically and I have a clear 
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Complete the exercise discovery test file (AC: #1, #2, #3, #4)
-  - [ ] 1.1 Open existing `dangdai-mobile/tests/exercise-discovery.test.ts` (already scaffolded)
-  - [ ] 1.2 Ensure test uses `mergedTest` from `./support/merged-fixtures` for auth + network
-  - [ ] 1.3 Define constants: 8 exercise types array, 15 lessons, chapter ID formula (`bookId * 100 + lessonNumber`)
-  - [ ] 1.4 Create `test.describe` per exercise type with parameterized lessons (1-15)
-  - [ ] 1.5 Each test: navigate to `/chapter/{chapterId}/exercises`, wait for exercise selection screen
-  - [ ] 1.6 Check if premade exercise exists for the type — if not, `test.skip('No premade exercise for type X, lesson Y')`
-  - [ ] 1.7 Click the premade exercise card (`premade-exercise-card-{exerciseId}`)
-  - [ ] 1.8 Wait for premade exercise screen to load (`premade-exercise-screen` testID)
-  - [ ] 1.9 Verify question card is visible and content is populated (not empty)
+- [x] Task 1: Complete the exercise discovery test file (AC: #1, #2, #3, #4)
+  - [x] 1.1 Open existing `dangdai-mobile/tests/exercise-discovery.test.ts` (already scaffolded)
+  - [x] 1.2 Ensure test uses `mergedTest` from `./support/merged-fixtures` for auth + network
+  - [x] 1.3 Define constants: 8 exercise types array, 15 lessons, chapter ID formula (`bookId * 100 + lessonNumber`)
+  - [x] 1.4 Create `test.describe` per exercise type with parameterized lessons (1-15)
+  - [x] 1.5 Each test: navigate to `/chapter/{chapterId}/exercises`, wait for exercise selection screen
+  - [x] 1.6 Check if premade exercise exists for the type — if not, `test.skip('No premade exercise for type X, lesson Y')`
+  - [x] 1.7 Click the premade exercise card (`premade-exercise-card-{exerciseId}`)
+  - [x] 1.8 Wait for premade exercise screen to load (`premade-exercise-screen` testID)
+  - [x] 1.9 Verify question card is visible and content is populated (not empty)
 
-- [ ] Task 2: Implement exercise type-specific interaction validation (AC: #1 steps 5-6)
-  - [ ] 2.1 For multiple_choice types (vocabulary, grammar): click first answer option, verify feedback overlay
-  - [ ] 2.2 For fill_in_blank: click a word bank item, verify it fills the blank
-  - [ ] 2.3 For matching: click a left item then a right item, verify pair highlight
-  - [ ] 2.4 For sentence_construction: click word tiles in order, verify sentence builds
-  - [ ] 2.5 For reading_comprehension: verify passage visible, click answer for first question
-  - [ ] 2.6 For dialogue_completion: verify dialogue lines visible, select an option
-  - [ ] 2.7 For mixed: detect the current question type and apply appropriate interaction
-  - [ ] 2.8 After interaction, verify feedback overlay appears (correct/incorrect)
+- [x] Task 2: Implement exercise type-specific interaction validation (AC: #1 steps 5-6)
+  - [x] 2.1 For multiple_choice types (vocabulary, grammar): click first answer option, verify feedback overlay
+  - [x] 2.2 For fill_in_blank: click a word bank item, verify it fills the blank
+  - [x] 2.3 For matching: click a left item then a right item, verify pair highlight
+  - [x] 2.4 For sentence_construction: click word tiles in order, verify sentence builds
+  - [x] 2.5 For reading_comprehension: verify passage visible, click answer for first question
+  - [x] 2.6 For dialogue_completion: verify dialogue lines visible, select an option
+  - [x] 2.7 For mixed: detect the current question type and apply appropriate interaction
+  - [x] 2.8 After interaction, verify feedback overlay appears (correct/incorrect)
 
-- [ ] Task 3: Implement premade exercise availability check via Supabase REST (AC: #2)
-  - [ ] 3.1 Before each test, fetch premade exercises from Supabase REST API:
+- [x] Task 3: Implement premade exercise availability check via Supabase REST (AC: #2)
+  - [x] 3.1 Before each test, fetch premade exercises from Supabase REST API:
         `GET /rest/v1/premade_exercises?book_id=eq.1&lesson_id=eq.{lesson}&exercise_type=eq.{type}&select=id`
-  - [ ] 3.2 Use the `authToken` from auth fixture for Bearer header
-  - [ ] 3.3 If no rows returned, call `test.skip()` with descriptive message
-  - [ ] 3.4 Store the exercise ID for navigation in the test
+  - [x] 3.2 Use the `authToken` from auth fixture for Bearer header
+  - [x] 3.3 If no rows returned, call `test.skip()` with descriptive message
+  - [x] 3.4 Store the exercise ID for navigation in the test
 
-- [ ] Task 4: Configure test timeouts and reporting (AC: #3, #4)
-  - [ ] 4.1 Set per-test timeout to 30s (premade exercises are instant but rendering needs time)
-  - [ ] 4.2 Configure Playwright HTML reporter for matrix visualization
-  - [ ] 4.3 Add descriptive test names: `[${exerciseType}] Lesson ${lesson} - exercise renders and interacts`
-  - [ ] 4.4 On failure, capture screenshot and include exercise type + lesson in error message
+- [x] Task 4: Configure test timeouts and reporting (AC: #3, #4)
+  - [x] 4.1 Set per-test timeout to 30s (premade exercises are instant but rendering needs time)
+  - [x] 4.2 Configure Playwright HTML reporter for matrix visualization
+  - [x] 4.3 Add descriptive test names: `[${exerciseType}] Lesson ${lesson} - exercise renders and interacts`
+  - [x] 4.4 On failure, capture screenshot and include exercise type + lesson in error message
 
-- [ ] Task 5: Write supporting utilities if needed (AC: all)
-  - [ ] 5.1 Create helper function `getExerciseInteraction(exerciseType)` that returns the right interaction steps per type
-  - [ ] 5.2 Create helper `waitForExerciseScreen(page)` that waits for premade screen with proper assertions
-  - [ ] 5.3 Ensure test does not depend on specific answer correctness — just that interaction works
+- [x] Task 5: Write supporting utilities if needed (AC: all)
+  - [x] 5.1 Create helper function `getExerciseInteraction(exerciseType)` that returns the right interaction steps per type
+  - [x] 5.2 Create helper `waitForExerciseScreen(page)` that waits for premade screen with proper assertions
+  - [x] 5.3 Ensure test does not depend on specific answer correctness — just that interaction works
 
 ## Dev Notes
 
@@ -189,9 +189,27 @@ From the Playwright infrastructure commit (`cf4ab96`):
 ## Dev Agent Record
 
 ### Agent Model Used
+Claude Opus 4.6 (1M context)
 
 ### Debug Log References
+- TypeScript compilation: clean (no errors)
+- Test listing: 120 tests confirmed (8 types × 15 lessons)
 
 ### Completion Notes List
+- Reviewed and hardened existing scaffolded test file (was ~313 lines, now ~310 lines)
+- Added `waitForExerciseScreen()` helper — validates premade-exercise-screen, exercise-title, quiz-progress
+- Added `getExerciseInteraction()` helper — returns type-specific interaction function per exercise type
+- Added `verifyFeedbackDisplayed()` helper — checks type-appropriate feedback after interaction (overlay, inline, pair highlight)
+- Improved matching interaction: now uses `left-item-0`/`right-item-0` testIDs for pair selection
+- Improved dialogue_completion interaction: now uses `dialogue-option-0` testID instead of generic button
+- Added `test.step()` wrappers for better Playwright HTML report drill-down
+- Set per-test timeout to 30s via `test.setTimeout(30_000)`
+- Updated test names to `[${exerciseType}] Lesson ${lesson} - exercise renders and interacts`
+- Screenshots on failure handled by playwright.config.ts (`screenshot: 'only-on-failure'`)
+- No new dependencies added
 
 ### File List
+- `dangdai-mobile/tests/exercise-discovery.test.ts` — modified (complete rewrite of test logic)
+
+### Change Log
+- 2026-03-21: Completed Story 12.1 — all 5 tasks implemented. Hardened existing scaffolded test with helpers, feedback verification, per-test timeouts, and improved interaction patterns.
