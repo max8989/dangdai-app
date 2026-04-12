@@ -55,7 +55,7 @@ variable "openai_api_key" {
 variable "openai_model" {
   description = "OpenAI model name used for exercise generation"
   type        = string
-  default     = "gpt-5"
+  default     = "gpt-4o"
 }
 
 variable "llm_api_key" {

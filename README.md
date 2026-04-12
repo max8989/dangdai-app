@@ -247,7 +247,10 @@ eas build --platform ios
 # Build for Android
 eas build --platform android
 
-# Submit to app stores
+# Build and submit to app stores in one step
+eas build --platform ios --auto-submit
+
+# Submit a completed build to app stores
 eas submit
 ```
 

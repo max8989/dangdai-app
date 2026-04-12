@@ -64,7 +64,7 @@ resource "azurerm_container_app" "api" {
 
       env {
         name  = "GENERATION_TIMEOUT_SECONDS"
-        value = "25"
+        value = "60"
       }
 
       env {

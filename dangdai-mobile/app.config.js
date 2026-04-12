@@ -6,7 +6,7 @@ export default {
     name: 'Maixin Chinese',
     slug: 'maixin-chinese',
     owner: 'max8989',
-    version: '1.0.0',
+    version: '1.0.1',
     orientation: 'portrait',
     icon: './assets/images/icon.png',
     scheme: 'maixin-chinese',
