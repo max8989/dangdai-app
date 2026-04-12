@@ -10,8 +10,6 @@
 
 import { useState, useEffect, useRef } from 'react'
 import {
-  styled,
-  Card,
   YStack,
   XStack,
   Text,
@@ -46,52 +44,7 @@ interface ReadingPassageCardProps {
 
 // ─── Styled Components ────────────────────────────────────────────────────────
 
-/**
- * PassageContainer — scrollable card for Chinese reading passages.
- * Size variants control maxHeight for different passage lengths.
- */
-const PassageContainer = styled(Card, {
-  animation: 'medium',
-  enterStyle: { opacity: 0 },
-  padding: '$4',
-  maxHeight: 300,
-  minHeight: 200, // Prevent layout shift while passage renders
 
-  variants: {
-    size: {
-      short: { maxHeight: 200, minHeight: 150 },
-      medium: { maxHeight: 300, minHeight: 200 },
-      long: { maxHeight: 400, minHeight: 250 },
-    },
-  } as const,
-
-  defaultVariants: {
-    size: 'medium',
-  },
-})
-
-/**
- * PinyinToggle — small button to show/hide pinyin above passage text.
- */
-const PinyinToggle = styled(Button, {
-  animation: 'quick',
-  pressStyle: { scale: 0.95 },
-  size: '$2',
-  borderRadius: '$2',
-  borderWidth: 1,
-  borderColor: '$borderColor',
-  backgroundColor: '$surface',
-  minHeight: 48, // 48px touch target
-
-  variants: {
-    active: {
-      true: {
-        backgroundColor: '$backgroundPress',
-        borderColor: '$primary',
-      },
-    },
-  } as const,
-})
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -119,7 +72,7 @@ export function ReadingPassageCard({
   if (comprehensionQuestions.length === 0) {
     return (
       <YStack testID={testID}>
-        <Text color="$error">No comprehension questions available.</Text>
+        <Text color="red">No comprehension questions available.</Text>
       </YStack>
     )
   }
@@ -127,7 +80,7 @@ export function ReadingPassageCard({
   if (currentSubQuestionIndex < 0 || currentSubQuestionIndex >= comprehensionQuestions.length) {
     return (
       <YStack testID={testID}>
-        <Text color="$error">Invalid question index.</Text>
+        <Text color="red">Invalid question index.</Text>
       </YStack>
     )
   }
@@ -171,7 +124,7 @@ export function ReadingPassageCard({
       </Text>
 
       {/* Scrollable passage container */}
-      <PassageContainer size="medium">
+      <YStack padding="$4" maxHeight={300} minHeight={200} borderRadius="$3" borderWidth={1} borderColor="$borderColor">
         <ScrollView 
           showsVerticalScrollIndicator
           accessibilityLabel="Reading passage"
@@ -200,19 +153,19 @@ export function ReadingPassageCard({
         {/* Pinyin toggle button — bottom-right of passage card */}
         {passagePinyin && passagePinyin.trim() && (
           <XStack justifyContent="flex-end" marginTop="$2">
-            <PinyinToggle
-              active={showPinyin}
+            <Button
+              size="$2"
+              borderRadius="$2"
+              chromeless
+              bordered
               onPress={() => setShowPinyin(!showPinyin)}
-              accessibilityLabel={showPinyin ? 'Hide pinyin' : 'Show pinyin'}
-              accessibilityRole="button"
-              accessibilityState={{ selected: showPinyin }}
               testID="pinyin-toggle"
             >
               <Text fontSize={14}>拼音</Text>
-            </PinyinToggle>
+            </Button>
           </XStack>
         )}
-      </PassageContainer>
+      </YStack>
 
       <Separator />
 
@@ -236,9 +189,6 @@ export function ReadingPassageCard({
             fontSize={18} 
             fontWeight="600" 
             color="$color"
-            animation="quick"
-            enterStyle={{ opacity: 0, x: 20 }}
-            exitStyle={{ opacity: 0, x: -20 }}
           >
             {currentQuestion.question}
           </Text>

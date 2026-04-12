@@ -46,13 +46,7 @@ type MatchItemState = 'default' | 'selected' | 'matched' | 'incorrect'
  * Uses Tamagui styled() with state and column variants.
  */
 const MatchItem = styled(Button, {
-  animation: 'quick',
-  // Only animate transform/opacity — NOT colors. Reanimated cannot interpolate
-  // Tamagui token objects for borderColor/backgroundColor and throws
-  // "[Reanimated] Invalid color value: [object Object]".
-  animateOnly: ['transform', 'opacity'],
   pressStyle: { scale: 0.98 },
-  focusStyle: { borderColor: '$borderColorFocus' },
   minHeight: 48,
   borderWidth: 2,
   borderRadius: '$3',
@@ -100,10 +94,6 @@ const MatchItem = styled(Button, {
 const ConnectionLine = styled(YStack, {
   height: 2,
   backgroundColor: '$success',
-  animation: 'quick',
-  enterStyle: { opacity: 0, scaleX: 0 },
-  opacity: 1,
-  scaleX: 1,
 })
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

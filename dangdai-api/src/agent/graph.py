@@ -40,14 +40,14 @@ from src.agent.state import QuizGenerationState
 # Tier 1 exercise types (algorithmic, zero LLM calls)
 # ---------------------------------------------------------------------------
 
-TIER_1_TYPES: frozenset[str] = frozenset({"vocabulary", "matching", "fill_in_blank"})
+TIER_1_TYPES: frozenset[str] = frozenset({"vocabulary", "matching"})
 
 # ---------------------------------------------------------------------------
 # Tier 2 exercise types (single LLM call, no evaluator)
 # ---------------------------------------------------------------------------
 
 TIER_2_TYPES: frozenset[str] = frozenset(
-    {"grammar", "sentence_construction", "dialogue_completion", "reading_comprehension"}
+    {"grammar", "sentence_construction", "dialogue_completion", "reading_comprehension", "fill_in_blank"}
 )
 
 

@@ -141,7 +141,15 @@ export function FillInBlankSentence({
   disabled = false,
   testID = 'fill-in-blank-sentence',
 }: FillInBlankSentenceProps) {
-  const segments = parseSentence(sentenceWithBlanks)
+  const segments = parseSentence(sentenceWithBlanks ?? '')
+
+  if (!sentenceWithBlanks || segments.length === 0) {
+    return (
+      <YStack testID={testID}>
+        <Text color="$colorSubtle">No sentence data available.</Text>
+      </YStack>
+    )
+  }
 
   return (
     <YStack testID={testID} gap="$2">

@@ -322,6 +322,9 @@ export default function QuizPlayScreen() {
   /** Controls visibility of the exit confirmation modal (Story 4.10b) */
   const [showExitModal, setShowExitModal] = useState(false)
 
+  /** Set when user explicitly leaves — prevents the invalid-quiz redirect from firing a second back() */
+  const [hasNavigatedAway, setHasNavigatedAway] = useState(false)
+
   /** The answer selected by the user for the current question (null = not answered yet) */
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
 
@@ -421,9 +424,7 @@ export default function QuizPlayScreen() {
       })
 
       setShowExitModal(false)
-      // Navigate back — beforeRemove listener is bypassed since isComplete check
-      // won't block (we need to allow navigation after pause)
-      // We use router.back() after clearing the active quiz to avoid re-triggering the modal
+      setHasNavigatedAway(true)
       clearResumableQuiz()
       router.back()
     } catch (err) {
@@ -448,7 +449,7 @@ export default function QuizPlayScreen() {
    */
   const handleCancel = useCallback(() => {
     setShowExitModal(false)
-    // Clear the active quiz state so beforeRemove doesn't re-trigger
+    setHasNavigatedAway(true)
     clearResumableQuiz()
     router.back()
   }, [clearResumableQuiz, router])
@@ -478,10 +479,10 @@ export default function QuizPlayScreen() {
   // Skip redirect when isComplete — after quiz completion, quizPayload is cleared by
   // clearResumableQuiz() but CompletionScreen should still render (it uses captured props).
   useEffect(() => {
-    if ((isInvalidQuiz || isIndexOutOfRange) && !isComplete) {
-      router.replace('/(tabs)/books')
+    if ((isInvalidQuiz || isIndexOutOfRange) && !isComplete && !hasNavigatedAway) {
+      router.back()
     }
-  }, [isInvalidQuiz, isIndexOutOfRange, isComplete, router])
+  }, [isInvalidQuiz, isIndexOutOfRange, isComplete, hasNavigatedAway, router])
 
   // ─── Manual advance handler ─────────────────────────────────────────────
   // User taps "Next" on FeedbackOverlay to advance to the next question.
@@ -1064,10 +1065,9 @@ export default function QuizPlayScreen() {
             durationMinutes={durationMins}
             incorrectItems={incorrectItems}
             onContinue={() => {
-              // Clear persisted quiz state (crash recovery no longer needed)
-              // before navigating away from the CompletionScreen
+              setHasNavigatedAway(true)
               clearResumableQuiz()
-              router.replace('/(tabs)/books')
+              router.back()
             }}
             testID="completion-screen"
           />

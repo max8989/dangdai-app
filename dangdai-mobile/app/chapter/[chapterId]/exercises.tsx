@@ -8,25 +8,83 @@
  * Story 3.5, 3.7, 11.5–11.7, 4.16, 4.17
  */
 
+import React from 'react'
 import { ScrollView } from 'react-native'
-import { YStack, XStack, Text, H2, Button } from 'tamagui'
+import { YStack, XStack, Text, H2, Button, Card } from 'tamagui'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import {
   BookOpen,
   MessageSquare,
   MessageCircle,
   ChevronLeft,
+  Sparkles,
+  Check,
 } from '@tamagui/lucide-icons'
 
-import { PremadeExerciseCard } from '../../../components/chapter/PremadeExerciseCard'
 import { useExerciseTypeProgress } from '../../../hooks/useExerciseTypeProgress'
-import { usePremadeExercises } from '../../../hooks/usePremadeExercises'
 import { useChapter } from '../../../hooks/useChapters'
 import { useVocabularyCount } from '../../../hooks/useVocabulary'
 import { useGrammarPointsCount } from '../../../hooks/useGrammarPoints'
 import { useDialoguesCount } from '../../../hooks/useDialogues'
 import { BOOKS } from '../../../constants/books'
 import type { ExerciseTypeProgress } from '../../../components/chapter/ExerciseTypeCard'
+
+// ─── AI Exercise Types ───────────────────────────────────────────────────────
+
+const AI_GENERATABLE_TYPES_LIST = [
+  { type: 'vocabulary', label: 'Vocabulary' },
+  { type: 'grammar', label: 'Grammar' },
+  { type: 'fill_in_blank', label: 'Fill in the Blank' },
+  // { type: 'matching', label: 'Matching' }, // hidden — Reanimated color bug
+  { type: 'dialogue_completion', label: 'Dialogue Completion' },
+  { type: 'sentence_construction', label: 'Sentence Construction' },
+  { type: 'reading_comprehension', label: 'Reading Comprehension' },
+  // { type: 'mixed', label: 'Mixed Practice' }, // hidden for now
+]
+
+function AIExerciseCard({
+  label,
+  exerciseType,
+  progress,
+  onPress,
+}: {
+  label: string
+  exerciseType: string
+  progress: ExerciseTypeProgress | null
+  onPress: () => void
+}) {
+  return (
+    <Card
+      elevate
+      bordered
+      padding="$3"
+      borderRadius="$3"
+      testID={`ai-exercise-card-${exerciseType}`}
+    >
+      <XStack alignItems="center" gap="$3">
+        <YStack flex={1} gap="$1">
+          <Text fontSize="$4" fontWeight="500">{label}</Text>
+        </YStack>
+
+        {progress?.mastered ? (
+          <Check size={20} color="$green10" />
+        ) : progress && progress.bestScore > 0 ? (
+          <Text fontSize="$3" color="$blue10">{Math.round(progress.bestScore)}%</Text>
+        ) : null}
+      </XStack>
+
+      <Button
+        size="$3"
+        marginTop="$2"
+        icon={<Sparkles size={14} />}
+        onPress={onPress}
+        testID={`generate-ai-${exerciseType}`}
+      >
+        Generate with AI
+      </Button>
+    </Card>
+  )
+}
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -61,10 +119,6 @@ export default function ExercisesScreen() {
     }
   }
 
-  // Fetch premade exercises — all 8 types served from premade_exercises table (Story 4.16)
-  // Hook is disabled when bookId=0 or lessonId=0 via its own `enabled` guard
-  const { data: premadeExercises } = usePremadeExercises(bookId, lessonId)
-
   // Fetch content availability for conditional browse button visibility (Story 3.7)
   // Always called unconditionally (Rules of Hooks); disabled when bookId=0 or lessonId=0
   // Undefined during loading = falsy = buttons hidden (correct UX — no flash)
@@ -98,24 +152,6 @@ export default function ExercisesScreen() {
   }
 
   // ─── Navigation Handlers ────────────────────────────────────────────────────
-
-  const handlePremadeExercisePress = (exerciseId: string) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    router.push({
-      pathname: '/quiz/premade' as any,
-      params: {
-        chapterId: chapterIdNum.toString(),
-        bookId: chapter.bookId.toString(),
-        exerciseId,
-      },
-    })
-  }
-
-  // Exercise types the backend LLM pipeline can generate on-the-fly (Story 4.17)
-  const AI_GENERATABLE_TYPES = new Set([
-    'vocabulary', 'grammar', 'fill_in_blank', 'matching',
-    'dialogue_completion', 'sentence_construction', 'reading_comprehension', 'mixed',
-  ])
 
   const handleGenerateWithAI = (exerciseType: string) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -212,29 +248,23 @@ export default function ExercisesScreen() {
             </XStack>
           )}
 
-          {/* Exercises Section — all 8 types served from premade_exercises table (Story 4.16) */}
-          {premadeExercises && premadeExercises.length > 0 && (
-            <YStack gap="$3" testID="premade-exercises-section">
-              <H2 fontSize="$6" fontWeight="bold" testID="premade-section-header">
-                Exercises
-              </H2>
-              <YStack gap="$2">
-                {premadeExercises.map((exercise) => (
-                  <PremadeExerciseCard
-                    key={exercise.id}
-                    exercise={exercise}
-                    progress={progressMap[exercise.exercise_type] ?? null}
-                    onPress={() => handlePremadeExercisePress(exercise.id)}
-                    onGeneratePress={
-                      AI_GENERATABLE_TYPES.has(exercise.exercise_type)
-                        ? () => handleGenerateWithAI(exercise.exercise_type)
-                        : undefined
-                    }
-                  />
-                ))}
-              </YStack>
+          {/* Exercises Section — AI-only generation (Story 4.17) */}
+          <YStack gap="$3" testID="ai-exercises-section">
+            <H2 fontSize="$6" fontWeight="bold" testID="exercises-section-header">
+              Exercises
+            </H2>
+            <YStack gap="$2">
+              {AI_GENERATABLE_TYPES_LIST.map((item) => (
+                <AIExerciseCard
+                  key={item.type}
+                  label={item.label}
+                  exerciseType={item.type}
+                  progress={progressMap[item.type] ?? null}
+                  onPress={() => handleGenerateWithAI(item.type)}
+                />
+              ))}
             </YStack>
-          )}
+          </YStack>
         </YStack>
       </ScrollView>
     </>
