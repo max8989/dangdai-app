@@ -9,8 +9,8 @@ on:
   workflow_dispatch: # Allow manual trigger
 
 env:
-  ACR_NAME: dangdaiacr
-  ACR_LOGIN_SERVER: dangdaiacr.azurecr.io
+  ACR_NAME: dangdaiovileyacr
+  ACR_LOGIN_SERVER: dangdaiovileyacr.azurecr.io
   IMAGE_NAME: dangdai-api
   RESOURCE_GROUP: dangdai-rg
   CONTAINER_APP_NAME: dangdai-api
