@@ -19,6 +19,7 @@ import {
   ChevronLeft,
   Sparkles,
   Check,
+  Play,
 } from '@tamagui/lucide-icons'
 
 import { useExerciseTypeProgress } from '../../../hooks/useExerciseTypeProgress'
@@ -26,8 +27,10 @@ import { useChapter } from '../../../hooks/useChapters'
 import { useVocabularyCount } from '../../../hooks/useVocabulary'
 import { useGrammarPointsCount } from '../../../hooks/useGrammarPoints'
 import { useDialoguesCount } from '../../../hooks/useDialogues'
+import { useAllPausedQuizzes } from '../../../hooks/usePausedQuiz'
 import { BOOKS } from '../../../constants/books'
 import type { ExerciseTypeProgress } from '../../../components/chapter/ExerciseTypeCard'
+import type { PausedQuiz } from '../../../types/paused-quiz'
 
 // ─── AI Exercise Types ───────────────────────────────────────────────────────
 
@@ -46,13 +49,25 @@ function AIExerciseCard({
   label,
   exerciseType,
   progress,
+  pausedQuiz,
   onPress,
+  onResume,
 }: {
   label: string
   exerciseType: string
   progress: ExerciseTypeProgress | null
+  pausedQuiz: PausedQuiz | null
   onPress: () => void
+  onResume: () => void
 }) {
+  const pausedPercent = pausedQuiz
+    ? Math.round(
+        (Object.keys(pausedQuiz.quiz_state.answers).length /
+          pausedQuiz.quiz_state.questions.length) *
+          100
+      )
+    : 0
+
   return (
     <Card
       elevate
@@ -73,15 +88,29 @@ function AIExerciseCard({
         ) : null}
       </XStack>
 
-      <Button
-        size="$3"
-        marginTop="$2"
-        icon={<Sparkles size={14} />}
-        onPress={onPress}
-        testID={`generate-ai-${exerciseType}`}
-      >
-        Generate with AI
-      </Button>
+      <XStack gap="$2" marginTop="$2">
+        {pausedQuiz && (
+          <Button
+            flex={1}
+            size="$3"
+            theme="blue"
+            icon={<Play size={14} />}
+            onPress={onResume}
+            testID={`continue-paused-${exerciseType}`}
+          >
+            <Text>{`Continue (${pausedPercent}%)`}</Text>
+          </Button>
+        )}
+        <Button
+          flex={1}
+          size="$3"
+          icon={<Sparkles size={14} />}
+          onPress={onPress}
+          testID={`generate-ai-${exerciseType}`}
+        >
+          <Text>Generate with AI</Text>
+        </Button>
+      </XStack>
     </Card>
   )
 }
@@ -126,6 +155,15 @@ export default function ExercisesScreen() {
   const { data: hasGrammar } = useGrammarPointsCount(bookId, lessonId)
   const { data: hasDialogues } = useDialoguesCount(bookId, lessonId)
 
+  // Fetch all paused quizzes and build a map by exercise type for this chapter
+  const { data: allPausedQuizzes } = useAllPausedQuizzes()
+  const pausedByType: Record<string, PausedQuiz> = {}
+  for (const pq of allPausedQuizzes ?? []) {
+    if (pq.chapter_id === safeChapterId) {
+      pausedByType[pq.exercise_type] = pq
+    }
+  }
+
   const hasBrowseContent = hasVocabulary || hasGrammar || hasDialogues
 
   // Invalid chapterId state — render after all hooks are called
@@ -161,6 +199,18 @@ export default function ExercisesScreen() {
         bookId: bookId.toString(),
         chapterId: chapterIdNum.toString(),
         exerciseType,
+      },
+    })
+  }
+
+  const handleResumePaused = (exerciseType: string) => {
+    router.push({
+      pathname: '/quiz/loading',
+      params: {
+        chapterId: chapterIdNum.toString(),
+        bookId: bookId.toString(),
+        exerciseType,
+        resumePaused: 'true',
       },
     })
   }
@@ -260,7 +310,9 @@ export default function ExercisesScreen() {
                   label={item.label}
                   exerciseType={item.type}
                   progress={progressMap[item.type] ?? null}
+                  pausedQuiz={pausedByType[item.type] ?? null}
                   onPress={() => handleGenerateWithAI(item.type)}
+                  onResume={() => handleResumePaused(item.type)}
                 />
               ))}
             </YStack>
