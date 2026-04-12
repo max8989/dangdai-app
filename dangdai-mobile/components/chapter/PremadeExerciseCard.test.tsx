@@ -2,9 +2,10 @@
  * PremadeExerciseCard Component Tests
  *
  * Unit tests for the PremadeExerciseCard component.
- * Tests: rendering, completion status indicators, press handler.
+ * Tests: rendering, completion status indicators, press handlers.
  *
  * Story 3.5: Exercise Type Selection Screen — Task 6
+ * Story 4.17: Dual-action Premade + Generate with AI
  */
 
 import React from 'react'
@@ -15,19 +16,24 @@ jest.mock('tamagui', () => {
   const { View, Text, TouchableOpacity } = require('react-native')
 
   return {
-    Card: ({ children, testID, onPress, accessibilityRole, accessibilityLabel }: any) => (
+    Card: ({ children, testID, accessibilityLabel }: any) => (
+      <View testID={testID} accessibilityLabel={accessibilityLabel}>
+        {children}
+      </View>
+    ),
+    XStack: ({ children, testID }: any) => <View testID={testID}>{children}</View>,
+    YStack: ({ children, testID }: any) => <View testID={testID}>{children}</View>,
+    Text: ({ children, testID }: any) => <Text testID={testID}>{children}</Text>,
+    Button: ({ children, testID, onPress, accessibilityRole, accessibilityLabel }: any) => (
       <TouchableOpacity
         testID={testID}
         onPress={onPress}
         accessibilityRole={accessibilityRole}
         accessibilityLabel={accessibilityLabel}
       >
-        {children}
+        <Text>{children}</Text>
       </TouchableOpacity>
     ),
-    XStack: ({ children, testID }: any) => <View testID={testID}>{children}</View>,
-    YStack: ({ children, testID }: any) => <View testID={testID}>{children}</View>,
-    Text: ({ children, testID }: any) => <Text testID={testID}>{children}</Text>,
   }
 })
 
@@ -40,6 +46,10 @@ jest.mock('@tamagui/lucide-icons', () => ({
   BookOpen: () => {
     const { View } = require('react-native')
     return <View testID="book-open-icon" />
+  },
+  Sparkles: () => {
+    const { View } = require('react-native')
+    return <View testID="sparkles-icon" />
   },
 }))
 
@@ -60,12 +70,70 @@ const mockExercise: PremadeExercise = {
 }
 
 const mockOnPress = jest.fn()
+const mockOnGeneratePress = jest.fn()
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('PremadeExerciseCard', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+  })
+
+  describe('action buttons (Story 4.17)', () => {
+    it('renders the Premade button', () => {
+      const { getByTestId } = render(
+        <PremadeExerciseCard
+          exercise={mockExercise}
+          onPress={mockOnPress}
+        />
+      )
+      expect(getByTestId('premade-action-exercise-1')).toBeTruthy()
+    })
+
+    it('renders the Generate with AI button', () => {
+      const { getByTestId } = render(
+        <PremadeExerciseCard
+          exercise={mockExercise}
+          onPress={mockOnPress}
+        />
+      )
+      expect(getByTestId('generate-ai-action-exercise-1')).toBeTruthy()
+    })
+
+    it('calls onPress when Premade button is pressed', () => {
+      const { getByTestId } = render(
+        <PremadeExerciseCard
+          exercise={mockExercise}
+          onPress={mockOnPress}
+        />
+      )
+      fireEvent.press(getByTestId('premade-action-exercise-1'))
+      expect(mockOnPress).toHaveBeenCalledTimes(1)
+    })
+
+    it('calls onGeneratePress when Generate with AI button is pressed', () => {
+      const { getByTestId } = render(
+        <PremadeExerciseCard
+          exercise={mockExercise}
+          onPress={mockOnPress}
+          onGeneratePress={mockOnGeneratePress}
+        />
+      )
+      fireEvent.press(getByTestId('generate-ai-action-exercise-1'))
+      expect(mockOnGeneratePress).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not call onPress when Generate with AI button is pressed', () => {
+      const { getByTestId } = render(
+        <PremadeExerciseCard
+          exercise={mockExercise}
+          onPress={mockOnPress}
+          onGeneratePress={mockOnGeneratePress}
+        />
+      )
+      fireEvent.press(getByTestId('generate-ai-action-exercise-1'))
+      expect(mockOnPress).not.toHaveBeenCalled()
+    })
   })
 
   describe('rendering', () => {
@@ -187,29 +255,4 @@ describe('PremadeExerciseCard', () => {
     })
   })
 
-  describe('navigation (AC #3)', () => {
-    it('calls onPress when card is tapped', () => {
-      const { getByTestId } = render(
-        <PremadeExerciseCard
-          exercise={mockExercise}
-          onPress={mockOnPress}
-        />
-      )
-      fireEvent.press(getByTestId('premade-exercise-card-exercise-1'))
-      expect(mockOnPress).toHaveBeenCalledTimes(1)
-    })
-  })
-
-  describe('accessibility', () => {
-    it('has accessibilityRole="button"', () => {
-      const { getByTestId } = render(
-        <PremadeExerciseCard
-          exercise={mockExercise}
-          onPress={mockOnPress}
-        />
-      )
-      const card = getByTestId('premade-exercise-card-exercise-1')
-      expect(card.props.accessibilityRole).toBe('button')
-    })
-  })
 })

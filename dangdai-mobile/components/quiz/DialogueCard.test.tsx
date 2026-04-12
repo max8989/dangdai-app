@@ -6,36 +6,24 @@
  * - Blank bubble has dashed border styling
  * - Selecting an option fills the blank bubble
  * - Local validation path (exact match → instant correct feedback)
- * - LLM validation path (non-match → loading → LLM result)
- * - LLM timeout fallback (timeout → local incorrect result)
- * - "Your answer is also valid!" for correct alternatives
+ * - Local validation path (acceptable_answer_variants match → isAlternative=true)
+ * - Incorrect answer → incorrect feedback
+ * - "Your answer is also valid!" for acceptable_answer_variants match
  * - Options are disabled after selection
  * - Chinese characters render at 72px minimum (font size $13)
  *
  * Story 4.6: Dialogue Completion Exercise
+ * Story 4.17: Local-only validation (no LLM call)
  */
 
 import React from 'react'
-import { render, fireEvent, waitFor, act } from '@testing-library/react-native'
+import { render, fireEvent, waitFor } from '@testing-library/react-native'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import { DialogueCard } from './DialogueCard'
-import { api } from '../../lib/api'
-import { QuizGenerationError } from '../../types/quiz'
 import type { DialogueQuestion } from '../../types/quiz'
-import type { AnswerValidationResponse } from '../../types/quiz'
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
-
-jest.mock('../../lib/api', () => ({
-  api: {
-    baseUrl: 'http://localhost:8000',
-    generateQuiz: jest.fn(),
-    validateAnswer: jest.fn(),
-  },
-}))
-
-const mockValidateAnswer = api.validateAnswer as jest.MockedFunction<typeof api.validateAnswer>
 
 // Tamagui mock — renders children with accessible testIDs
 // NOTE: jest.mock() factories cannot reference out-of-scope variables (like React).
@@ -102,31 +90,11 @@ const mockDialogueQuestion: DialogueQuestion = {
     { speaker: 'a', text: '好的，我也是。', isBlank: false },
   ],
   options: ['咖啡', '你好', '謝謝', '再見'],
-}
-
-const mockLlmCorrectResponse: AnswerValidationResponse = {
-  is_correct: true,
-  explanation: '茶 (tea) is also a valid drink to order in this context.',
-  alternatives: ['咖啡', '水', '茶'],
-}
-
-const mockLlmIncorrectResponse: AnswerValidationResponse = {
-  is_correct: false,
-  explanation: '你好 means "hello" and is not an appropriate response to a drink question.',
-  alternatives: [],
+  // 謝謝 is a valid alternative answer for free-text validation tests
+  acceptable_answer_variants: ['謝謝', '水'],
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function createWrapper() {
-  const queryClient = new QueryClient({
-    defaultOptions: { mutations: { retry: false } },
-  })
-
-  return function Wrapper({ children }: { children: React.ReactNode }) {
-    return React.createElement(QueryClientProvider, { client: queryClient }, children)
-  }
-}
 
 function renderDialogueCard(
   props: Partial<React.ComponentProps<typeof DialogueCard>> = {}
@@ -200,7 +168,7 @@ describe('DialogueCard', () => {
 
   describe('AC #2: Answer selection and local validation', () => {
     it('fills blank bubble when user selects an option (exact match)', async () => {
-      // No LLM call needed — exact match
+      // No LLM call — local exact match is synchronous
       const onAnswerResult = jest.fn()
       const { getByTestId } = renderDialogueCard({ onAnswerResult })
 
@@ -239,71 +207,23 @@ describe('DialogueCard', () => {
       })
     })
 
-    it('does NOT call LLM for exact match', async () => {
-      const { getByTestId } = renderDialogueCard()
+    it('validation is synchronous — no async spinner for exact match', async () => {
+      const { getByTestId, queryByTestId } = renderDialogueCard()
 
       fireEvent.press(getByTestId('dialogue-option-0')) // 咖啡
 
+      // Result is immediate — spinner should never appear
       await waitFor(() => {
         expect(getByTestId('dialogue-filled-answer')).toBeTruthy()
       })
 
-      expect(mockValidateAnswer).not.toHaveBeenCalled()
-    })
-  })
-
-  describe('AC #2: LLM validation path', () => {
-    it('shows loading spinner during LLM validation', async () => {
-      // Keep LLM pending
-      let resolveLlm: (value: AnswerValidationResponse) => void
-      mockValidateAnswer.mockImplementation(
-        () => new Promise((resolve) => { resolveLlm = resolve })
-      )
-
-      const { getByTestId } = renderDialogueCard()
-
-      // Tap non-matching option (謝謝)
-      fireEvent.press(getByTestId('dialogue-option-2'))
-
-      await waitFor(() => {
-        expect(getByTestId('dialogue-validation-spinner')).toBeTruthy()
-      })
-
-      // Cleanup
-      act(() => { resolveLlm!(mockLlmIncorrectResponse) })
-    })
-
-    it('shows "Your answer is also valid!" for correct LLM alternative', async () => {
-      mockValidateAnswer.mockResolvedValue(mockLlmCorrectResponse)
-
-      const { getByTestId } = renderDialogueCard()
-
-      // Tap a non-matching but valid option (謝謝 — LLM says it's correct)
-      fireEvent.press(getByTestId('dialogue-option-2'))
-
-      await waitFor(() => {
-        expect(getByTestId('dialogue-alternative-message')).toBeTruthy()
-      })
-    })
-
-    it('shows alternatives list for correct LLM alternative', async () => {
-      mockValidateAnswer.mockResolvedValue(mockLlmCorrectResponse)
-
-      const { getByTestId } = renderDialogueCard()
-
-      fireEvent.press(getByTestId('dialogue-option-2'))
-
-      await waitFor(() => {
-        expect(getByTestId('dialogue-alternatives-list')).toBeTruthy()
-      })
+      expect(queryByTestId('dialogue-validation-spinner')).toBeNull()
     })
 
     it('shows incorrect feedback for wrong answer', async () => {
-      mockValidateAnswer.mockResolvedValue(mockLlmIncorrectResponse)
-
       const { getByTestId } = renderDialogueCard()
 
-      // Tap wrong option (你好)
+      // Tap wrong option (你好 — not in correct_answer or acceptable_answer_variants)
       fireEvent.press(getByTestId('dialogue-option-1'))
 
       await waitFor(() => {
@@ -312,59 +232,57 @@ describe('DialogueCard', () => {
       })
     })
 
-    it('calls onAnswerResult with isAlternative=true for LLM-confirmed alternative', async () => {
-      mockValidateAnswer.mockResolvedValue(mockLlmCorrectResponse)
-
+    it('calls onAnswerResult with correct=false for wrong answer', async () => {
       const onAnswerResult = jest.fn()
       const { getByTestId } = renderDialogueCard({ onAnswerResult })
 
-      fireEvent.press(getByTestId('dialogue-option-2'))
+      fireEvent.press(getByTestId('dialogue-option-1')) // 你好
 
       await waitFor(() => {
         expect(onAnswerResult).toHaveBeenCalledWith(
           expect.objectContaining({
-            correct: true,
-            isAlternative: true,
+            correct: false,
+            selectedAnswer: '你好',
+            isAlternative: false,
           })
         )
       })
     })
   })
 
-  describe('AC #2: LLM timeout fallback', () => {
-    it('falls back to local (incorrect) when LLM times out', async () => {
-      const timeoutError = new QuizGenerationError('timeout', 'Validation timed out.')
-      mockValidateAnswer.mockRejectedValue(timeoutError)
+  describe('AC #2: acceptable_answer_variants validation', () => {
+    it('shows "Your answer is also valid!" for acceptable_answer_variants match', async () => {
+      const { getByTestId } = renderDialogueCard()
 
-      const onAnswerResult = jest.fn()
-      const { getByTestId } = renderDialogueCard({ onAnswerResult })
-
-      // Tap non-matching option
+      // Tap 謝謝 — it is in acceptable_answer_variants
       fireEvent.press(getByTestId('dialogue-option-2'))
 
       await waitFor(() => {
-        expect(onAnswerResult).toHaveBeenCalledWith(
-          expect.objectContaining({
-            correct: false,
-            isAlternative: false,
-          })
-        )
+        expect(getByTestId('dialogue-alternative-message')).toBeTruthy()
       })
     })
 
-    it('falls back to local on network error', async () => {
-      const networkError = new QuizGenerationError('network', 'Validation request failed.')
-      mockValidateAnswer.mockRejectedValue(networkError)
+    it('shows alternatives list for acceptable_answer_variants match', async () => {
+      const { getByTestId } = renderDialogueCard()
 
+      fireEvent.press(getByTestId('dialogue-option-2')) // 謝謝
+
+      await waitFor(() => {
+        expect(getByTestId('dialogue-alternatives-list')).toBeTruthy()
+      })
+    })
+
+    it('calls onAnswerResult with isAlternative=true for acceptable_answer_variants match', async () => {
       const onAnswerResult = jest.fn()
       const { getByTestId } = renderDialogueCard({ onAnswerResult })
 
-      fireEvent.press(getByTestId('dialogue-option-2'))
+      fireEvent.press(getByTestId('dialogue-option-2')) // 謝謝
 
       await waitFor(() => {
         expect(onAnswerResult).toHaveBeenCalledWith(
           expect.objectContaining({
-            correct: false,
+            correct: true,
+            isAlternative: true,
           })
         )
       })

@@ -194,6 +194,47 @@ class ContentRepository:
         normal = [v for v in vocab if v.get("traditional", "") not in weak_set]
         return weak + normal
 
+    def upsert_premade_exercise(
+        self,
+        book_id: int,
+        lesson_id: int,
+        exercise_type: str,
+        title: str,
+        instructions: str,
+        content: dict[str, Any],
+        difficulty: str = "medium",
+        exercise_order: int = 1,
+    ) -> None:
+        """Upsert a premade_exercises row keyed on (book_id, lesson_id, exercise_type).
+
+        Used by the on-the-fly /api/exercises/generate endpoint (Story 4.17) to cache
+        a successfully generated AI exercise so subsequent users can load it instantly
+        via the Premade path. The upsert overwrites any existing entry for the same key.
+        """
+        row = {
+            "book_id": book_id,
+            "lesson_id": lesson_id,
+            "exercise_type": exercise_type,
+            "title": title,
+            "instructions": instructions,
+            "content": content,
+            "difficulty": difficulty,
+            "exercise_order": exercise_order,
+        }
+        try:
+            self._client.table("premade_exercises").upsert(
+                row,
+                on_conflict="book_id,lesson_id,exercise_type,exercise_order",
+            ).execute()
+        except Exception:
+            logger.exception(
+                "Failed to upsert premade_exercises row for book=%d lesson=%d type=%s",
+                book_id,
+                lesson_id,
+                exercise_type,
+            )
+            raise
+
     def get_vocabulary_for_cumulative(
         self, book_id: int, up_to_lesson_id: int
     ) -> list[dict[str, Any]]:

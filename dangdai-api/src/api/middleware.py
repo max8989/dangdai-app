@@ -8,7 +8,9 @@ import time
 from typing import Callable
 
 from fastapi import FastAPI, Request, Response
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 logger = logging.getLogger(__name__)
@@ -68,6 +70,14 @@ def setup_middleware(app: FastAPI) -> None:
     Args:
         app: The FastAPI application instance.
     """
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(
+        request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        logger.error("[422] Validation error on %s %s: %s", request.method, request.url.path, exc.errors())
+        return JSONResponse(status_code=422, content={"detail": exc.errors()})
+
     app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(
         CORSMiddleware,

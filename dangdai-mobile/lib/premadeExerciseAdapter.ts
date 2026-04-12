@@ -335,6 +335,21 @@ export function adaptPremadeContent(
   exerciseType: string,
   content: Record<string, unknown>,
 ): QuizQuestion[] {
+  // Story 4.17: AI-generated content arrives as {"questions": [...]} where each
+  // question already has exercise_type, question_text, etc. Detect this format
+  // by checking if the first question has an exercise_type field.
+  const questionsArr = content.questions as any[] | undefined
+  if (
+    questionsArr &&
+    Array.isArray(questionsArr) &&
+    questionsArr.length > 0 &&
+    questionsArr[0].exercise_type
+  ) {
+    console.log('[premadeExerciseAdapter] AI format detected, first q keys:', Object.keys(questionsArr[0]).join(', '), 'dialogue_bubbles?', !!questionsArr[0].dialogue_bubbles)
+    return adaptAIGeneratedQuestions(questionsArr)
+  }
+  console.log('[premadeExerciseAdapter] Legacy format, exerciseType:', exerciseType, 'content keys:', Object.keys(content).join(', '))
+
   switch (exerciseType) {
     case 'fill_in_blank':
       return adaptFillInBlank(content)
@@ -357,4 +372,65 @@ export function adaptPremadeContent(
       console.warn(`[premadeExerciseAdapter] Unknown exercise type: ${exerciseType}`)
       return []
   }
+}
+
+/**
+ * Adapt AI-generated questions (from /api/exercises/generate) to QuizQuestion[].
+ *
+ * AI questions already contain exercise_type, question_text, correct_answer, etc.
+ * We just need to map LLM field names to the mobile QuizQuestion field names
+ * (e.g., dialogue_bubbles → dialogue_lines).
+ *
+ * Story 4.17: On-the-fly AI generation with baked-in validation metadata.
+ */
+function adaptAIGeneratedQuestions(questions: any[]): QuizQuestion[] {
+  return questions.map((q, i): QuizQuestion => {
+    const base: QuizQuestion = {
+      question_id: q.question_id ?? `ai-${i}`,
+      exercise_type: q.exercise_type,
+      question_text: q.question_text ?? '',
+      correct_answer: q.correct_answer ?? '',
+      explanation: q.explanation ?? '',
+      source_citation: q.source_citation ?? '',
+      options: Array.isArray(q.options) ? q.options.map((o: any) => typeof o === 'string' ? o : String(o)) : q.options,
+      character: q.character,
+      pinyin: q.pinyin,
+      sentence_with_blanks: q.sentence_with_blanks,
+      word_bank: q.word_bank,
+      blank_positions: q.blank_positions,
+      scrambled_words: q.scrambled_words,
+      correct_order: q.correct_order?.map(String),
+      left_items: q.left_items,
+      right_items: q.right_items,
+      correct_pairs: q.correct_pairs,
+      passage: q.passage,
+      acceptable_answer_variants: q.acceptable_answer_variants,
+      semantic_rubric: q.semantic_rubric,
+    }
+
+    // Map dialogue_bubbles → dialogue_lines
+    if (q.dialogue_bubbles && Array.isArray(q.dialogue_bubbles)) {
+      base.dialogue_lines = q.dialogue_bubbles.map((b: any) => ({
+        speaker: b.speaker?.toLowerCase() ?? 'a',
+        text: b.is_blank ? '' : (b.text ?? ''),
+        isBlank: !!b.is_blank,
+      }))
+      console.log(`[adaptAI] q${i} dialogue_lines mapped:`, base.dialogue_lines?.length, 'from bubbles:', q.dialogue_bubbles.length)
+    } else if (q.exercise_type === 'dialogue_completion') {
+      console.warn(`[adaptAI] q${i} is dialogue_completion but NO dialogue_bubbles! Keys:`, Object.keys(q).join(', '))
+    }
+
+    // Map comprehension_questions
+    if (q.comprehension_questions && Array.isArray(q.comprehension_questions)) {
+      base.comprehension_questions = q.comprehension_questions.map((sub: any) => ({
+        question: sub.question,
+        options: sub.options,
+        correct: sub.correct,
+        correct_answer: sub.correct_answer ?? sub.options?.[sub.correct] ?? '',
+        explanation: sub.explanation,
+      }))
+    }
+
+    return base
+  })
 }

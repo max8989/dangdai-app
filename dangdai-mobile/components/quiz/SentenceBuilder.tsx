@@ -76,6 +76,8 @@ export interface SentenceBuilderProps {
   disabled?: boolean
   /** testID for the root container */
   testID?: string
+  /** Acceptable answer variants for local validation (Story 4.17) */
+  acceptableAnswerVariants?: string[]
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -269,6 +271,7 @@ export function SentenceBuilder({
   onAnswer,
   disabled = false,
   testID,
+  acceptableAnswerVariants,
 }: SentenceBuilderProps) {
   // ─── Store state ─────────────────────────────────────────────────────────
 
@@ -371,12 +374,13 @@ export function SentenceBuilder({
     setIsSubmitted(true)
 
     // Pass raw strings — useAnswerValidation normalizes internally (H2 fix).
-    const result = await validate({
+    const result = validate({
       userAnswer: constructedSentence,
       correctAnswer,
       questionText,
       exerciseType: 'sentence_construction',
       preGeneratedExplanation: explanation,
+      acceptableAnswerVariants,
     })
 
     setValidationResult(result)

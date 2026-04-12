@@ -1,22 +1,11 @@
 /**
  * Exercise Type Selection Screen
  *
- * Displays all exercise types for a chapter, served from the premade_exercises table.
- * All exercises are pre-generated — no AI generation at runtime.
+ * Displays all exercise types for a chapter with dual actions per card:
+ * - "Premade" (instant) → /quiz/premade
+ * - "Generate with AI" (~15-20s) → /quiz/ai-loading
  *
- * Navigation:
- * - Exercise card tap → /quiz/premade with exerciseId, chapterId, bookId params
- * - Browse buttons → /chapter/[chapterId]/vocabulary|grammar|dialogues
- *
- * Browse buttons are conditionally shown based on content availability.
- * Buttons hidden during loading (undefined = falsy) — no flash of content.
- *
- * Open Navigation: No gates, no locks — all exercise types accessible.
- *
- * Story 3.5: Exercise Type Selection Screen
- * Story 3.7: Wire Browse Screen Navigation — conditional browse button visibility
- * Stories 11.5, 11.6, 11.7: Navigation wired up here
- * Story 4.16: Migrate all exercise types to pre-generated default
+ * Story 3.5, 3.7, 11.5–11.7, 4.16, 4.17
  */
 
 import { ScrollView } from 'react-native'
@@ -122,6 +111,24 @@ export default function ExercisesScreen() {
     })
   }
 
+  // Exercise types the backend LLM pipeline can generate on-the-fly (Story 4.17)
+  const AI_GENERATABLE_TYPES = new Set([
+    'vocabulary', 'grammar', 'fill_in_blank', 'matching',
+    'dialogue_completion', 'sentence_construction', 'reading_comprehension', 'mixed',
+  ])
+
+  const handleGenerateWithAI = (exerciseType: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    router.push({
+      pathname: '/quiz/ai-loading' as any,
+      params: {
+        bookId: bookId.toString(),
+        chapterId: chapterIdNum.toString(),
+        exerciseType,
+      },
+    })
+  }
+
   // ─── Render ─────────────────────────────────────────────────────────────────
 
   return (
@@ -218,6 +225,11 @@ export default function ExercisesScreen() {
                     exercise={exercise}
                     progress={progressMap[exercise.exercise_type] ?? null}
                     onPress={() => handlePremadeExercisePress(exercise.id)}
+                    onGeneratePress={
+                      AI_GENERATABLE_TYPES.has(exercise.exercise_type)
+                        ? () => handleGenerateWithAI(exercise.exercise_type)
+                        : undefined
+                    }
                   />
                 ))}
               </YStack>

@@ -1,34 +1,21 @@
 /**
  * useAnswerValidation Hook Tests
  *
- * Tests for hybrid answer validation logic:
- * - Local exact match → instant correct, no LLM call
- * - Non-match → LLM call → returns LLM result
- * - LLM timeout → fallback to local (incorrect)
- * - LLM network error → fallback to local (incorrect)
+ * Tests for local-only answer validation logic (Story 4.17):
+ * - Exact match against correctAnswer → isCorrect=true, isAlternative=false
+ * - Match via acceptableAnswerVariants → isCorrect=true, isAlternative=true
+ * - No match → isCorrect=false
+ * - Case-insensitive matching
+ * - Punctuation-normalized matching (Chinese 。 and others stripped)
+ * - Empty variants array → falls through to no match
+ * - No variants supplied → falls through to no match
  *
- * Story 4.6: Dialogue Completion Exercise
+ * Validation is entirely synchronous — no LLM calls, no api.validateAnswer.
  */
 
-import { renderHook, act, waitFor } from '@testing-library/react-native'
-import React from 'react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { renderHook } from '@testing-library/react-native'
 
 import { useAnswerValidation } from './useAnswerValidation'
-import { api } from '../lib/api'
-import { QuizGenerationError } from '../types/quiz'
-import type { AnswerValidationResponse } from '../types/quiz'
-
-// Mock the api module
-jest.mock('../lib/api', () => ({
-  api: {
-    baseUrl: 'http://localhost:8000',
-    generateQuiz: jest.fn(),
-    validateAnswer: jest.fn(),
-  },
-}))
-
-const mockValidateAnswer = api.validateAnswer as jest.MockedFunction<typeof api.validateAnswer>
 
 const BASE_PARAMS = {
   userAnswer: '咖啡',
@@ -38,42 +25,12 @@ const BASE_PARAMS = {
   preGeneratedExplanation: 'The question asks what you want to drink. 咖啡 (coffee) is the appropriate response.',
 }
 
-const mockLlmCorrectResponse: AnswerValidationResponse = {
-  is_correct: true,
-  explanation: '茶 (tea) is also a valid drink to order in this context.',
-  alternatives: ['咖啡', '水', '茶'],
-}
-
-const mockLlmIncorrectResponse: AnswerValidationResponse = {
-  is_correct: false,
-  explanation: '你好 means "hello" and is not an appropriate response to what you want to drink.',
-  alternatives: [],
-}
-
-/** Create a wrapper with a fresh QueryClient for each test */
-function createWrapper() {
-  const queryClient = new QueryClient({
-    defaultOptions: { mutations: { retry: false } },
-  })
-
-  return function Wrapper({ children }: { children: React.ReactNode }) {
-    return React.createElement(QueryClientProvider, { client: queryClient }, children)
-  }
-}
-
 describe('useAnswerValidation', () => {
-  beforeEach(() => {
-    jest.clearAllMocks()
-  })
+  describe('exact match', () => {
+    it('returns isCorrect=true, isAlternative=false when answer exactly matches correctAnswer', () => {
+      const { result } = renderHook(() => useAnswerValidation())
 
-  describe('local exact match', () => {
-    it('returns instant correct result when answer exactly matches correct answer', async () => {
-      const { result } = renderHook(() => useAnswerValidation(), { wrapper: createWrapper() })
-
-      let validationResult: Awaited<ReturnType<typeof result.current.validate>> | undefined
-      await act(async () => {
-        validationResult = await result.current.validate(BASE_PARAMS)
-      })
+      const validationResult = result.current.validate(BASE_PARAMS)
 
       expect(validationResult).toEqual({
         isCorrect: true,
@@ -83,225 +40,207 @@ describe('useAnswerValidation', () => {
       })
     })
 
-    it('does NOT call LLM when local match succeeds', async () => {
-      const { result } = renderHook(() => useAnswerValidation(), { wrapper: createWrapper() })
+    it('always returns usedLlm=false on exact match', () => {
+      const { result } = renderHook(() => useAnswerValidation())
 
-      await act(async () => {
-        await result.current.validate(BASE_PARAMS)
-      })
+      const validationResult = result.current.validate(BASE_PARAMS)
 
-      expect(mockValidateAnswer).not.toHaveBeenCalled()
-    })
-
-    it('trims whitespace when comparing answers', async () => {
-      const { result } = renderHook(() => useAnswerValidation(), { wrapper: createWrapper() })
-
-      let validationResult: Awaited<ReturnType<typeof result.current.validate>> | undefined
-      await act(async () => {
-        validationResult = await result.current.validate({
-          ...BASE_PARAMS,
-          userAnswer: '  咖啡  ',
-          correctAnswer: '咖啡',
-        })
-      })
-
-      expect(validationResult?.isCorrect).toBe(true)
-      expect(mockValidateAnswer).not.toHaveBeenCalled()
+      expect(validationResult.usedLlm).toBe(false)
     })
   })
 
-  describe('LLM validation path', () => {
-    it('calls LLM when answer does not match correct answer', async () => {
-      mockValidateAnswer.mockResolvedValue(mockLlmCorrectResponse)
+  describe('acceptableAnswerVariants match', () => {
+    it('returns isCorrect=true, isAlternative=true when answer matches a variant', () => {
+      const { result } = renderHook(() => useAnswerValidation())
 
-      const { result } = renderHook(() => useAnswerValidation(), { wrapper: createWrapper() })
-
-      await act(async () => {
-        await result.current.validate({
-          ...BASE_PARAMS,
-          userAnswer: '茶',
-          correctAnswer: '咖啡',
-        })
-      })
-
-      expect(mockValidateAnswer).toHaveBeenCalledWith({
-        question: BASE_PARAMS.questionText,
+      const validationResult = result.current.validate({
+        ...BASE_PARAMS,
         userAnswer: '茶',
         correctAnswer: '咖啡',
-        exerciseType: BASE_PARAMS.exerciseType,
+        acceptableAnswerVariants: ['茶', '水'],
       })
+
+      expect(validationResult.isCorrect).toBe(true)
+      expect(validationResult.isAlternative).toBe(true)
+      expect(validationResult.usedLlm).toBe(false)
     })
 
-    it('returns isAlternative=true when LLM confirms a correct alternative', async () => {
-      mockValidateAnswer.mockResolvedValue(mockLlmCorrectResponse)
+    it('returns the other variants in alternatives when a variant matches', () => {
+      const { result } = renderHook(() => useAnswerValidation())
 
-      const { result } = renderHook(() => useAnswerValidation(), { wrapper: createWrapper() })
-
-      let validationResult: Awaited<ReturnType<typeof result.current.validate>> | undefined
-      await act(async () => {
-        validationResult = await result.current.validate({
-          ...BASE_PARAMS,
-          userAnswer: '茶',
-          correctAnswer: '咖啡',
-        })
+      const validationResult = result.current.validate({
+        ...BASE_PARAMS,
+        userAnswer: '茶',
+        correctAnswer: '咖啡',
+        acceptableAnswerVariants: ['茶', '水', '果汁'],
       })
 
-      expect(validationResult).toEqual({
-        isCorrect: true,
-        isAlternative: true,
-        explanation: mockLlmCorrectResponse.explanation,
-        alternatives: mockLlmCorrectResponse.alternatives,
-        usedLlm: true,
-      })
+      expect(validationResult.alternatives).toEqual(['水', '果汁'])
     })
 
-    it('returns isCorrect=false when LLM confirms incorrect answer', async () => {
-      mockValidateAnswer.mockResolvedValue(mockLlmIncorrectResponse)
+    it('uses the preGeneratedExplanation as explanation on variant match', () => {
+      const { result } = renderHook(() => useAnswerValidation())
 
-      const { result } = renderHook(() => useAnswerValidation(), { wrapper: createWrapper() })
-
-      let validationResult: Awaited<ReturnType<typeof result.current.validate>> | undefined
-      await act(async () => {
-        validationResult = await result.current.validate({
-          ...BASE_PARAMS,
-          userAnswer: '你好',
-          correctAnswer: '咖啡',
-        })
+      const validationResult = result.current.validate({
+        ...BASE_PARAMS,
+        userAnswer: '茶',
+        correctAnswer: '咖啡',
+        acceptableAnswerVariants: ['茶'],
       })
 
-      expect(validationResult?.isCorrect).toBe(false)
-      expect(validationResult?.isAlternative).toBe(false)
-      expect(validationResult?.usedLlm).toBe(true)
-      expect(validationResult?.explanation).toBe(mockLlmIncorrectResponse.explanation)
+      expect(validationResult.explanation).toBe(BASE_PARAMS.preGeneratedExplanation)
     })
   })
 
-  describe('LLM timeout fallback', () => {
-    it('falls back to local (incorrect) when LLM times out', async () => {
-      const timeoutError = new QuizGenerationError('timeout', 'Validation timed out.')
-      mockValidateAnswer.mockRejectedValue(timeoutError)
+  describe('no match', () => {
+    it('returns isCorrect=false when answer does not match correctAnswer or any variant', () => {
+      const { result } = renderHook(() => useAnswerValidation())
 
-      const { result } = renderHook(() => useAnswerValidation(), { wrapper: createWrapper() })
-
-      let validationResult: Awaited<ReturnType<typeof result.current.validate>> | undefined
-      await act(async () => {
-        validationResult = await result.current.validate({
-          ...BASE_PARAMS,
-          userAnswer: '茶',
-          correctAnswer: '咖啡',
-        })
+      const validationResult = result.current.validate({
+        ...BASE_PARAMS,
+        userAnswer: '你好',
+        correctAnswer: '咖啡',
+        acceptableAnswerVariants: ['茶', '水'],
       })
 
-      expect(validationResult).toEqual({
-        isCorrect: false,
-        isAlternative: false,
-        explanation: BASE_PARAMS.preGeneratedExplanation,
-        usedLlm: false,
-      })
+      expect(validationResult.isCorrect).toBe(false)
+      expect(validationResult.isAlternative).toBe(false)
+      expect(validationResult.usedLlm).toBe(false)
     })
 
-    it('falls back to local (incorrect) when LLM network fails', async () => {
-      const networkError = new QuizGenerationError('network', 'Validation request failed.')
-      mockValidateAnswer.mockRejectedValue(networkError)
+    it('returns isCorrect=false when acceptableAnswerVariants is an empty array', () => {
+      const { result } = renderHook(() => useAnswerValidation())
 
-      const { result } = renderHook(() => useAnswerValidation(), { wrapper: createWrapper() })
-
-      let validationResult: Awaited<ReturnType<typeof result.current.validate>> | undefined
-      await act(async () => {
-        validationResult = await result.current.validate({
-          ...BASE_PARAMS,
-          userAnswer: '茶',
-          correctAnswer: '咖啡',
-        })
+      const validationResult = result.current.validate({
+        ...BASE_PARAMS,
+        userAnswer: '茶',
+        correctAnswer: '咖啡',
+        acceptableAnswerVariants: [],
       })
 
-      expect(validationResult?.isCorrect).toBe(false)
-      expect(validationResult?.isAlternative).toBe(false)
-      expect(validationResult?.usedLlm).toBe(false)
+      expect(validationResult.isCorrect).toBe(false)
+    })
+
+    it('returns isCorrect=false when acceptableAnswerVariants is not supplied', () => {
+      const { result } = renderHook(() => useAnswerValidation())
+
+      const validationResult = result.current.validate({
+        ...BASE_PARAMS,
+        userAnswer: '茶',
+        correctAnswer: '咖啡',
+        // acceptableAnswerVariants intentionally omitted
+      })
+
+      expect(validationResult.isCorrect).toBe(false)
     })
   })
 
-  describe('isValidating state', () => {
-    it('starts as false (not validating)', () => {
-      const { result } = renderHook(() => useAnswerValidation(), { wrapper: createWrapper() })
+  describe('case-insensitive matching', () => {
+    it('matches correctAnswer regardless of case', () => {
+      const { result } = renderHook(() => useAnswerValidation())
+
+      const validationResult = result.current.validate({
+        ...BASE_PARAMS,
+        userAnswer: 'Hello',
+        correctAnswer: 'hello',
+      })
+
+      expect(validationResult.isCorrect).toBe(true)
+      expect(validationResult.isAlternative).toBe(false)
+    })
+
+    it('matches a variant regardless of case', () => {
+      const { result } = renderHook(() => useAnswerValidation())
+
+      const validationResult = result.current.validate({
+        ...BASE_PARAMS,
+        userAnswer: 'BYE',
+        correctAnswer: 'hello',
+        acceptableAnswerVariants: ['bye', 'goodbye'],
+      })
+
+      expect(validationResult.isCorrect).toBe(true)
+      expect(validationResult.isAlternative).toBe(true)
+    })
+  })
+
+  describe('punctuation-normalized matching', () => {
+    it('matches correctAnswer when Chinese period 。 is present in userAnswer', () => {
+      const { result } = renderHook(() => useAnswerValidation())
+
+      const validationResult = result.current.validate({
+        ...BASE_PARAMS,
+        userAnswer: '咖啡。',
+        correctAnswer: '咖啡',
+      })
+
+      expect(validationResult.isCorrect).toBe(true)
+      expect(validationResult.isAlternative).toBe(false)
+    })
+
+    it('matches correctAnswer when English punctuation is present in userAnswer', () => {
+      const { result } = renderHook(() => useAnswerValidation())
+
+      const validationResult = result.current.validate({
+        ...BASE_PARAMS,
+        userAnswer: 'hello,',
+        correctAnswer: 'hello',
+      })
+
+      expect(validationResult.isCorrect).toBe(true)
+    })
+
+    it('matches a variant after stripping punctuation', () => {
+      const { result } = renderHook(() => useAnswerValidation())
+
+      const validationResult = result.current.validate({
+        ...BASE_PARAMS,
+        userAnswer: '茶！',
+        correctAnswer: '咖啡',
+        acceptableAnswerVariants: ['茶'],
+      })
+
+      expect(validationResult.isCorrect).toBe(true)
+      expect(validationResult.isAlternative).toBe(true)
+    })
+
+    it('matches correctAnswer after collapsing internal whitespace', () => {
+      const { result } = renderHook(() => useAnswerValidation())
+
+      const validationResult = result.current.validate({
+        ...BASE_PARAMS,
+        userAnswer: '  咖啡  ',
+        correctAnswer: '咖啡',
+      })
+
+      expect(validationResult.isCorrect).toBe(true)
+    })
+  })
+
+  describe('hook contract', () => {
+    it('exposes a validate function', () => {
+      const { result } = renderHook(() => useAnswerValidation())
+
+      expect(typeof result.current.validate).toBe('function')
+    })
+
+    it('isValidating is always false (synchronous, no async work)', () => {
+      const { result } = renderHook(() => useAnswerValidation())
+
+      expect(result.current.isValidating).toBe(false)
+
+      result.current.validate(BASE_PARAMS)
+
       expect(result.current.isValidating).toBe(false)
     })
 
-    it('returns validate function', () => {
-      const { result } = renderHook(() => useAnswerValidation(), { wrapper: createWrapper() })
-      expect(typeof result.current.validate).toBe('function')
-    })
-  })
+    it('validate returns synchronously (not a Promise)', () => {
+      const { result } = renderHook(() => useAnswerValidation())
 
-  describe('ValidationResult contract — H3: isAlternative semantic', () => {
-    it('local match: isCorrect=true, isAlternative=false, usedLlm=false', async () => {
-      const { result } = renderHook(() => useAnswerValidation(), { wrapper: createWrapper() })
+      const returnValue = result.current.validate(BASE_PARAMS)
 
-      let validationResult: Awaited<ReturnType<typeof result.current.validate>> | undefined
-      await act(async () => {
-        validationResult = await result.current.validate(BASE_PARAMS)
-      })
-
-      expect(validationResult?.isCorrect).toBe(true)
-      expect(validationResult?.isAlternative).toBe(false)
-      expect(validationResult?.usedLlm).toBe(false)
-    })
-
-    it('LLM correct alternative: isCorrect=true, isAlternative=true, usedLlm=true', async () => {
-      mockValidateAnswer.mockResolvedValue(mockLlmCorrectResponse)
-
-      const { result } = renderHook(() => useAnswerValidation(), { wrapper: createWrapper() })
-
-      let validationResult: Awaited<ReturnType<typeof result.current.validate>> | undefined
-      await act(async () => {
-        validationResult = await result.current.validate({
-          ...BASE_PARAMS,
-          userAnswer: '茶',
-          correctAnswer: '咖啡',
-        })
-      })
-
-      expect(validationResult?.isCorrect).toBe(true)
-      expect(validationResult?.isAlternative).toBe(true)
-      expect(validationResult?.usedLlm).toBe(true)
-    })
-
-    it('LLM incorrect: isCorrect=false, isAlternative=false, usedLlm=true', async () => {
-      mockValidateAnswer.mockResolvedValue(mockLlmIncorrectResponse)
-
-      const { result } = renderHook(() => useAnswerValidation(), { wrapper: createWrapper() })
-
-      let validationResult: Awaited<ReturnType<typeof result.current.validate>> | undefined
-      await act(async () => {
-        validationResult = await result.current.validate({
-          ...BASE_PARAMS,
-          userAnswer: '你好',
-          correctAnswer: '咖啡',
-        })
-      })
-
-      expect(validationResult?.isCorrect).toBe(false)
-      expect(validationResult?.isAlternative).toBe(false)
-      expect(validationResult?.usedLlm).toBe(true)
-    })
-
-    it('LLM timeout fallback: isCorrect=false, isAlternative=false, usedLlm=false', async () => {
-      mockValidateAnswer.mockRejectedValue(new QuizGenerationError('timeout', 'timed out'))
-
-      const { result } = renderHook(() => useAnswerValidation(), { wrapper: createWrapper() })
-
-      let validationResult: Awaited<ReturnType<typeof result.current.validate>> | undefined
-      await act(async () => {
-        validationResult = await result.current.validate({
-          ...BASE_PARAMS,
-          userAnswer: '茶',
-          correctAnswer: '咖啡',
-        })
-      })
-
-      expect(validationResult?.isCorrect).toBe(false)
-      expect(validationResult?.isAlternative).toBe(false)
-      expect(validationResult?.usedLlm).toBe(false)
+      // A Promise has a .then method; a plain object does not
+      expect(typeof (returnValue as unknown as Promise<unknown>).then).toBe('undefined')
     })
   })
 })

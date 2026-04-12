@@ -145,11 +145,27 @@ class TestOpenAIProvider:
         clear=False,
     )
     def test_openai_correct_model(self):
-        """Test OpenAI uses correct default model."""
+        """Test OpenAI uses correct default model (gpt-5)."""
         from src.utils.llm_factory import get_llm
 
         llm = get_llm()
-        assert llm.model_name == "gpt-4o"  # type: ignore[attr-defined]
+        assert llm.model_name == "gpt-5"  # type: ignore[attr-defined]
+
+    @patch.dict(
+        "os.environ",
+        {
+            "LLM_PROVIDER": "openai",
+            "OPENAI_API_KEY": "sk-test-key",
+            "OPENAI_MODEL": "gpt-5",
+        },
+        clear=False,
+    )
+    def test_openai_model_env_override(self):
+        """Test OPENAI_MODEL env var overrides default model for OpenAI."""
+        from src.utils.llm_factory import get_llm
+
+        llm = get_llm()
+        assert llm.model_name == "gpt-5"  # type: ignore[attr-defined]
 
     @patch.dict(
         "os.environ",
@@ -172,20 +188,19 @@ class TestDefaultProvider:
     @patch.dict(
         "os.environ",
         {
-            "AZURE_OPENAI_API_KEY": "test-azure-key",
-            "AZURE_OPENAI_ENDPOINT": "https://test.openai.azure.com/",
-            "AZURE_OPENAI_DEPLOYMENT_NAME": "gpt-4o",
+            "OPENAI_API_KEY": "sk-test-key",
         },
         clear=True,
     )
-    def test_default_provider_is_azure_openai(self):
-        """Test that default provider is azure_openai when LLM_PROVIDER not set."""
-        from langchain_openai import AzureChatOpenAI
+    def test_default_provider_is_openai(self):
+        """Test that default provider is openai when LLM_PROVIDER not set (Story 4.17)."""
+        from langchain_openai import ChatOpenAI
 
         from src.utils.llm_factory import get_llm
 
         llm = get_llm()
-        assert isinstance(llm, AzureChatOpenAI)
+        assert isinstance(llm, ChatOpenAI)
+        assert llm.model_name == "gpt-5"  # type: ignore[attr-defined]
 
 
 class TestUnsupportedProvider:
@@ -230,11 +245,12 @@ class TestParameterOverrides:
         {
             "LLM_PROVIDER": "openai",
             "OPENAI_API_KEY": "sk-test-key",
+            "LLM_MODEL": "gpt-4o",
         },
         clear=False,
     )
     def test_custom_temperature_and_max_tokens(self):
-        """Test custom temperature and max_tokens are passed to LLM."""
+        """Test custom temperature and max_tokens are passed to a non-reasoning model."""
         from src.utils.llm_factory import get_llm
 
         llm = get_llm(temperature=0.9, max_tokens=4096)
@@ -252,11 +268,10 @@ class TestParameterOverrides:
         clear=False,
     )
     def test_azure_custom_parameters(self):
-        """Test custom parameters work with Azure OpenAI provider."""
+        """Test custom max_tokens flows through to Azure OpenAI provider."""
         from src.utils.llm_factory import get_llm
 
         llm = get_llm(temperature=0.3, max_tokens=1024)
-        assert llm.temperature == 0.3  # type: ignore[attr-defined]
         assert llm.max_tokens == 1024  # type: ignore[attr-defined]
 
     @patch.dict(
@@ -264,16 +279,17 @@ class TestParameterOverrides:
         {
             "LLM_PROVIDER": "openai",
             "OPENAI_API_KEY": "sk-test-key",
+            "LLM_MODEL": "gpt-4o",
         },
         clear=False,
     )
     def test_default_parameters(self):
-        """Test default temperature=0.7 and max_tokens=2048."""
+        """Test default temperature=0.7 and max_tokens=4096 (Story 4.17)."""
         from src.utils.llm_factory import get_llm
 
         llm = get_llm()
         assert llm.temperature == 0.7  # type: ignore[attr-defined]
-        assert llm.max_tokens == 2048  # type: ignore[attr-defined]
+        assert llm.max_tokens == 4096  # type: ignore[attr-defined]
 
 
 class TestModelOverride:
@@ -335,8 +351,8 @@ class TestProviderOverrideParameter:
         assert isinstance(llm, ChatOpenAI)
 
 
-class TestTerraformAzureOpenAI:
-    """Tests for Azure OpenAI Terraform configuration."""
+class TestTerraformOpenAI:
+    """Tests for OpenAI Terraform configuration (Story 4.17 — Azure OpenAI decommissioned)."""
 
     @property
     def terraform_dir(self):
@@ -352,36 +368,24 @@ class TestTerraformAzureOpenAI:
             content += tf_file.read_text() + "\n"
         return content
 
-    def test_openai_tf_exists(self):
-        """Test that openai.tf file exists."""
+    def test_openai_tf_has_no_azure_cognitive_resources(self):
+        """openai.tf must not declare any Azure cognitive resources."""
         openai_tf = self.terraform_dir / "openai.tf"
-        assert openai_tf.exists(), "openai.tf should exist in terraform directory"
-
-    def test_openai_tf_has_cognitive_account(self):
-        """Test that openai.tf provisions Azure OpenAI cognitive account."""
-        openai_tf = self.terraform_dir / "openai.tf"
+        assert openai_tf.exists()
         content = openai_tf.read_text()
-        assert "azurerm_cognitive_account" in content
-        assert '"OpenAI"' in content
+        assert 'resource "azurerm_cognitive_account"' not in content
+        assert 'resource "azurerm_cognitive_deployment"' not in content
 
-    def test_openai_tf_has_gpt4o_deployment(self):
-        """Test that openai.tf provisions gpt-4o deployment."""
-        openai_tf = self.terraform_dir / "openai.tf"
-        content = openai_tf.read_text()
-        assert "azurerm_cognitive_deployment" in content
-        assert '"gpt-4o"' in content
-
-    def test_container_app_has_azure_openai_env_vars(self):
-        """Test container app configures Azure OpenAI environment variables."""
+    def test_container_app_env_vars_point_to_openai(self):
+        """Container app env vars should set LLM_PROVIDER=openai and reference OPENAI_* vars."""
         content = self._read_all_tf_files()
         assert "LLM_PROVIDER" in content
-        assert "AZURE_OPENAI_ENDPOINT" in content
-        assert "AZURE_OPENAI_API_KEY" in content
-        assert "AZURE_OPENAI_DEPLOYMENT_NAME" in content
+        assert "OPENAI_API_KEY" in content
+        assert "OPENAI_MODEL" in content
 
-    def test_variables_has_azure_openai_vars(self):
-        """Test variables.tf has Azure OpenAI configuration variables."""
+    def test_variables_has_openai_vars(self):
+        """variables.tf must declare the openai_api_key and openai_model variables."""
         variables_tf = self.terraform_dir / "variables.tf"
         content = variables_tf.read_text()
-        assert "azure_openai_deployment_name" in content
-        assert "azure_openai_tpm_limit" in content
+        assert "openai_api_key" in content
+        assert "openai_model" in content

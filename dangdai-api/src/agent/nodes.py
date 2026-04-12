@@ -496,8 +496,10 @@ async def generate_quiz(state: QuizGenerationState) -> dict[str, Any]:
         logger.info("[Node:generate_quiz] Client disconnected, aborting LLM call")
         raise asyncio.CancelledError("Client disconnected")
 
-    # Call LLM asynchronously
-    llm = get_llm()
+    # Story 4.17: free-text types emit acceptable_answer_variants + semantic_rubric
+    # inline, which makes output significantly larger. 16384 gives headroom for 12
+    # questions with variants without truncation.
+    llm = get_llm(max_tokens=16384)
     messages = [
         SystemMessage(content=SYSTEM_PROMPT),
         HumanMessage(content=prompt_text),
@@ -650,7 +652,6 @@ _SIMPLIFIED_TO_TRADITIONAL: dict[str, str] = {
     "农": "農",
     "欧": "歐",
     "盘": "盤",
-    "篇": "篇",
     "强": "強",
     "桥": "橋",
     "亲": "親",
@@ -698,12 +699,10 @@ _SIMPLIFIED_TO_TRADITIONAL: dict[str, str] = {
     "阴": "陰",
     "应": "應",
     "拥": "擁",
-    "用": "用",
     "优": "優",
     "邮": "郵",
     "鱼": "魚",
     "员": "員",
-    "院": "院",
     "乐": "樂",
     "贬": "貶",
     "证": "證",
@@ -885,34 +884,16 @@ def _run_deterministic_content_checks(
             for issue in _check_pinyin_format(pinyin_val):
                 all_issues.append(f"[{qid}] pinyin: {issue}")
 
-        # Check all Chinese text fields for Simplified chars
-        for field in chinese_fields:
-            val = q.get(field)
-            if val is None:
-                continue
-            values_to_check: list[str] = []
-            if isinstance(val, str):
-                values_to_check = [val]
-            elif isinstance(val, list):
-                values_to_check = [str(v) for v in val if v]
+        # Simplified Chinese check — disabled (Story 4.17). Too many false positives
+        # on characters that are identical in both systems (用, 篇, 院, etc.).
+        # The prompt already instructs the LLM to use Traditional Chinese.
 
-            for text in values_to_check:
-                for issue in _check_simplified_chinese(text):
-                    all_issues.append(f"[{qid}] {field}: {issue}")
-
-        # Check dialogue bubbles
-        bubbles = q.get("dialogue_bubbles", [])
-        if isinstance(bubbles, list):
-            for bubble in bubbles:
-                if isinstance(bubble, dict):
-                    bubble_text = bubble.get("text", "")
-                    for issue in _check_simplified_chinese(bubble_text):
-                        all_issues.append(f"[{qid}] dialogue_bubbles.text: {issue}")
-
-    # Curriculum alignment check
-    if vocab_set:
-        for issue in _check_curriculum_alignment(questions, vocab_set):
-            all_issues.append(issue)
+    # Curriculum alignment check — disabled for on-the-fly generation (Story 4.17).
+    # The LLM uses valid Chinese words beyond the strict vocab list, and false
+    # positives (e.g. 多練習, 寫字) cause unnecessary retries and timeouts.
+    # if vocab_set:
+    #     for issue in _check_curriculum_alignment(questions, vocab_set):
+    #         all_issues.append(issue)
 
     return all_issues
 
@@ -1052,11 +1033,13 @@ async def validate_structure(state: QuizGenerationState) -> dict[str, Any]:
             )
             needs_retry = True
 
-    # Grammar coverage validation — relaxed to min(4, total) instead of ALL (AC #6)
+    # Grammar coverage validation — only for grammar/mixed types (AC #6)
     MIN_GRAMMAR_COVERAGE = 4
+    exercise_type = state.get("exercise_type", "")
     grammar_points_list = state.get("grammar_points_list", [])
     grammar_feedback = ""
-    if grammar_points_list and valid_questions and not needs_retry:
+    grammar_applicable_types = {"grammar", "mixed"}
+    if grammar_points_list and valid_questions and not needs_retry and exercise_type in grammar_applicable_types:
         covered_grammar: set[str] = set()
         for question in valid_questions:
             gp = question.get("grammar_pattern")
@@ -1366,9 +1349,13 @@ def _get_output_schema_hint(exercise_type: str) -> str:
         "matching": ', "left_items": ["A", "B"], "right_items": ["1", "2"], '
         '"correct_pairs": [[0, 0], [1, 1]]}',
         "dialogue_completion": ', "dialogue_bubbles": [{"speaker": "A", "text": "...", '
-        '"is_blank": false}], "options": ["a", "b", "c", "d"]}',
+        '"is_blank": false}], "options": ["a", "b", "c", "d"], '
+        '"acceptable_answer_variants": ["...", "...", "..."], '
+        '"semantic_rubric": "<one-sentence grading rule>"}',
         "sentence_construction": ', "scrambled_words": ["word1", "word2"], '
-        '"correct_order": [1, 0]}',
+        '"correct_order": [1, 0], '
+        '"acceptable_answer_variants": ["...", "...", "..."], '
+        '"semantic_rubric": "<one-sentence grading rule>"}',
         "reading_comprehension": ', "passage": "...", '
         '"comprehension_questions": [{"question": "...", '
         '"options": ["a", "b", "c", "d"], "correct": 0}]}',

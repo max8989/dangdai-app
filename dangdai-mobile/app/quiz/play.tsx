@@ -1185,6 +1185,7 @@ export default function QuizPlayScreen() {
                     onAnswer={handleSentenceAnswer}
                     disabled={showFeedback}
                     testID="sentence-builder"
+                    acceptableAnswerVariants={currentQuestion.acceptable_answer_variants}
                   />
                 </YStack>
               </AnimatePresence>

@@ -9,7 +9,7 @@
 
 import { supabase } from './supabase'
 import { QuizGenerationError, EXERCISE_TYPE_LABELS } from '../types/quiz'
-import type { QuizGenerationParams, QuizResponse, ExerciseType, AnswerValidationRequest, AnswerValidationResponse } from '../types/quiz'
+import type { QuizGenerationParams, QuizResponse, ExerciseType } from '../types/quiz'
 
 const apiUrl = process.env.EXPO_PUBLIC_API_URL
 
@@ -25,15 +25,8 @@ export const API_BASE_URL = apiUrl ?? 'http://localhost:8000'
 /** Client-side timeout for quiz generation requests (2 minutes). */
 const QUIZ_GENERATION_TIMEOUT_MS = 120_000
 
-/**
- * Client-side timeout for answer validation requests.
- *
- * Story 4.6 set this to 3 seconds (faster UX, acceptable given LLM latency targets).
- * Story 4.7 spec referenced 5 seconds, but 3 seconds was retained from 4.6 for
- * consistency — the hook falls back to local validation on timeout, so UX is safe.
- * Change to 5_000 here if LLM latency proves too variable in production.
- */
-const ANSWER_VALIDATION_TIMEOUT_MS = 3_000
+/** Client-side timeout for on-the-fly exercise generation (Story 4.17). */
+const EXERCISE_GENERATION_TIMEOUT_MS = 130_000
 
 /**
  * Categorize an HTTP error response into a typed QuizGenerationError.
@@ -170,22 +163,19 @@ export const api = {
   },
 
   /**
-   * Validate an answer via the LLM backend.
+   * Generate an exercise on-the-fly via AI (Story 4.17).
    *
-   * Used for Dialogue Completion and Sentence Construction exercise types
-   * when the user's answer differs from the pre-generated answer key.
+   * Returns the same content shape as premade_exercises.content so the mobile
+   * adapter can consume both paths identically.
    *
-   * @param params - Validation parameters.
-   * @returns LLM validation result with is_correct, explanation, alternatives.
-   * @throws {QuizGenerationError} On timeout, network, or server error.
+   * @param params - Generation parameters (bookId, chapterId, exerciseType).
+   * @param options - Optional { signal } for external AbortController.
+   * @throws {QuizGenerationError} Typed error with category and user-friendly message.
    */
-  async validateAnswer(params: {
-    question: string
-    userAnswer: string
-    correctAnswer: string
-    exerciseType: string
-  }): Promise<AnswerValidationResponse> {
-    // Note: params are mapped to AnswerValidationRequest snake_case keys for the API body below.
+  async generateExercise(
+    params: { bookId: number; chapterId: number; exerciseType: string },
+    options?: { signal?: AbortSignal },
+  ): Promise<ExerciseGenerateResponse> {
     const {
       data: { session },
     } = await supabase.auth.getSession()
@@ -194,43 +184,80 @@ export const api = {
     }
 
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), ANSWER_VALIDATION_TIMEOUT_MS)
+    const timeoutId = setTimeout(() => controller.abort(), EXERCISE_GENERATION_TIMEOUT_MS)
 
-    const requestBody: AnswerValidationRequest = {
-      question: params.question,
-      user_answer: params.userAnswer,
-      correct_answer: params.correctAnswer,
-      exercise_type: params.exerciseType,
+    // Thread external signal — abort our controller if the caller aborts
+    const externalSignal = options?.signal
+    const onExternalAbort = () => controller.abort()
+    if (externalSignal) {
+      if (externalSignal.aborted) {
+        clearTimeout(timeoutId)
+        controller.abort()
+      } else {
+        externalSignal.addEventListener('abort', onExternalAbort)
+      }
     }
 
+    const url = `${API_BASE_URL}/api/exercises/generate`
+    const body = {
+      chapter_id: params.chapterId,
+      book_id: params.bookId,
+      exercise_type: params.exerciseType,
+    }
+    console.log('[api.generateExercise] POST', url, JSON.stringify(body))
+
     try {
-      const response = await fetch(`${API_BASE_URL}/api/quizzes/validate-answer`, {
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify(body),
         signal: controller.signal,
       })
 
       clearTimeout(timeoutId)
+      externalSignal?.removeEventListener('abort', onExternalAbort)
+
+      console.log('[api.generateExercise] response status:', response.status)
 
       if (!response.ok) {
-        throw new QuizGenerationError('server', 'Answer validation failed.')
+        const errorBody = await response.text().catch(() => '')
+        console.error('[api.generateExercise] HTTP', response.status, 'body:', errorBody)
+        const label = EXERCISE_TYPE_LABELS[params.exerciseType as ExerciseType] ?? params.exerciseType
+        throw categorizeHttpError(response.status, label)
       }
 
-      return (await response.json()) as AnswerValidationResponse
+      const result = (await response.json()) as ExerciseGenerateResponse
+      console.log('[api.generateExercise] success, exercise_type:', result.exercise_type)
+      return result
     } catch (error) {
       clearTimeout(timeoutId)
+      externalSignal?.removeEventListener('abort', onExternalAbort)
+
+      console.error('[api.generateExercise] caught error:', error instanceof Error ? `${error.name}: ${error.message}` : String(error))
 
       if (error instanceof QuizGenerationError) throw error
 
       if (error instanceof Error && error.name === 'AbortError') {
-        throw new QuizGenerationError('timeout', 'Validation timed out.')
+        throw new QuizGenerationError(
+          'timeout',
+          "Couldn't generate exercise — please try again.",
+        )
       }
 
-      throw new QuizGenerationError('network', 'Validation request failed.')
+      throw new QuizGenerationError('network', 'Check your connection and try again.')
     }
   },
+}
+
+/** Response shape from POST /api/exercises/generate (Story 4.17). */
+export interface ExerciseGenerateResponse {
+  exercise_type: string
+  book_id: number
+  lesson_id: number
+  title: string
+  instructions: string
+  content: { questions: any[] }
 }

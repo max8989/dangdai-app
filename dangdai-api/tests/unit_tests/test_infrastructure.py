@@ -120,31 +120,28 @@ class TestTerraformConfiguration:
         assert '"1Gi"' in content, "Should configure 1GB memory"
 
     def test_terraform_has_secrets_configuration(self):
-        """Test that Terraform configures secrets for sensitive values."""
+        """Test that Terraform configures secrets for sensitive values (Story 4.17: OpenAI)."""
         content = self._read_all_tf_files()
         assert "supabase-service-key" in content, (
             "Should configure supabase service key secret"
         )
-        assert "azure-openai-api-key" in content, (
-            "Should configure Azure OpenAI API key secret"
+        assert "openai-api-key" in content, (
+            "Should configure OpenAI API key secret"
         )
 
     def test_terraform_has_environment_variables(self):
-        """Test that Terraform configures required environment variables."""
+        """Test that Terraform configures required environment variables (Story 4.17: OpenAI)."""
         content = self._read_all_tf_files()
         assert "SUPABASE_URL" in content, "Should configure SUPABASE_URL env var"
         assert "SUPABASE_SERVICE_KEY" in content, (
             "Should configure SUPABASE_SERVICE_KEY env var"
         )
         assert "LLM_PROVIDER" in content, "Should configure LLM_PROVIDER env var"
-        assert "AZURE_OPENAI_ENDPOINT" in content, (
-            "Should configure AZURE_OPENAI_ENDPOINT env var"
+        assert "OPENAI_API_KEY" in content, (
+            "Should configure OPENAI_API_KEY env var"
         )
-        assert "AZURE_OPENAI_API_KEY" in content, (
-            "Should configure AZURE_OPENAI_API_KEY env var"
-        )
-        assert "AZURE_OPENAI_DEPLOYMENT_NAME" in content, (
-            "Should configure AZURE_OPENAI_DEPLOYMENT_NAME env var"
+        assert "OPENAI_MODEL" in content, (
+            "Should configure OPENAI_MODEL env var"
         )
 
     def test_main_tf_has_log_analytics(self):

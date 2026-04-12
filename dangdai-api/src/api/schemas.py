@@ -141,6 +141,20 @@ class DialogueCompletionQuestion(QuizQuestionBase):
         description="List of {speaker, text, is_blank} dialogue entries",
     )
     options: list[str] = Field(..., description="Options to fill the blank bubble")
+    acceptable_answer_variants: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Semantically equivalent valid answers for local runtime validation "
+            "(Story 4.17). Always includes correct_answer as the first entry."
+        ),
+    )
+    semantic_rubric: str = Field(
+        default="",
+        description=(
+            "One-sentence English grading rule used when a student answer does "
+            "not match any entry in acceptable_answer_variants."
+        ),
+    )
 
 
 class SentenceConstructionQuestion(QuizQuestionBase):
@@ -151,6 +165,20 @@ class SentenceConstructionQuestion(QuizQuestionBase):
     )
     scrambled_words: list[str] = Field(..., description="Words in scrambled order")
     correct_order: list[int] = Field(..., description="Correct indices order")
+    acceptable_answer_variants: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Semantically equivalent valid sentence orderings for local runtime "
+            "validation (Story 4.17). Always includes the canonical correct_answer."
+        ),
+    )
+    semantic_rubric: str = Field(
+        default="",
+        description=(
+            "One-sentence English grading rule used when a student answer does "
+            "not match any entry in acceptable_answer_variants."
+        ),
+    )
 
 
 class ComprehensionSubQuestion(BaseModel):
@@ -216,42 +244,38 @@ class ErrorResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Answer validation schemas
+# On-the-fly exercise generation schemas (Story 4.17)
 # ---------------------------------------------------------------------------
 
 
-class ValidationExerciseType(StrEnum):
-    """Exercise types that require LLM-based answer validation."""
+class ExerciseGenerateRequest(BaseModel):
+    """On-the-fly AI exercise generation request."""
 
-    SENTENCE_CONSTRUCTION = "sentence_construction"
-    DIALOGUE_COMPLETION = "dialogue_completion"
-
-
-class ValidationRequest(BaseModel):
-    """Answer validation request for complex exercise types."""
-
-    question: str = Field(..., min_length=1, description="The original question text")
-    user_answer: str = Field(
-        ..., min_length=1, description="The user's submitted answer"
+    chapter_id: int = Field(
+        ..., description="Composite chapter ID (book_id * 100 + chapter_number)"
     )
-    correct_answer: str = Field(
-        ..., min_length=1, description="The correct answer from the answer key"
-    )
-    exercise_type: ValidationExerciseType = Field(
-        ..., description="Must be 'sentence_construction' or 'dialogue_completion'"
+    book_id: int = Field(..., ge=1, le=6, description="Book number (1-6)")
+    exercise_type: ExerciseType = Field(
+        ..., description="Exercise type to generate on-the-fly"
     )
 
 
-class ValidationResponse(BaseModel):
-    """Answer validation response from LLM evaluation."""
+class ExerciseGenerateResponse(BaseModel):
+    """On-the-fly exercise generation response.
 
-    is_correct: bool = Field(..., description="Whether the user's answer is valid")
-    explanation: str = Field(
-        ..., description="Educational explanation of the evaluation"
-    )
-    alternatives: list[str] = Field(
-        default_factory=list,
-        description="Alternative valid answers (1-3 items)",
+    Returns the exercise payload in the same JSONB shape that
+    `premade_exercises.content` uses so the mobile premade adapter can
+    consume both paths identically (Story 4.17).
+    """
+
+    exercise_type: str = Field(..., description="Exercise type generated")
+    book_id: int = Field(..., description="Book ID")
+    lesson_id: int = Field(..., description="Lesson number within the book")
+    title: str = Field(..., description="Exercise title")
+    instructions: str = Field(..., description="Exercise instructions")
+    content: dict = Field(
+        ...,
+        description="Exercise content — matches premade_exercises.content JSONB shape",
     )
 
 

@@ -1,17 +1,16 @@
 """Integration tests for Story 1.9: Request Cancellation for Backend Endpoints.
 
-Verifies that client disconnection is detected at each of the 6 checkpoints
-in the quiz generation and validation pipeline, that CancelledError propagates
-correctly (is never silently swallowed), that no expensive LLM/database calls
-are made after a disconnect, and that the normal (connected) path is unaffected.
+Verifies that client disconnection is detected at each of the 5 checkpoints
+in the quiz generation pipeline, that CancelledError propagates correctly
+(is never silently swallowed), that no expensive LLM/database calls are made
+after a disconnect, and that the normal (connected) path is unaffected.
 
 Checkpoints under test:
   1. QuizService.generate_quiz() — before graph.ainvoke()
   2. retrieve_content node — before RAG database query
   3. query_weakness node — before weakness DB query
   4. generate_quiz node — before LLM call
-  5. evaluate_content node — before evaluator LLM call
-  6. ValidationService.validate_answer() — before LLM call
+  5. evaluate_content node — before evaluator LLM call (deprecated but code retained)
 """
 
 from __future__ import annotations
@@ -661,119 +660,6 @@ class TestEvaluateContentNodeCheckpoint:
 
 
 # ---------------------------------------------------------------------------
-# Checkpoint 6: ValidationService.validate_answer() — before LLM call
-# ---------------------------------------------------------------------------
-
-
-class TestValidationServiceCheckpoint:
-    """Checkpoint 6: ValidationService checks disconnection before LLM call."""
-
-    @pytest.mark.asyncio
-    @patch("src.services.validation_service.get_llm")
-    async def test_disconnected_client_prevents_validation_llm_call(
-        self, mock_get_llm: MagicMock
-    ) -> None:
-        """Positive cancellation: validation LLM is NEVER called when client disconnects.
-
-        Objective: Verify that ValidationService.validate_answer() raises
-        CancelledError before calling the LLM, preventing any API cost.
-        """
-        # Arrange
-        from src.api.schemas import ValidationExerciseType, ValidationRequest
-        from src.services.validation_service import ValidationService
-
-        service = ValidationService()
-        request_body = ValidationRequest(
-            question="Arrange: 我 中文 學",
-            user_answer="我學中文",
-            correct_answer="我學中文",
-            exercise_type=ValidationExerciseType.SENTENCE_CONSTRUCTION,
-        )
-        disconnected_request = _make_disconnected_request()
-
-        # Act & Assert
-        with pytest.raises(asyncio.CancelledError):
-            await service.validate_answer(request_body, disconnected_request)
-
-        # Verify: LLM was never invoked — no API cost incurred
-        mock_get_llm.return_value.ainvoke.assert_not_called()
-        disconnected_request.is_disconnected.assert_called_once()
-
-    @pytest.mark.asyncio
-    @patch("src.services.validation_service.get_llm")
-    async def test_connected_client_calls_validation_llm(
-        self, mock_get_llm: MagicMock
-    ) -> None:
-        """Negative (false-positive guard): connected client proceeds to validation LLM.
-
-        Objective: Verify that a connected client is NOT cancelled at the
-        validate_answer checkpoint — the LLM is invoked normally.
-        """
-        # Arrange
-        from src.api.schemas import ValidationExerciseType, ValidationRequest
-        from src.services.validation_service import ValidationService
-
-        service = ValidationService()
-        request_body = ValidationRequest(
-            question="Arrange: 我 中文 學",
-            user_answer="我學中文",
-            correct_answer="我學中文",
-            exercise_type=ValidationExerciseType.SENTENCE_CONSTRUCTION,
-        )
-        connected_request = _make_connected_request()
-
-        mock_llm = MagicMock()
-        mock_llm.ainvoke = AsyncMock(
-            return_value=MagicMock(
-                content='{"is_correct": true, "explanation": "Correct!", "alternatives": []}'
-            )
-        )
-        mock_get_llm.return_value = mock_llm
-
-        # Act
-        result = await service.validate_answer(request_body, connected_request)
-
-        # Assert: LLM was called and result returned
-        mock_llm.ainvoke.assert_called_once()
-        assert result.is_correct is True
-        connected_request.is_disconnected.assert_called_once()
-
-    @pytest.mark.asyncio
-    @patch("src.services.validation_service.get_llm")
-    async def test_validation_cancellation_logs_info(
-        self, mock_get_llm: MagicMock, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        """Positive cancellation: INFO log emitted at validate_answer checkpoint.
-
-        Objective: Verify that when a client disconnects at the validate_answer
-        checkpoint, an INFO-level log message containing 'disconnected' is emitted.
-        """
-        # Arrange
-        from src.api.schemas import ValidationExerciseType, ValidationRequest
-        from src.services.validation_service import ValidationService
-
-        service = ValidationService()
-        request_body = ValidationRequest(
-            question="Arrange: 我 中文 學",
-            user_answer="我學中文",
-            correct_answer="我學中文",
-            exercise_type=ValidationExerciseType.SENTENCE_CONSTRUCTION,
-        )
-        disconnected_request = _make_disconnected_request()
-
-        # Act
-        with caplog.at_level(logging.INFO, logger="src.services.validation_service"):
-            with pytest.raises(asyncio.CancelledError):
-                await service.validate_answer(request_body, disconnected_request)
-
-        # Assert: INFO log contains 'disconnected'
-        log_messages = [r.message for r in caplog.records]
-        assert any("disconnected" in msg.lower() for msg in log_messages), (
-            f"Expected 'disconnected' in logs, got: {log_messages}"
-        )
-
-
-# ---------------------------------------------------------------------------
 # CancelledError propagation — no silent swallowing
 # ---------------------------------------------------------------------------
 
@@ -859,37 +745,6 @@ class TestCancelledErrorPropagation:
             # Act & Assert: CancelledError must propagate, not trigger auto-pass fallback
             with pytest.raises(asyncio.CancelledError):
                 await evaluate_content(state)  # type: ignore[arg-type]
-
-    @pytest.mark.asyncio
-    async def test_cancelled_error_propagates_through_validation_service(self) -> None:
-        """Positive: CancelledError from LLM propagates out of ValidationService.
-
-        Objective: Verify that if asyncio.CancelledError is raised during the
-        LLM call inside validate_answer, it is re-raised and NOT swallowed.
-        """
-        # Arrange
-        from src.api.schemas import ValidationExerciseType, ValidationRequest
-        from src.services.validation_service import ValidationService
-
-        service = ValidationService()
-        request_body = ValidationRequest(
-            question="Arrange: 我 中文 學",
-            user_answer="我學中文",
-            correct_answer="我學中文",
-            exercise_type=ValidationExerciseType.SENTENCE_CONSTRUCTION,
-        )
-        connected_request = _make_connected_request()
-
-        with patch("src.services.validation_service.get_llm") as mock_get_llm:
-            mock_llm = MagicMock()
-            mock_llm.ainvoke = AsyncMock(
-                side_effect=asyncio.CancelledError("mid-validation")
-            )
-            mock_get_llm.return_value = mock_llm
-
-            # Act & Assert: CancelledError must propagate
-            with pytest.raises(asyncio.CancelledError):
-                await service.validate_answer(request_body, connected_request)
 
     @pytest.mark.asyncio
     async def test_cancelled_error_propagates_through_quiz_service(self) -> None:
@@ -984,39 +839,3 @@ class TestNoRequestGuard:
         mock_graph.ainvoke.assert_called_once()
         assert result.question_count == 1
 
-    @pytest.mark.asyncio
-    @patch("src.services.validation_service.get_llm")
-    async def test_validation_service_without_http_request_calls_llm(
-        self, mock_get_llm: MagicMock
-    ) -> None:
-        """Negative: ValidationService without http_request proceeds normally (no check).
-
-        Objective: Verify that when http_request is None, the validation service
-        does NOT attempt to call is_disconnected() and proceeds to the LLM call.
-        """
-        # Arrange
-        from src.api.schemas import ValidationExerciseType, ValidationRequest
-        from src.services.validation_service import ValidationService
-
-        service = ValidationService()
-        request_body = ValidationRequest(
-            question="Arrange: 我 中文 學",
-            user_answer="我學中文",
-            correct_answer="我學中文",
-            exercise_type=ValidationExerciseType.SENTENCE_CONSTRUCTION,
-        )
-
-        mock_llm = MagicMock()
-        mock_llm.ainvoke = AsyncMock(
-            return_value=MagicMock(
-                content='{"is_correct": true, "explanation": "Correct!", "alternatives": []}'
-            )
-        )
-        mock_get_llm.return_value = mock_llm
-
-        # Act — no http_request passed
-        result = await service.validate_answer(request_body, None)
-
-        # Assert: LLM was called normally without any disconnection check
-        mock_llm.ainvoke.assert_called_once()
-        assert result.is_correct is True

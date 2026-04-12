@@ -815,6 +815,7 @@ export default function PremadeExerciseScreen() {
                     onAnswer={handleSentenceAnswer}
                     disabled={showFeedback}
                     testID="sentence-builder"
+                    acceptableAnswerVariants={currentQuestion.acceptable_answer_variants}
                   />
                 </YStack>
               </AnimatePresence>

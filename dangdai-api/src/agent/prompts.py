@@ -156,6 +156,18 @@ Question JSON fields:
 - dialogue_bubbles (array of {{speaker: str, text: str (Traditional Chinese), is_blank: bool}})
 - options (array of strings in Traditional Chinese to fill the blank)
 - explanation, source_citation
+
+FREE-TEXT VALIDATION METADATA (Story 4.17 single-call pipeline):
+Because answer validation at runtime is fully local (no second LLM call), you MUST
+emit the following extra fields for EVERY dialogue_completion question:
+- acceptable_answer_variants: array of 3-5 semantically equivalent valid answers in
+  Traditional Chinese. Always include the correct_answer as the first entry, followed
+  by natural alternative phrasings a student might produce (e.g., different politeness
+  markers, contracted/expanded forms, commonly accepted synonyms). All entries must be
+  grammatically correct and contextually appropriate to the dialogue.
+- semantic_rubric: a single English sentence describing how to judge edge-case student
+  answers not listed in acceptable_answer_variants (e.g., "Accept any polite greeting
+  that acknowledges the speaker's inquiry and uses chapter vocabulary.").
 """
 
 SENTENCE_CONSTRUCTION_INSTRUCTIONS = """\
@@ -170,6 +182,19 @@ Question JSON fields:
 - scrambled_words (array of words in Traditional Chinese in random order)
 - correct_order (array of indices representing correct word order)
 - explanation, source_citation
+
+FREE-TEXT VALIDATION METADATA (Story 4.17 single-call pipeline):
+Because answer validation at runtime is fully local (no second LLM call), you MUST
+emit the following extra fields for EVERY sentence_construction question:
+- acceptable_answer_variants: array of 3-5 semantically equivalent valid orderings as
+  full Traditional Chinese sentence strings (concatenate scrambled_words in each valid
+  order). Always include the canonical correct_answer sentence as the first entry; the
+  remaining entries are alternate valid word orders (e.g., fronted adverbials,
+  equivalent topic/comment orderings) that native speakers would accept.
+- semantic_rubric: a single English sentence describing how to judge edge-case student
+  answers not listed in acceptable_answer_variants (e.g., "Accept any ordering that
+  preserves the subject-verb-object relationship and keeps the time phrase before the
+  verb.").
 """
 
 READING_COMPREHENSION_INSTRUCTIONS = """\
@@ -195,56 +220,6 @@ EXERCISE_TYPE_INSTRUCTIONS: dict[str, str] = {
     "sentence_construction": SENTENCE_CONSTRUCTION_INSTRUCTIONS,
     "reading_comprehension": READING_COMPREHENSION_INSTRUCTIONS,
 }
-
-ANSWER_VALIDATION_SYSTEM_PROMPT = """\
-You are an expert Chinese language evaluator for the 當代中文課程 \
-(A Course in Contemporary Chinese) textbook series. Your task is to evaluate \
-whether a student's answer to a Chinese language exercise is correct, even if \
-it differs from the provided answer key.
-
-CRITICAL RULES:
-- The textbook uses ONLY Traditional Chinese characters (繁體字) - evaluate answers accordingly
-- Consider semantic equivalence, not just exact string matching
-- For Sentence Construction: accept valid alternative word orderings that are \
-grammatically correct and convey the same meaning
-- For Dialogue Completion: accept responses that are contextually appropriate \
-and grammatically correct, even if different from the answer key
-- Always provide a brief educational explanation
-- List 1-3 alternative valid answers when they exist (in Traditional Chinese)
-- Respond ONLY with valid JSON, no additional text
-"""
-
-ANSWER_VALIDATION_PROMPT = """\
-Evaluate the following student answer for a {exercise_type} exercise.
-
-## Question
-{question}
-
-## Expected Answer (from answer key)
-{correct_answer}
-
-## Student's Answer
-{user_answer}
-
-## Evaluation Criteria
-For {exercise_type}:
-- Is the student's answer grammatically correct?
-- Does it convey the same meaning as the expected answer?
-- Is it a valid response to the question, even if different from the key?
-
-## Required Output Format
-Return ONLY a JSON object with this exact structure:
-{{
-  "is_correct": true or false,
-  "explanation": "Brief explanation of why the answer is correct or incorrect (1-2 sentences)",
-  "alternatives": ["alt1", "alt2"]
-}}
-
-- "is_correct": true if the student's answer is a valid response, false otherwise
-- "explanation": educational feedback for the student
-- "alternatives": list of 1-3 other valid answers (may include the answer key if different \
-from student's answer). Empty list if no alternatives exist.
-"""
 
 VALIDATION_PROMPT = """\
 Validate the following quiz questions for quality and correctness.

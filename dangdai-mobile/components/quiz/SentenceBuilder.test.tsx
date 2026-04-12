@@ -16,13 +16,13 @@
  * 6.3 Tapping a placed tile returns it to the word bank
  * 6.4 Submit button is disabled until all tiles are placed
  * 6.5 Correct answer (local match) shows all tiles green
- * 6.6 Incorrect answer triggers LLM validation call
- * 6.7 LLM returns valid alternative — shows "also valid" message
- * 6.8 LLM returns incorrect — shows per-tile green/orange + correct sentence
- * 6.9 LLM timeout falls back to local validation (marks as incorrect)
- * 6.10 play.tsx renders SentenceBuilder for sentence_construction (in play.test.tsx)
+ * 6.6 Incorrect answer (no match) shows incorrect feedback
+ * 6.7 acceptableAnswerVariants match shows "also valid" message
+ * 6.8 Incorrect answer shows per-tile feedback and correct sentence
+ * 6.9 play.tsx renders SentenceBuilder for sentence_construction (in play.test.tsx)
  *
  * Story 4.7: Sentence Construction Exercise
+ * Story 4.17: Validation is local-only — no LLM call
  */
 
 // Mock AsyncStorage — required by useQuizStore persist middleware (Story 4.10)
@@ -36,21 +36,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import { SentenceBuilder } from './SentenceBuilder'
 import { useQuizStore } from '../../stores/useQuizStore'
-import { api } from '../../lib/api'
-import { QuizGenerationError } from '../../types/quiz'
-import type { AnswerValidationResponse } from '../../types/quiz'
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
-
-jest.mock('../../lib/api', () => ({
-  api: {
-    baseUrl: 'http://localhost:8000',
-    generateQuiz: jest.fn(),
-    validateAnswer: jest.fn(),
-  },
-}))
-
-const mockValidateAnswer = api.validateAnswer as jest.MockedFunction<typeof api.validateAnswer>
 
 // Tamagui mock — renders children with accessible testIDs
 jest.mock('tamagui', () => {
@@ -153,18 +140,6 @@ const mockDefaultProps = {
   explanation: 'The adverb 很 comes before the verb 喜歡 in Chinese.',
   sourceCitation: 'Book 2, Chapter 12 - Grammar',
   onAnswer: jest.fn(),
-}
-
-const mockLlmValidAlternative: AnswerValidationResponse = {
-  is_correct: true,
-  explanation: 'Your word order is also grammatically correct.',
-  alternatives: ['我很喜歡咖啡。', '我很喜歡喝咖啡。'],
-}
-
-const mockLlmIncorrect: AnswerValidationResponse = {
-  is_correct: false,
-  explanation: 'The adverb 很 must come directly before the verb 喜歡.',
-  alternatives: [],
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -352,9 +327,6 @@ describe('SentenceBuilder', () => {
         expect(queryByTestId('feedback-section')).toBeTruthy()
       })
 
-      // LLM should NOT be called for local match
-      expect(mockValidateAnswer).not.toHaveBeenCalled()
-
       // Correct feedback shown
       expect(queryByTestId('correct-feedback')).toBeTruthy()
       expect(queryByTestId('incorrect-feedback')).toBeNull()
@@ -376,13 +348,11 @@ describe('SentenceBuilder', () => {
     })
   })
 
-  // ─── 6.6: Incorrect answer triggers LLM validation call ──────────────────
+  // ─── 6.6: Incorrect answer (no local match) shows incorrect feedback ────────
 
-  describe('6.6 — incorrect answer triggers LLM validation call', () => {
-    it('calls api.validateAnswer when answer does not locally match', async () => {
-      mockValidateAnswer.mockResolvedValue(mockLlmIncorrect)
-
-      const { getByTestId } = renderSentenceBuilder()
+  describe('6.6 — incorrect answer shows incorrect feedback', () => {
+    it('shows incorrect feedback when answer does not match correctAnswer or variants', async () => {
+      const { getByTestId, queryByTestId } = renderSentenceBuilder()
 
       // Place tiles in wrong order: tile-0 first (咖啡 is wrong position)
       fireEvent.press(getByTestId('available-tile-tile-0'))
@@ -396,25 +366,44 @@ describe('SentenceBuilder', () => {
       })
 
       await waitFor(() => {
-        expect(mockValidateAnswer).toHaveBeenCalledWith(
-          expect.objectContaining({
-            correctAnswer: mockCorrectAnswer,
-            exerciseType: 'sentence_construction',
-          })
-        )
+        expect(queryByTestId('incorrect-feedback')).toBeTruthy()
       })
+
+      expect(queryByTestId('correct-feedback')).toBeNull()
+      expect(queryByTestId('alternative-valid-message')).toBeNull()
+    })
+
+    it('calls onAnswer(false) for incorrect answer', async () => {
+      const onAnswer = jest.fn()
+      const { getByTestId } = renderSentenceBuilder({ onAnswer })
+
+      // Wrong order
+      fireEvent.press(getByTestId('available-tile-tile-0'))
+      fireEvent.press(getByTestId('available-tile-tile-1'))
+      fireEvent.press(getByTestId('available-tile-tile-2'))
+      fireEvent.press(getByTestId('available-tile-tile-3'))
+      fireEvent.press(getByTestId('available-tile-tile-4'))
+
+      await act(async () => {
+        fireEvent.press(getByTestId('submit-button'))
+      })
+
+      expect(onAnswer).toHaveBeenCalledWith(false)
     })
   })
 
-  // ─── 6.7: LLM returns valid alternative → "also valid" message ───────────
+  // ─── 6.7: acceptableAnswerVariants match shows "also valid" message ──────────
 
-  describe('6.7 — LLM returns valid alternative shows "also valid" message', () => {
-    it('shows "Your answer is also valid!" when LLM confirms alternative', async () => {
-      mockValidateAnswer.mockResolvedValue(mockLlmValidAlternative)
+  describe('6.7 — acceptableAnswerVariants match shows "also valid" message', () => {
+    // The scrambled words are: tile-0=咖啡, tile-1=我, tile-2=喜歡, tile-3=很, tile-4=。
+    // Wrong order (tile-0 first) produces "咖啡我喜歡很。" — we register this as a variant.
+    const variantAnswer = '咖啡我喜歡很。'
+    const acceptableAnswerVariants = [variantAnswer]
 
-      const { getByTestId, queryByTestId } = renderSentenceBuilder()
+    it('shows "Your answer is also valid!" when answer matches a variant', async () => {
+      const { getByTestId, queryByTestId } = renderSentenceBuilder({ acceptableAnswerVariants })
 
-      // Place tiles in wrong order (won't locally match)
+      // Place tiles in order that produces variantAnswer: tile-0 tile-1 tile-2 tile-3 tile-4
       fireEvent.press(getByTestId('available-tile-tile-0'))
       fireEvent.press(getByTestId('available-tile-tile-1'))
       fireEvent.press(getByTestId('available-tile-tile-2'))
@@ -433,11 +422,9 @@ describe('SentenceBuilder', () => {
       expect(queryByTestId('incorrect-feedback')).toBeNull()
     })
 
-    it('calls onAnswer(true) immediately for valid alternative', async () => {
-      mockValidateAnswer.mockResolvedValue(mockLlmValidAlternative)
+    it('calls onAnswer(true) for a valid variant match', async () => {
       const onAnswer = jest.fn()
-
-      const { getByTestId } = renderSentenceBuilder({ onAnswer })
+      const { getByTestId } = renderSentenceBuilder({ onAnswer, acceptableAnswerVariants })
 
       fireEvent.press(getByTestId('available-tile-tile-0'))
       fireEvent.press(getByTestId('available-tile-tile-1'))
@@ -449,19 +436,14 @@ describe('SentenceBuilder', () => {
         fireEvent.press(getByTestId('submit-button'))
       })
 
-      // onAnswer is called immediately after validate() resolves
-      await waitFor(() => {
-        expect(onAnswer).toHaveBeenCalledWith(true)
-      })
+      expect(onAnswer).toHaveBeenCalledWith(true)
     })
   })
 
-  // ─── 6.8: LLM returns incorrect → per-tile feedback + correct sentence ────
+  // ─── 6.8: Incorrect answer shows per-tile feedback and correct sentence ──────
 
-  describe('6.8 — LLM returns incorrect shows per-tile feedback and correct sentence', () => {
-    it('shows incorrect feedback and correct sentence for LLM-confirmed incorrect', async () => {
-      mockValidateAnswer.mockResolvedValue(mockLlmIncorrect)
-
+  describe('6.8 — incorrect answer shows per-tile feedback and correct sentence', () => {
+    it('shows correct sentence when answer is incorrect', async () => {
       const { getByTestId, queryByTestId } = renderSentenceBuilder()
 
       // Wrong order
@@ -479,82 +461,8 @@ describe('SentenceBuilder', () => {
         expect(queryByTestId('incorrect-feedback')).toBeTruthy()
       })
 
-      // Correct sentence shown
       expect(queryByTestId('correct-sentence')).toBeTruthy()
       expect(queryByTestId('alternative-valid-message')).toBeNull()
-    })
-
-    it('calls onAnswer(false) immediately for incorrect LLM result', async () => {
-      mockValidateAnswer.mockResolvedValue(mockLlmIncorrect)
-      const onAnswer = jest.fn()
-
-      const { getByTestId } = renderSentenceBuilder({ onAnswer })
-
-      // Wrong order
-      fireEvent.press(getByTestId('available-tile-tile-0'))
-      fireEvent.press(getByTestId('available-tile-tile-1'))
-      fireEvent.press(getByTestId('available-tile-tile-2'))
-      fireEvent.press(getByTestId('available-tile-tile-3'))
-      fireEvent.press(getByTestId('available-tile-tile-4'))
-
-      await act(async () => {
-        fireEvent.press(getByTestId('submit-button'))
-      })
-
-      // onAnswer is called immediately after validate() resolves
-      await waitFor(() => {
-        expect(onAnswer).toHaveBeenCalledWith(false)
-      })
-    })
-  })
-
-  // ─── 6.9: LLM timeout falls back to local (incorrect) ────────────────────
-
-  describe('6.9 — LLM timeout falls back to local validation (marks incorrect)', () => {
-    it('shows incorrect feedback and calls onAnswer(false) immediately on timeout', async () => {
-      const timeoutError = new QuizGenerationError('timeout', 'Validation timed out.')
-      mockValidateAnswer.mockRejectedValue(timeoutError)
-      const onAnswer = jest.fn()
-
-      const { getByTestId, queryByTestId } = renderSentenceBuilder({ onAnswer })
-
-      // Wrong order
-      fireEvent.press(getByTestId('available-tile-tile-0'))
-      fireEvent.press(getByTestId('available-tile-tile-1'))
-      fireEvent.press(getByTestId('available-tile-tile-2'))
-      fireEvent.press(getByTestId('available-tile-tile-3'))
-      fireEvent.press(getByTestId('available-tile-tile-4'))
-
-      await act(async () => {
-        fireEvent.press(getByTestId('submit-button'))
-      })
-
-      // onAnswer is called immediately after validate() rejects (fallback to local)
-      await waitFor(() => {
-        expect(queryByTestId('incorrect-feedback')).toBeTruthy()
-        expect(onAnswer).toHaveBeenCalledWith(false)
-      })
-    })
-
-    it('shows incorrect feedback on network error (fallback)', async () => {
-      const networkError = new QuizGenerationError('network', 'Validation request failed.')
-      mockValidateAnswer.mockRejectedValue(networkError)
-
-      const { getByTestId, queryByTestId } = renderSentenceBuilder()
-
-      fireEvent.press(getByTestId('available-tile-tile-0'))
-      fireEvent.press(getByTestId('available-tile-tile-1'))
-      fireEvent.press(getByTestId('available-tile-tile-2'))
-      fireEvent.press(getByTestId('available-tile-tile-3'))
-      fireEvent.press(getByTestId('available-tile-tile-4'))
-
-      await act(async () => {
-        fireEvent.press(getByTestId('submit-button'))
-      })
-
-      await waitFor(() => {
-        expect(queryByTestId('incorrect-feedback')).toBeTruthy()
-      })
     })
   })
 

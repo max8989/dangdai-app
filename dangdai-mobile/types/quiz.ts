@@ -94,6 +94,9 @@ export interface QuizQuestion {
   // Text input fields (Story 4.12)
   input_type?: 'multiple_choice' | 'text_input'
   input_placeholder?: string
+  // Free-text validation metadata (Story 4.17)
+  acceptable_answer_variants?: string[]
+  semantic_rubric?: string
 }
 
 /**

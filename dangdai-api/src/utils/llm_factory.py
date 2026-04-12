@@ -15,12 +15,12 @@ logger = logging.getLogger(__name__)
 
 # Default models per provider
 _DEFAULT_AZURE_OPENAI_MODEL = "gpt-4o"
-_DEFAULT_OPENAI_MODEL = "gpt-4o"
+_DEFAULT_OPENAI_MODEL = "gpt-5"
 _DEFAULT_ANTHROPIC_MODEL = "claude-3-5-sonnet-20241022"
 
 # Default parameters
 _DEFAULT_TEMPERATURE = 0.7
-_DEFAULT_MAX_TOKENS = 2048
+_DEFAULT_MAX_TOKENS = 16384
 
 
 def get_llm(
@@ -30,7 +30,7 @@ def get_llm(
 ) -> BaseChatModel:
     """Get configured LLM client based on environment configuration.
 
-    Selects provider based on LLM_PROVIDER env var (default: "azure_openai").
+    Selects provider based on LLM_PROVIDER env var (default: "openai").
     Supported providers: "azure_openai", "openai", "anthropic".
 
     Args:
@@ -45,10 +45,10 @@ def get_llm(
         ValueError: If required credentials are missing or provider is unsupported.
     """
     resolved_provider: str = (
-        provider if provider else os.getenv("LLM_PROVIDER", "azure_openai")
+        provider if provider else os.getenv("LLM_PROVIDER", "openai")
     )
     llm_provider = resolved_provider.lower()
-    model_override = os.getenv("LLM_MODEL", "")
+    model_override = os.getenv("LLM_MODEL", "") or os.getenv("OPENAI_MODEL", "")
 
     if llm_provider == "azure_openai":
         return _create_azure_openai(

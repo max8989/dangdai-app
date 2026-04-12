@@ -97,7 +97,7 @@ development_status:
   4-14-migrate-quiz-generation-to-structured-content: done
   4-15-hybrid-quiz-generation-3-tier: done
   4-16-migrate-all-exercise-types-to-pregenerated-default: review
-  4-17-on-the-fly-ai-generation-openai-gpt5-single-call: ready-for-dev
+  4-17-on-the-fly-ai-generation-openai-gpt5-single-call: review
   epic-4-retrospective: done
 
   # Epic 5: Chapter Assessment & Mastery

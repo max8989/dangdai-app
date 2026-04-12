@@ -89,6 +89,7 @@ const DialogueBubble = styled(YStack, {
         borderStyle: 'dashed',
         borderColor: '$primary',
         borderWidth: 2,
+        backgroundColor: 'transparent',
       },
     },
   } as const,
@@ -100,9 +101,7 @@ const DialogueBubble = styled(YStack, {
  * Minimum 48px touch target per AC #1 accessibility requirement.
  */
 const DialogueAnswerOption = styled(Button, {
-  animation: 'quick',
   pressStyle: { scale: 0.98 },
-  focusStyle: { borderColor: '$borderColorFocus' },
   minHeight: 48,
   borderWidth: 1,
   borderRadius: '$3',
@@ -167,17 +166,23 @@ export function DialogueCard({
 
   const hasSelected = selectedAnswer !== null
 
+  // Ensure options are strings — AI-generated content may contain objects
+  const safeOptions: string[] = (question.options ?? []).map((o: any) =>
+    typeof o === 'string' ? o : (o?.text ?? o?.value ?? JSON.stringify(o))
+  )
+
   const handleOptionPress = async (option: string) => {
     if (hasSelected || disabled) return
 
     setSelectedAnswer(option)
 
-    const result = await validate({
+    const result = validate({
       userAnswer: option,
       correctAnswer: question.correct_answer,
       questionText: question.question_text,
       exerciseType: question.exercise_type,
       preGeneratedExplanation: question.explanation,
+      acceptableAnswerVariants: question.acceptable_answer_variants,
     })
 
     setValidationResult(result)
@@ -234,7 +239,7 @@ export function DialogueCard({
                             key="filled-answer"
                             animation="medium"
                             enterStyle={{ opacity: 0, x: 20 }}
-                            fontSize="$13"
+                            fontSize="$5"
                             color={showFeedback ? (validationResult.isCorrect ? '$success' : '$error') : '$color'}
                             flex={1}
                             testID="dialogue-filled-answer"
@@ -280,7 +285,7 @@ export function DialogueCard({
                 testID={`dialogue-bubble-${line.speaker}-${index}`}
               >
                 <Text
-                  fontSize="$13"
+                  fontSize="$5"
                   color="$color"
                   testID={`dialogue-line-text-${index}`}
                 >
@@ -359,7 +364,7 @@ export function DialogueCard({
           Select the best response:
         </Text>
 
-        {question.options.map((option, index) => {
+        {safeOptions.map((option, index) => {
           const optionState = getOptionState(option, selectedAnswer, validationResult)
           const isDisabled = hasSelected || disabled
 
@@ -369,12 +374,10 @@ export function DialogueCard({
               state={optionState}
               onPress={() => { void handleOptionPress(option) }}
               disabled={isDisabled}
-              accessibilityState={{ disabled: isDisabled }}
               testID={`dialogue-option-${index}`}
             >
               <Text
                 fontSize="$4"
-                color="$color"
                 numberOfLines={3}
                 testID={`dialogue-option-text-${index}`}
               >

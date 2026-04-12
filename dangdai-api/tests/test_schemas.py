@@ -6,6 +6,8 @@ from pydantic import ValidationError
 from src.api.schemas import (
     ComprehensionSubQuestion,
     DialogueCompletionQuestion,
+    ExerciseGenerateRequest,
+    ExerciseGenerateResponse,
     ExerciseType,
     FillInBlankQuestion,
     GrammarQuestion,
@@ -14,9 +16,6 @@ from src.api.schemas import (
     QuizGenerateResponse,
     ReadingComprehensionQuestion,
     SentenceConstructionQuestion,
-    ValidationExerciseType,
-    ValidationRequest,
-    ValidationResponse,
     VocabularyQuestion,
 )
 
@@ -204,128 +203,84 @@ class TestReadingComprehensionQuestion:
         assert len(q.comprehension_questions) == 1
 
 
-class TestValidationExerciseTypeEnum:
-    def test_only_complex_types_allowed(self):
-        """Only sentence_construction and dialogue_completion are valid."""
-        assert (
-            ValidationExerciseType.SENTENCE_CONSTRUCTION.value
-            == "sentence_construction"
+class TestExerciseGenerateRequest:
+    def test_valid_request(self):
+        req = ExerciseGenerateRequest(
+            chapter_id=101, book_id=1, exercise_type="vocabulary"
         )
-        assert ValidationExerciseType.DIALOGUE_COMPLETION.value == "dialogue_completion"
-        assert len(ValidationExerciseType) == 2
+        assert req.chapter_id == 101
+        assert req.book_id == 1
+        assert req.exercise_type == ExerciseType.VOCABULARY
 
-    def test_from_string(self):
-        assert (
-            ValidationExerciseType("sentence_construction")
-            == ValidationExerciseType.SENTENCE_CONSTRUCTION
+    def test_invalid_book_id_raises(self):
+        with pytest.raises(ValidationError):
+            ExerciseGenerateRequest(chapter_id=101, book_id=0, exercise_type="grammar")
+
+
+class TestExerciseGenerateResponse:
+    def test_valid_response(self):
+        resp = ExerciseGenerateResponse(
+            exercise_type="vocabulary",
+            book_id=1,
+            lesson_id=1,
+            title="Vocabulary Practice",
+            instructions="Practice vocab.",
+            content={"questions": []},
         )
-        assert (
-            ValidationExerciseType("dialogue_completion")
-            == ValidationExerciseType.DIALOGUE_COMPLETION
+        assert resp.exercise_type == "vocabulary"
+        assert resp.content == {"questions": []}
+
+
+class TestFreeTextValidationFields:
+    """Story 4.17: acceptable_answer_variants and semantic_rubric on free-text types."""
+
+    def test_dialogue_completion_has_variants(self):
+        q = DialogueCompletionQuestion(
+            question_id="q1",
+            exercise_type="dialogue_completion",
+            question_text="Complete the dialogue",
+            correct_answer="好的",
+            explanation="Standard agreement",
+            source_citation="Book 1, Ch 1",
+            dialogue_bubbles=[
+                {"speaker": "A", "text": "你好", "is_blank": False},
+                {"speaker": "B", "text": "", "is_blank": True},
+            ],
+            options=["好的", "再見", "謝謝", "不好"],
+            acceptable_answer_variants=["好的", "好啊", "沒問題"],
+            semantic_rubric="Accept any polite agreement.",
         )
+        assert len(q.acceptable_answer_variants) == 3
+        assert q.semantic_rubric == "Accept any polite agreement."
 
-    def test_invalid_type_raises(self):
-        with pytest.raises(ValueError):
-            ValidationExerciseType("vocabulary")
-
-    def test_grammar_type_rejected(self):
-        with pytest.raises(ValueError):
-            ValidationExerciseType("grammar")
-
-    def test_fill_in_blank_type_rejected(self):
-        with pytest.raises(ValueError):
-            ValidationExerciseType("fill_in_blank")
-
-
-class TestValidationRequest:
-    def _valid_request(self, **overrides):
-        defaults = {
-            "question": "Arrange these words: 我 學 中文",
-            "user_answer": "我學中文",
-            "correct_answer": "我學中文",
-            "exercise_type": "sentence_construction",
-        }
-        defaults.update(overrides)
-        return ValidationRequest(**defaults)
-
-    def test_valid_sentence_construction_request(self):
-        req = self._valid_request()
-        assert req.exercise_type == ValidationExerciseType.SENTENCE_CONSTRUCTION
-        assert req.question == "Arrange these words: 我 學 中文"
-        assert req.user_answer == "我學中文"
-        assert req.correct_answer == "我學中文"
-
-    def test_valid_dialogue_completion_request(self):
-        req = self._valid_request(exercise_type="dialogue_completion")
-        assert req.exercise_type == ValidationExerciseType.DIALOGUE_COMPLETION
-
-    def test_empty_question_raises(self):
-        with pytest.raises(ValidationError):
-            self._valid_request(question="")
-
-    def test_empty_user_answer_raises(self):
-        with pytest.raises(ValidationError):
-            self._valid_request(user_answer="")
-
-    def test_empty_correct_answer_raises(self):
-        with pytest.raises(ValidationError):
-            self._valid_request(correct_answer="")
-
-    def test_invalid_exercise_type_raises(self):
-        with pytest.raises(ValidationError):
-            self._valid_request(exercise_type="vocabulary")
-
-    def test_vocabulary_exercise_type_rejected(self):
-        with pytest.raises(ValidationError):
-            self._valid_request(exercise_type="vocabulary")
-
-    def test_grammar_exercise_type_rejected(self):
-        with pytest.raises(ValidationError):
-            self._valid_request(exercise_type="grammar")
-
-    def test_matching_exercise_type_rejected(self):
-        with pytest.raises(ValidationError):
-            self._valid_request(exercise_type="matching")
-
-
-class TestValidationResponse:
-    def test_valid_correct_response(self):
-        resp = ValidationResponse(
-            is_correct=True,
-            explanation="Your answer is correct.",
-            alternatives=["alternative sentence"],
+    def test_sentence_construction_has_variants(self):
+        q = SentenceConstructionQuestion(
+            question_id="q1",
+            exercise_type="sentence_construction",
+            question_text="Arrange the words",
+            correct_answer="我學中文",
+            explanation="Standard SVO order",
+            source_citation="Book 1, Ch 1",
+            scrambled_words=["中文", "學", "我"],
+            correct_order=[2, 1, 0],
+            acceptable_answer_variants=["我學中文"],
+            semantic_rubric="Accept any SVO ordering.",
         )
-        assert resp.is_correct is True
-        assert resp.explanation == "Your answer is correct."
-        assert len(resp.alternatives) == 1
+        assert q.acceptable_answer_variants == ["我學中文"]
 
-    def test_valid_incorrect_response(self):
-        resp = ValidationResponse(
-            is_correct=False,
-            explanation="Word order is incorrect.",
-            alternatives=["correct order"],
+    def test_defaults_to_empty(self):
+        q = DialogueCompletionQuestion(
+            question_id="q1",
+            exercise_type="dialogue_completion",
+            question_text="Test",
+            correct_answer="好的",
+            explanation="Test",
+            source_citation="Book 1",
+            dialogue_bubbles=[{"speaker": "A", "text": "Hi", "is_blank": False}],
+            options=["a", "b", "c", "d"],
         )
-        assert resp.is_correct is False
-
-    def test_alternatives_default_empty(self):
-        resp = ValidationResponse(is_correct=True, explanation="Correct!")
-        assert resp.alternatives == []
-
-    def test_multiple_alternatives(self):
-        resp = ValidationResponse(
-            is_correct=True,
-            explanation="Your answer is valid.",
-            alternatives=["alt1", "alt2", "alt3"],
-        )
-        assert len(resp.alternatives) == 3
-
-    def test_missing_is_correct_raises(self):
-        with pytest.raises(ValidationError):
-            ValidationResponse(explanation="test")  # type: ignore[call-arg]
-
-    def test_missing_explanation_raises(self):
-        with pytest.raises(ValidationError):
-            ValidationResponse(is_correct=True)  # type: ignore[call-arg]
+        assert q.acceptable_answer_variants == []
+        assert q.semantic_rubric == ""
 
 
 class TestQuizGenerateResponse:

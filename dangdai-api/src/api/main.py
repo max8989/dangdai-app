@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from src.api.middleware import setup_middleware
-from src.api.routes import health, quizzes
+from src.api.routes import exercises, health, quizzes
 
 # Configure root logger so all src.* loggers output to console
 logging.basicConfig(
@@ -23,8 +23,8 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan: log LLM provider on startup."""
-    provider = os.getenv("LLM_PROVIDER", "azure_openai")
-    model = os.getenv("LLM_MODEL", "(default)")
+    provider = os.getenv("LLM_PROVIDER", "openai")
+    model = os.getenv("LLM_MODEL") or os.getenv("OPENAI_MODEL", "(default)")
     logger.info("Using LLM provider: %s with model: %s", provider, model)
     yield
 
@@ -42,3 +42,4 @@ setup_middleware(app)
 # Register routes
 app.include_router(health.router, tags=["health"])
 app.include_router(quizzes.router, tags=["quizzes"])
+app.include_router(exercises.router, tags=["exercises"])
