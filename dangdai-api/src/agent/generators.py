@@ -524,8 +524,9 @@ class FillInBlankGenerator(AlgorithmicGenerator):
         return {
             "question_id": f"q{index}",
             "exercise_type": "fill_in_blank",
-            "question_text": f"Fill in the blank: {sentence_with_blank} ({english})",
+            "question_text": "Fill in the blank:",
             "sentence_with_blanks": sentence_with_blank,
+            "english_translation": english,
             "word_bank": word_bank,
             "blank_positions": [1],
             "correct_answer": correct_answer,

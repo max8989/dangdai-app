@@ -1248,6 +1248,19 @@ export default function QuizPlayScreen() {
                 gap="$4"
                 flex={1}
               >
+                {/* English translation */}
+                {currentQuestion.english_translation ? (
+                  <Text
+                    fontSize="$6"
+                    fontWeight="900"
+                    flexShrink={1}
+                    flexWrap="wrap"
+                    testID="fill-in-blank-english"
+                  >
+                    {currentQuestion.english_translation}
+                  </Text>
+                ) : null}
+
                 {/* Instruction label */}
                 <Text
                   fontSize="$4"

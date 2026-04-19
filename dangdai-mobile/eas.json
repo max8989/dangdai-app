@@ -6,22 +6,12 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal",
-      "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "https://qhsjaybldyqsavjimxes.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFoc2pheWJsZHlxc2F2amlteGVzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExMjAyNDIsImV4cCI6MjA4NjY5NjI0Mn0.9akDZqkwtdR0EodheMOoGtEzV35WVvpj-xvZ2ihz7gI",
-        "EXPO_PUBLIC_API_URL": "http://localhost:8000"
-      }
+      "distribution": "internal"
     },
     "preview": {
       "distribution": "internal",
       "ios": {
         "simulator": false
-      },
-      "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "https://qhsjaybldyqsavjimxes.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFoc2pheWJsZHlxc2F2amlteGVzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExMjAyNDIsImV4cCI6MjA4NjY5NjI0Mn0.9akDZqkwtdR0EodheMOoGtEzV35WVvpj-xvZ2ihz7gI",
-        "EXPO_PUBLIC_API_URL": "https://dangdai-api.purpleriver-89e51623.eastus.azurecontainerapps.io"
       }
     },
     "testflight": {
@@ -29,21 +19,11 @@
       "autoIncrement": true,
       "ios": {
         "buildConfiguration": "Release"
-      },
-      "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "https://qhsjaybldyqsavjimxes.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFoc2pheWJsZHlxc2F2amlteGVzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExMjAyNDIsImV4cCI6MjA4NjY5NjI0Mn0.9akDZqkwtdR0EodheMOoGtEzV35WVvpj-xvZ2ihz7gI",
-        "EXPO_PUBLIC_API_URL": "https://dangdai-api.purpleriver-89e51623.eastus.azurecontainerapps.io"
       }
     },
     "production": {
       "distribution": "store",
-      "autoIncrement": true,
-      "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "https://qhsjaybldyqsavjimxes.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFoc2pheWJsZHlxc2F2amlteGVzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExMjAyNDIsImV4cCI6MjA4NjY5NjI0Mn0.9akDZqkwtdR0EodheMOoGtEzV35WVvpj-xvZ2ihz7gI",
-        "EXPO_PUBLIC_API_URL": "https://dangdai-api.purpleriver-89e51623.eastus.azurecontainerapps.io"
-      }
+      "autoIncrement": true
     }
   },
   "submit": {

@@ -406,6 +406,7 @@ function adaptAIGeneratedQuestions(questions: any[]): QuizQuestion[] {
       passage: q.passage,
       acceptable_answer_variants: q.acceptable_answer_variants,
       semantic_rubric: q.semantic_rubric,
+      english_translation: q.english_translation,
     }
 
     // Map dialogue_bubbles → dialogue_lines

@@ -117,6 +117,9 @@ class FillInBlankQuestion(QuizQuestionBase):
     blank_positions: list[int] = Field(
         ..., description="Positions of blanks in sentence"
     )
+    english_translation: str = Field(
+        default="", description="English translation of the sentence"
+    )
 
 
 class MatchingQuestion(QuizQuestionBase):

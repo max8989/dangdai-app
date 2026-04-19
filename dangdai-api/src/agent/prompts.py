@@ -124,6 +124,7 @@ Generate fill-in-the-blank questions. For each question:
 Question JSON fields:
 - question_id, exercise_type ("fill_in_blank"), question_text, correct_answer
 - sentence_with_blanks (sentence with ___ markers in Traditional Chinese)
+- english_translation (full English translation of the sentence_with_blanks, with ___ for blanks)
 - word_bank (array of available words in Traditional Chinese, including correct and distractors)
 - blank_positions (array of integer positions)
 - explanation, source_citation

@@ -77,6 +77,7 @@ export interface QuizQuestion {
   sentence_with_blanks?: string
   word_bank?: string[]
   blank_positions?: number[]
+  english_translation?: string
   // Dialogue completion fields (Story 4.6)
   dialogue_lines?: DialogueLine[]
   // Sentence construction fields (Story 4.7)
