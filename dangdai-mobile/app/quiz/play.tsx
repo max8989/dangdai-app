@@ -500,6 +500,7 @@ export default function QuizPlayScreen() {
       const exType = useQuizStore.getState().exerciseType ?? quizPayload?.exercise_type ?? ''
       const capChapterId = useQuizStore.getState().chapterId ?? quizPayload?.chapter_id ?? 0
       const capBookId = useQuizStore.getState().bookId ?? quizPayload?.book_id ?? 0
+      const capChapterIdEnd = useQuizStore.getState().chapterIdEnd ?? null
 
       // Save quiz attempt (async — fire without blocking navigation)
       saveQuizAttempt({
@@ -509,6 +510,7 @@ export default function QuizPlayScreen() {
         score: finalScore,
         totalQuestions: totalQs,
         answersJson: finalAnswers as unknown as Json,
+        chapterIdEnd: capChapterIdEnd,
       })
 
       // Show CompletionScreen in-place (Story 4.11) — no navigation needed.

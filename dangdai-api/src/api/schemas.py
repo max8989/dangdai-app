@@ -236,6 +236,46 @@ class QuizGenerateResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Multi-chapter quiz generation
+# ---------------------------------------------------------------------------
+
+
+class QuizGenerateMultiRequest(BaseModel):
+    """Multi-chapter quiz generation request.
+
+    Generates a single quiz spanning a range of chapter IDs, sampled across
+    one or more exercise types.
+    """
+
+    chapter_id_start: int = Field(
+        ..., ge=100, description="Start of the chapter_id range (inclusive)"
+    )
+    chapter_id_end: int = Field(
+        ..., ge=100, description="End of the chapter_id range (inclusive)"
+    )
+    question_count: int = Field(
+        ..., ge=5, le=50, description="Total number of questions to generate"
+    )
+    exercise_types: list[ExerciseType] = Field(
+        ..., min_length=1, description="One or more exercise types to sample from"
+    )
+
+
+class QuizGenerateMultiResponse(BaseModel):
+    """Multi-chapter quiz generation response."""
+
+    quiz_id: str = Field(..., description="Unique quiz identifier")
+    chapter_id_start: int = Field(..., description="Start of the chapter_id range")
+    chapter_id_end: int = Field(..., description="End of the chapter_id range")
+    chapter_ids: list[int] = Field(
+        ..., description="Concrete list of chapter_ids covered (gaps skipped)"
+    )
+    exercise_types: list[str] = Field(..., description="Exercise types sampled")
+    question_count: int = Field(..., description="Number of questions returned")
+    questions: list[QuizQuestion] = Field(..., description="Generated quiz questions")
+
+
+# ---------------------------------------------------------------------------
 # Error response
 # ---------------------------------------------------------------------------
 

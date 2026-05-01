@@ -346,6 +346,7 @@ export type Database = {
           answers_json: Json
           book_id: number
           chapter_id: number
+          chapter_id_end: number | null
           created_at: string
           exercise_type: string
           id: string
@@ -357,6 +358,7 @@ export type Database = {
           answers_json: Json
           book_id: number
           chapter_id: number
+          chapter_id_end?: number | null
           created_at?: string
           exercise_type: string
           id?: string
@@ -368,6 +370,7 @@ export type Database = {
           answers_json?: Json
           book_id?: number
           chapter_id?: number
+          chapter_id_end?: number | null
           created_at?: string
           exercise_type?: string
           id?: string

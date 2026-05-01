@@ -55,6 +55,8 @@ interface QuizState {
   chapterId: number | null
   bookId: number | null
   exerciseType: string | null
+  /** End of the chapter range for multi-chapter quizzes; null for single-chapter. */
+  chapterIdEnd: number | null
 
   // Fill-in-blank state (per question, resets on nextQuestion/resetQuiz)
   blankAnswers: Record<number, string | null>
@@ -114,7 +116,7 @@ interface QuizState {
   // Actions
   /** Sets isComplete to true — called when the last question's feedback timer fires. Story 4.11 Task 1.3 */
   completeQuiz: () => void
-  startQuiz: (quizId: string, payload?: QuizResponse, chapterId?: number | null, bookId?: number | null, exerciseType?: string | null) => void
+  startQuiz: (quizId: string, payload?: QuizResponse, chapterId?: number | null, bookId?: number | null, exerciseType?: string | null, chapterIdEnd?: number | null) => void
   /**
    * Restore a paused quiz state into the store (Story 4.10b).
    * Called on quiz screen mount when a paused quiz is detected.
@@ -186,6 +188,7 @@ export const useQuizStore = create<QuizState>()(
       chapterId: null,
       bookId: null,
       exerciseType: null,
+      chapterIdEnd: null,
       blankAnswers: {},
       blankAnswerIndices: {},
       matchingScore: { correct: 0, incorrect: 0 },
@@ -299,7 +302,7 @@ export const useQuizStore = create<QuizState>()(
       // Actions
       completeQuiz: () => set({ isComplete: true }),
 
-      startQuiz: (quizId, payload, chapterId = null, bookId = null, exerciseType = null) =>
+      startQuiz: (quizId, payload, chapterId = null, bookId = null, exerciseType = null, chapterIdEnd = null) =>
         set((state) => ({
           currentQuizId: quizId,
           currentQuestion: 0,
@@ -309,6 +312,7 @@ export const useQuizStore = create<QuizState>()(
           chapterId,
           bookId,
           exerciseType,
+          chapterIdEnd,
           blankAnswers: {}, // Reset fill-in-blank state on new session start (H3 fix)
           blankAnswerIndices: {},
           matchingScore: { correct: 0, incorrect: 0 }, // Reset matching score on new session
@@ -353,6 +357,7 @@ export const useQuizStore = create<QuizState>()(
           chapterId: null,
           bookId: null,
           exerciseType: null,
+          chapterIdEnd: null,
           blankAnswers: {}, // Reset blank answers on quiz reset
           blankAnswerIndices: {},
           matchingScore: { correct: 0, incorrect: 0 }, // Reset matching score on quiz reset
@@ -495,6 +500,7 @@ export const useQuizStore = create<QuizState>()(
         chapterId: state.chapterId,
         bookId: state.bookId,
         exerciseType: state.exerciseType,
+        chapterIdEnd: state.chapterIdEnd,
         // isComplete: persisted so crash on CompletionScreen doesn't trigger
         // a false-positive resume dialog (hasActiveQuiz returns false when complete)
         isComplete: state.isComplete,

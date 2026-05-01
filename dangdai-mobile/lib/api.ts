@@ -9,7 +9,13 @@
 
 import { supabase } from './supabase'
 import { QuizGenerationError, EXERCISE_TYPE_LABELS } from '../types/quiz'
-import type { QuizGenerationParams, QuizResponse, ExerciseType } from '../types/quiz'
+import type {
+  QuizGenerationParams,
+  QuizResponse,
+  ExerciseType,
+  MultiChapterQuizParams,
+  MultiChapterQuizResponse,
+} from '../types/quiz'
 
 const apiUrl = process.env.EXPO_PUBLIC_API_URL
 
@@ -24,6 +30,9 @@ export const API_BASE_URL = apiUrl ?? 'http://localhost:8000'
 
 /** Client-side timeout for quiz generation requests (2 minutes). */
 const QUIZ_GENERATION_TIMEOUT_MS = 120_000
+
+/** Client-side timeout for multi-chapter generation. Backend caps at 180s. */
+const MULTI_CHAPTER_TIMEOUT_MS = 200_000
 
 /** Client-side timeout for on-the-fly exercise generation (Story 4.17). */
 const EXERCISE_GENERATION_TIMEOUT_MS = 130_000
@@ -244,6 +253,71 @@ export const api = {
         throw new QuizGenerationError(
           'timeout',
           "Couldn't generate exercise — please try again.",
+        )
+      }
+
+      throw new QuizGenerationError('network', 'Check your connection and try again.')
+    }
+  },
+
+  /**
+   * Generate a quiz spanning a range of chapters.
+   *
+   * Calls POST /api/quizzes/generate-multi with the start/end chapter IDs,
+   * desired question count, and selected exercise types. Returns a single
+   * merged quiz. Persistence on completion is handled by the existing
+   * quiz_attempts flow (mobile-side via useQuizPersistence).
+   */
+  async generateMultiChapterQuiz(
+    params: MultiChapterQuizParams,
+  ): Promise<MultiChapterQuizResponse> {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    if (!session?.access_token) {
+      throw new QuizGenerationError('auth', 'Not authenticated. Please sign in.')
+    }
+
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), MULTI_CHAPTER_TIMEOUT_MS)
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/quizzes/generate-multi`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          chapter_id_start: params.chapterIdStart,
+          chapter_id_end: params.chapterIdEnd,
+          question_count: params.questionCount,
+          exercise_types: params.exerciseTypes,
+        }),
+        signal: controller.signal,
+      })
+
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        const label =
+          params.exerciseTypes.length === 1
+            ? (EXERCISE_TYPE_LABELS[params.exerciseTypes[0]] ?? params.exerciseTypes[0])
+            : 'mixed'
+        throw categorizeHttpError(response.status, label)
+      }
+
+      const result = (await response.json()) as MultiChapterQuizResponse
+      return result
+    } catch (error) {
+      clearTimeout(timeoutId)
+
+      if (error instanceof QuizGenerationError) throw error
+
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new QuizGenerationError(
+          'timeout',
+          'Generation is taking too long. Please try again.',
         )
       }
 

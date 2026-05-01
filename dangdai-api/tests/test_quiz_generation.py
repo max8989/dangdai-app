@@ -971,3 +971,191 @@ class TestStateStructuredContentFields:
 
         annotations = QuizGenerationState.__annotations__
         assert "evaluator_feedback" not in annotations
+
+
+class TestMultiChapterRangeExpansion:
+    """Range expansion + question distribution helpers used by the
+    multi-chapter quiz endpoint."""
+
+    def test_expand_skips_gap_between_books(self):
+        """215..303 expands to [211..215, 301..303] — 216..300 are skipped."""
+        from src.services.quiz_service import _expand_chapter_range
+
+        result = _expand_chapter_range(211, 303)
+        expected = [211, 212, 213, 214, 215, 301, 302, 303]
+        assert result == expected
+
+    def test_expand_single_chapter(self):
+        from src.services.quiz_service import _expand_chapter_range
+
+        assert _expand_chapter_range(105, 105) == [105]
+
+    def test_expand_empty_for_invalid_book(self):
+        """Book 5 is not in BOOK_CHAPTER_COUNTS so its ids are skipped."""
+        from src.services.quiz_service import _expand_chapter_range
+
+        assert _expand_chapter_range(501, 510) == []
+
+    def test_expand_skips_invalid_chapter_within_book(self):
+        """Book 1 has 15 chapters; 116..120 must be skipped."""
+        from src.services.quiz_service import _expand_chapter_range
+
+        result = _expand_chapter_range(114, 120)
+        assert result == [114, 115]
+
+    def test_distribute_even(self):
+        from src.services.quiz_service import _distribute
+
+        assert _distribute(10, 5) == [2, 2, 2, 2, 2]
+
+    def test_distribute_remainder(self):
+        from src.services.quiz_service import _distribute
+
+        # 10 / 3 = 3 base + 1 remainder. First slot gets the extra.
+        assert _distribute(10, 3) == [4, 3, 3]
+        assert sum(_distribute(10, 3)) == 10
+
+    def test_distribute_more_slots_than_total(self):
+        """When slots > total, base=0 and the first `total` slots get 1."""
+        from src.services.quiz_service import _distribute
+
+        assert _distribute(3, 5) == [1, 1, 1, 0, 0]
+
+
+class TestMultiChapterQuizService:
+    """End-to-end tests for QuizService.generate_multi_chapter_quiz with
+    graph.ainvoke mocked."""
+
+    def _make_question(self, etype: str, idx: int) -> dict:
+        """Build a minimal vocabulary-shaped question that passes
+        the discriminated union validation."""
+        return {
+            "exercise_type": "vocabulary",
+            "question_text": f"q-{etype}-{idx}",
+            "correct_answer": "A",
+            "explanation": "because",
+            "source_citation": "src",
+            "options": ["A", "B", "C", "D"],
+            "character": "你",
+            "pinyin": "nǐ",
+            "meaning": "you",
+            "question_subtype": "char_to_pinyin",
+        }
+
+    @pytest.mark.asyncio
+    async def test_merges_questions_across_combos(self):
+        from src.api.schemas import ExerciseType, QuizGenerateMultiRequest
+        from src.services.quiz_service import QuizService
+
+        service = QuizService()
+
+        # Each combo returns 5 questions; we ask for 6 total across 2
+        # chapters x 1 type = 2 combos -> 3 each.
+        async def fake_ainvoke(graph_input):
+            etype = graph_input["exercise_type"]
+            cid = graph_input["chapter_id"]
+            return {
+                "quiz_payload": {
+                    "questions": [self._make_question(etype, i) for i in range(5)]
+                }
+            }
+
+        request = QuizGenerateMultiRequest(
+            chapter_id_start=211,
+            chapter_id_end=212,
+            question_count=6,
+            exercise_types=[ExerciseType.VOCABULARY],
+        )
+
+        with patch(
+            "src.services.quiz_service.graph.ainvoke",
+            side_effect=fake_ainvoke,
+        ):
+            response = await service.generate_multi_chapter_quiz(
+                request, user_id="u1", http_request=None
+            )
+
+        assert response.question_count == 6
+        assert len(response.questions) == 6
+        assert response.chapter_ids == [211, 212]
+        assert response.exercise_types == ["vocabulary"]
+        # Re-ID assertion
+        assert [q.question_id for q in response.questions] == [
+            f"q{i + 1}" for i in range(6)
+        ]
+
+    @pytest.mark.asyncio
+    async def test_one_failing_combo_does_not_sink_quiz(self):
+        from src.api.schemas import ExerciseType, QuizGenerateMultiRequest
+        from src.services.quiz_service import QuizService
+
+        service = QuizService()
+
+        async def fake_ainvoke(graph_input):
+            if graph_input["chapter_id"] == 211:
+                raise RuntimeError("boom")
+            return {
+                "quiz_payload": {
+                    "questions": [
+                        self._make_question("vocabulary", i) for i in range(5)
+                    ]
+                }
+            }
+
+        request = QuizGenerateMultiRequest(
+            chapter_id_start=211,
+            chapter_id_end=212,
+            question_count=5,
+            exercise_types=[ExerciseType.VOCABULARY],
+        )
+
+        with patch(
+            "src.services.quiz_service.graph.ainvoke",
+            side_effect=fake_ainvoke,
+        ):
+            response = await service.generate_multi_chapter_quiz(
+                request, user_id="u1", http_request=None
+            )
+
+        # 212 returned 5 questions; 211 errored. We still get 5.
+        assert response.question_count == 5
+
+    @pytest.mark.asyncio
+    async def test_invalid_range_raises(self):
+        from src.api.schemas import ExerciseType, QuizGenerateMultiRequest
+        from src.services.quiz_service import QuizService
+
+        request = QuizGenerateMultiRequest(
+            chapter_id_start=303,
+            chapter_id_end=211,
+            question_count=5,
+            exercise_types=[ExerciseType.VOCABULARY],
+        )
+        with pytest.raises(ValueError, match="chapter_id_start must be"):
+            await QuizService().generate_multi_chapter_quiz(
+                request, user_id="u1", http_request=None
+            )
+
+    @pytest.mark.asyncio
+    async def test_all_failing_combos_raises(self):
+        from src.api.schemas import ExerciseType, QuizGenerateMultiRequest
+        from src.services.quiz_service import QuizService
+
+        async def fake_ainvoke(_):
+            raise RuntimeError("nope")
+
+        request = QuizGenerateMultiRequest(
+            chapter_id_start=211,
+            chapter_id_end=212,
+            question_count=5,
+            exercise_types=[ExerciseType.VOCABULARY],
+        )
+
+        with patch(
+            "src.services.quiz_service.graph.ainvoke",
+            side_effect=fake_ainvoke,
+        ):
+            with pytest.raises(ValueError, match="no questions produced"):
+                await QuizService().generate_multi_chapter_quiz(
+                    request, user_id="u1", http_request=None
+                )

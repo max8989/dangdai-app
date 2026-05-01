@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router'
 import { useTheme } from 'tamagui'
-import { Home, Settings, BookOpen, Palette } from '@tamagui/lucide-icons'
+import { Home, Settings, BookOpen, Palette, Sparkles } from '@tamagui/lucide-icons'
 
 export default function TabLayout() {
   const theme = useTheme()
@@ -32,6 +32,13 @@ export default function TabLayout() {
         options={{
           title: 'Books',
           tabBarIcon: ({ color }) => <BookOpen color={color as never} />,
+        }}
+      />
+      <Tabs.Screen
+        name="generate"
+        options={{
+          title: 'Generate',
+          tabBarIcon: ({ color }) => <Sparkles color={color as never} />,
         }}
       />
       <Tabs.Screen

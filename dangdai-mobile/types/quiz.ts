@@ -47,6 +47,29 @@ export interface QuizGenerationParams {
 }
 
 /**
+ * Parameters for the multi-chapter quiz generation API request.
+ */
+export interface MultiChapterQuizParams {
+  chapterIdStart: number
+  chapterIdEnd: number
+  questionCount: number
+  exerciseTypes: ExerciseType[]
+}
+
+/**
+ * Response from POST /api/quizzes/generate-multi.
+ */
+export interface MultiChapterQuizResponse {
+  quiz_id: string
+  chapter_id_start: number
+  chapter_id_end: number
+  chapter_ids: number[]
+  exercise_types: string[]
+  question_count: number
+  questions: QuizQuestion[]
+}
+
+/**
  * A matched pair for matching exercises.
  * Story 4.5: Matching Exercise (Tap-to-Pair)
  */

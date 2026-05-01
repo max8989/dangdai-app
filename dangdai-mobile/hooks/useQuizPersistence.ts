@@ -48,6 +48,8 @@ export interface SaveQuizAttemptParams {
   score: number
   totalQuestions: number
   answersJson: Json
+  /** End of the chapter range — present only for multi-chapter quizzes. */
+  chapterIdEnd?: number | null
 }
 
 /** Return value of checkForResumableQuiz */
@@ -202,6 +204,9 @@ export function useQuizPersistence() {
         score: params.score,
         total_questions: params.totalQuestions,
         answers_json: params.answersJson,
+        ...(params.chapterIdEnd != null
+          ? { chapter_id_end: params.chapterIdEnd }
+          : {}),
       }
 
       await insertQuizAttempt(insertData)
