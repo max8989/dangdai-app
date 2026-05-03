@@ -37,6 +37,9 @@ const MULTI_CHAPTER_TIMEOUT_MS = 200_000
 /** Client-side timeout for on-the-fly exercise generation (Story 4.17). */
 const EXERCISE_GENERATION_TIMEOUT_MS = 130_000
 
+/** Client-side timeout for chat / RAG Q&A requests. */
+const CHAT_TIMEOUT_MS = 60_000
+
 /**
  * Categorize an HTTP error response into a typed QuizGenerationError.
  */
@@ -324,6 +327,100 @@ export const api = {
       throw new QuizGenerationError('network', 'Check your connection and try again.')
     }
   },
+
+  /**
+   * Ask the textbook/workbook RAG agent a question.
+   *
+   * Calls POST /api/chat with the query and optional book/lesson/content_type
+   * filters. Returns the generated answer plus source citations.
+   */
+  async askChat(params: ChatParams): Promise<ChatApiResponse> {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    if (!session?.access_token) {
+      throw new ChatError('auth', 'Not authenticated. Please sign in.')
+    }
+
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), CHAT_TIMEOUT_MS)
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          query: params.query,
+          book: params.book ?? null,
+          lesson: params.lesson ?? null,
+          content_type: params.contentType ?? null,
+          num_chunks: params.numChunks ?? 5,
+        }),
+        signal: controller.signal,
+      })
+
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new ChatError('auth', 'Your session has expired. Please sign in again.')
+        }
+        throw new ChatError('server', "Couldn't get an answer. Please try again.")
+      }
+
+      return (await response.json()) as ChatApiResponse
+    } catch (error) {
+      clearTimeout(timeoutId)
+
+      if (error instanceof ChatError) throw error
+
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new ChatError('timeout', 'The agent is taking too long. Please try again.')
+      }
+
+      throw new ChatError('network', 'Check your connection and try again.')
+    }
+  },
+}
+
+/** Parameters for askChat(). */
+export interface ChatParams {
+  query: string
+  book?: number | null
+  lesson?: number | null
+  contentType?: 'textbook' | 'workbook' | null
+  numChunks?: number
+}
+
+/** A single source citation returned with a chat answer. */
+export interface ChatSource {
+  book: number | null
+  lesson: number | null
+  section: string | null
+  content_type: string | null
+  exercise_type: string | null
+  similarity: number | null
+  page_range: string | null
+}
+
+/** Response shape from POST /api/chat. */
+export interface ChatApiResponse {
+  answer: string
+  sources: ChatSource[]
+  model: string
+}
+
+/** Typed error for chat / RAG requests. */
+export class ChatError extends Error {
+  category: 'auth' | 'network' | 'timeout' | 'server'
+  constructor(category: ChatError['category'], message: string) {
+    super(message)
+    this.category = category
+    this.name = 'ChatError'
+  }
 }
 
 /** Response shape from POST /api/exercises/generate (Story 4.17). */

@@ -324,6 +324,52 @@ function adaptMultipleChoice(
 // ─── Main adapter ─────────────────────────────────────────────────────────────
 
 /**
+ * Fisher–Yates shuffle that returns a new array (does not mutate input).
+ */
+function shuffled<T>(arr: readonly T[]): T[] {
+  const out = [...arr]
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[out[i], out[j]] = [out[j], out[i]]
+  }
+  return out
+}
+
+/**
+ * Randomize the position of `options` for each question — and for each
+ * comprehension sub-question — so the correct answer doesn't always land at
+ * index 0. Cached premade content was generated under a prompt that biased the
+ * LLM toward putting the answer first; we re-shuffle on every load so position
+ * is uncorrelated with correctness.
+ */
+function shuffleQuestionOptions(questions: QuizQuestion[]): QuizQuestion[] {
+  return questions.map((q) => {
+    const next: QuizQuestion = { ...q }
+    if (Array.isArray(q.options) && q.options.length > 1 && q.correct_answer) {
+      next.options = shuffled(q.options)
+    }
+    if (Array.isArray(q.comprehension_questions)) {
+      next.comprehension_questions = q.comprehension_questions.map((sub) => {
+        if (!Array.isArray(sub.options) || sub.options.length <= 1) return sub
+        const correctText =
+          sub.correct_answer ??
+          (typeof sub.correct === 'number' ? sub.options[sub.correct] : '') ??
+          ''
+        const newOptions = shuffled(sub.options)
+        const newCorrectIdx = newOptions.indexOf(correctText)
+        return {
+          ...sub,
+          options: newOptions,
+          correct: newCorrectIdx >= 0 ? newCorrectIdx : sub.correct,
+          correct_answer: correctText,
+        }
+      })
+    }
+    return next
+  })
+}
+
+/**
  * Transform premade exercise content JSONB into the QuizQuestion[] format
  * used by all existing quiz UI components.
  *
@@ -346,32 +392,42 @@ export function adaptPremadeContent(
     questionsArr[0].exercise_type
   ) {
     console.log('[premadeExerciseAdapter] AI format detected, first q keys:', Object.keys(questionsArr[0]).join(', '), 'dialogue_bubbles?', !!questionsArr[0].dialogue_bubbles)
-    return adaptAIGeneratedQuestions(questionsArr)
+    return shuffleQuestionOptions(adaptAIGeneratedQuestions(questionsArr))
   }
   console.log('[premadeExerciseAdapter] Legacy format, exerciseType:', exerciseType, 'content keys:', Object.keys(content).join(', '))
 
+  let result: QuizQuestion[]
   switch (exerciseType) {
     case 'fill_in_blank':
-      return adaptFillInBlank(content)
+      result = adaptFillInBlank(content)
+      break
     case 'matching':
-      return adaptMatching(content)
+      result = adaptMatching(content)
+      break
     case 'dialogue_completion':
-      return adaptDialogueCompletion(content)
+      result = adaptDialogueCompletion(content)
+      break
     case 'sentence_construction':
-      return adaptSentenceConstruction(content)
+      result = adaptSentenceConstruction(content)
+      break
     case 'reading':
     case 'reading_comprehension':
-      return adaptReadingComprehension(content)
+      result = adaptReadingComprehension(content)
+      break
     case 'vocabulary':
-      return adaptMultipleChoice(content, 'vocabulary', 'vocab')
+      result = adaptMultipleChoice(content, 'vocabulary', 'vocab')
+      break
     case 'grammar':
-      return adaptMultipleChoice(content, 'grammar', 'grammar')
+      result = adaptMultipleChoice(content, 'grammar', 'grammar')
+      break
     case 'mixed':
-      return adaptMultipleChoice(content, 'mixed', 'mixed')
+      result = adaptMultipleChoice(content, 'mixed', 'mixed')
+      break
     default:
       console.warn(`[premadeExerciseAdapter] Unknown exercise type: ${exerciseType}`)
       return []
   }
+  return shuffleQuestionOptions(result)
 }
 
 /**

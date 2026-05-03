@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from src.api.middleware import setup_middleware
-from src.api.routes import exercises, health, quizzes
+from src.api.routes import chat, exercises, health, quizzes
 
 # Configure root logger so all src.* loggers output to console
 logging.basicConfig(
@@ -43,3 +43,4 @@ setup_middleware(app)
 app.include_router(health.router, tags=["health"])
 app.include_router(quizzes.router, tags=["quizzes"])
 app.include_router(exercises.router, tags=["exercises"])
+app.include_router(chat.router, tags=["chat"])

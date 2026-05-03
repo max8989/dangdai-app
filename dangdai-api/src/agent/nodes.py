@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import random
 import re
 from typing import Any
 
@@ -530,6 +531,11 @@ async def generate_quiz(state: QuizGenerationState) -> dict[str, Any]:
 
         # Parse JSON from response
         questions = _parse_questions_json(content)
+        # LLM frequently emits the correct option at index 0 (the prompt
+        # examples reinforce this). Shuffle options so position is uncorrelated
+        # with correctness.
+        for q in questions:
+            _shuffle_question_options(q)
 
         elapsed = (time.perf_counter() - start) * 1000
         logger.info(
@@ -1394,6 +1400,51 @@ def _parse_evaluation_response(content: str) -> dict[str, Any]:
     except json.JSONDecodeError as e:
         logger.error("Failed to parse evaluation JSON response: %s", e)
         return {"passed": True, "issues": []}
+
+
+def _shuffle_question_options(question: dict[str, Any]) -> None:
+    """Shuffle answer options in-place so position is uncorrelated with correctness.
+
+    LLM responses tend to place the correct option at index 0 (the prompt
+    examples reinforce that pattern). We shuffle here, after parsing, for any
+    question that has an ``options`` list, and for each comprehension
+    sub-question on a reading_comprehension question (re-mapping its
+    ``correct`` index to track the shuffled position).
+
+    Mutates ``question`` in place. Safe to call on any question shape — keys
+    that aren't present are skipped.
+    """
+    options = question.get("options")
+    correct_answer = question.get("correct_answer")
+    if isinstance(options, list) and len(options) > 1 and correct_answer is not None:
+        shuffled = list(options)
+        random.shuffle(shuffled)
+        question["options"] = shuffled
+
+    sub_qs = question.get("comprehension_questions")
+    if isinstance(sub_qs, list):
+        for sub in sub_qs:
+            if not isinstance(sub, dict):
+                continue
+            sub_options = sub.get("options")
+            if not isinstance(sub_options, list) or len(sub_options) <= 1:
+                continue
+            correct_idx = sub.get("correct")
+            correct_text = sub.get("correct_answer")
+            if (
+                isinstance(correct_idx, int)
+                and 0 <= correct_idx < len(sub_options)
+                and not correct_text
+            ):
+                correct_text = sub_options[correct_idx]
+            shuffled_sub = list(sub_options)
+            random.shuffle(shuffled_sub)
+            sub["options"] = shuffled_sub
+            if correct_text is not None:
+                try:
+                    sub["correct"] = shuffled_sub.index(correct_text)
+                except ValueError:
+                    pass
 
 
 def _parse_questions_json(content: str) -> list[dict[str, Any]]:

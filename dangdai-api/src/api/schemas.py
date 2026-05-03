@@ -323,6 +323,51 @@ class ExerciseGenerateResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Chat (RAG Q&A) schemas
+# ---------------------------------------------------------------------------
+
+
+class ChatRequest(BaseModel):
+    """Chat / RAG question request."""
+
+    query: str = Field(..., min_length=1, description="User's question")
+    book: int | None = Field(
+        None, ge=1, le=6, description="Optional book filter (1-6)"
+    )
+    lesson: int | None = Field(
+        None, ge=1, description="Optional lesson filter within the selected book"
+    )
+    content_type: Literal["textbook", "workbook"] | None = Field(
+        None, description="Optional filter for textbook or workbook content"
+    )
+    num_chunks: int = Field(
+        5, ge=1, le=15, description="Number of chunks to retrieve"
+    )
+
+
+class ChatSource(BaseModel):
+    """A single retrieved chunk citation returned with a chat answer."""
+
+    book: int | None = None
+    lesson: int | None = None
+    section: str | None = None
+    content_type: str | None = None
+    exercise_type: str | None = None
+    similarity: float | None = None
+    page_range: str | None = None
+
+
+class ChatResponse(BaseModel):
+    """Chat / RAG answer response."""
+
+    answer: str = Field(..., description="Generated answer")
+    sources: list[ChatSource] = Field(
+        default_factory=list, description="Source citations for the answer"
+    )
+    model: str = Field(..., description="LLM model used for generation")
+
+
+# ---------------------------------------------------------------------------
 # Legacy aliases (kept for backward compatibility with HealthResponse import)
 # ---------------------------------------------------------------------------
 

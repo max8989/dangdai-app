@@ -261,7 +261,11 @@ describe('adaptPremadeContent — reading / reading_comprehension', () => {
     expect(result[0].comprehension_questions).toHaveLength(2)
     expect(result[0].comprehension_questions![0].question).toBe('小明幾點起床？')
     expect(result[0].comprehension_questions![0].correct_answer).toBe('七點')
-    expect(result[0].comprehension_questions![0].options).toEqual(['六點', '七點', '八點', '九點'])
+    // Options are shuffled to debias position; assert membership and that
+    // the `correct` index still points to `correct_answer`.
+    const subQ = result[0].comprehension_questions![0]
+    expect([...subQ.options].sort()).toEqual(['七點', '九點', '六點', '八點'].sort())
+    expect(subQ.options[subQ.correct!]).toBe(subQ.correct_answer)
   })
 
   it('uses first question correct_answer as passage correct_answer', () => {
@@ -316,7 +320,10 @@ describe('adaptPremadeContent — dialogue_completion', () => {
 
   it('maps options correctly', () => {
     const result = adaptPremadeContent('dialogue_completion', dialogueContent)
-    expect(result[0].options).toEqual(['我叫小明。', '我不知道。', '你好嗎？', '再見！'])
+    expect([...result[0].options!].sort()).toEqual(
+      ['我不知道。', '我叫小明。', '你好嗎？', '再見！'].sort(),
+    )
+    expect(result[0].options).toContain(result[0].correct_answer)
   })
 
   it('maps correct_answer correctly', () => {
@@ -393,7 +400,10 @@ describe('adaptPremadeContent — vocabulary', () => {
 
   it('maps options correctly', () => {
     const result = adaptPremadeContent('vocabulary', vocabularyContent)
-    expect(result[0].options).toEqual(['to study', 'to eat', 'to go', 'to see'])
+    expect([...result[0].options!].sort()).toEqual(
+      ['to eat', 'to go', 'to see', 'to study'].sort(),
+    )
+    expect(result[0].options).toContain(result[0].correct_answer)
   })
 
   it('maps correct_answer correctly', () => {
@@ -462,7 +472,10 @@ describe('adaptPremadeContent — grammar', () => {
 
   it('maps options correctly', () => {
     const result = adaptPremadeContent('grammar', grammarContent)
-    expect(result[0].options).toEqual(['他吃了飯', '他了吃飯', '他吃飯了了', '了他吃飯'])
+    expect([...result[0].options!].sort()).toEqual(
+      ['他吃了飯', '他了吃飯', '他吃飯了了', '了他吃飯'].sort(),
+    )
+    expect(result[0].options).toContain(result[0].correct_answer)
   })
 
   it('maps correct_answer correctly', () => {
@@ -533,7 +546,10 @@ describe('adaptPremadeContent — mixed', () => {
     const result = adaptPremadeContent('mixed', mixedContent)
     expect(result[0].question_text).toBe('What does 學 mean?')
     expect(result[0].correct_answer).toBe('to study')
-    expect(result[0].options).toEqual(['to study', 'to eat', 'to go', 'to see'])
+    expect([...result[0].options!].sort()).toEqual(
+      ['to eat', 'to go', 'to see', 'to study'].sort(),
+    )
+    expect(result[0].options).toContain(result[0].correct_answer)
   })
 
   it('generates question_id with premade-mixed prefix', () => {

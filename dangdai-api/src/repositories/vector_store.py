@@ -93,6 +93,43 @@ class VectorStore:
         )
         return response.data if response.data else []
 
+    def semantic_search(
+        self,
+        query_embedding: list[float],
+        book: int | None = None,
+        lesson: int | None = None,
+        content_type: str | None = None,
+        exercise_type: str | None = None,
+        limit: int = 5,
+    ) -> list[dict[str, Any]]:
+        """Run the dangdai_search RPC for semantic similarity retrieval.
+
+        Args:
+            query_embedding: 1536-dim embedding of the user's query.
+            book: Optional book filter (1-6).
+            lesson: Optional lesson filter.
+            content_type: Optional 'textbook' or 'workbook' filter.
+            exercise_type: Optional exercise type filter.
+            limit: Maximum number of results.
+
+        Returns:
+            List of chunks with similarity scores (sorted by relevance).
+        """
+        response = self._client.rpc(
+            "dangdai_search",
+            {
+                "query_embedding": query_embedding,
+                "match_count": limit,
+                "filter_book": book,
+                "filter_lesson": lesson,
+                "filter_content_type": content_type,
+                "filter_category": None,
+                "filter_exercise_type": exercise_type,
+                "filter_difficulty": None,
+            },
+        ).execute()
+        return response.data if response.data else []
+
     def search_by_book(
         self,
         book: int,
