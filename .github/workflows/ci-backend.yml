@@ -2,7 +2,7 @@ name: Python Backend CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - 'dangdai-api/**'
       - '.github/workflows/ci-backend.yml'
