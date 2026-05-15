@@ -11,11 +11,18 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as AuthRouteImport } from './routes/_auth'
-import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
+import { Route as AuthedTabsRouteImport } from './routes/_authed/_tabs'
 import { Route as AuthSignupRouteImport } from './routes/_auth/signup'
 import { Route as AuthResetPasswordRouteImport } from './routes/_auth/reset-password'
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
 import { Route as AuthForgotPasswordRouteImport } from './routes/_auth/forgot-password'
+import { Route as AuthedTabsIndexRouteImport } from './routes/_authed/_tabs/index'
+import { Route as AuthedChapterBookIdRouteImport } from './routes/_authed/chapter/$bookId'
+import { Route as AuthedTabsSettingsRouteImport } from './routes/_authed/_tabs/settings'
+import { Route as AuthedTabsBooksRouteImport } from './routes/_authed/_tabs/books'
+import { Route as AuthedChapterChapterIdVocabularyRouteImport } from './routes/_authed/chapter/$chapterId/vocabulary'
+import { Route as AuthedChapterChapterIdGrammarRouteImport } from './routes/_authed/chapter/$chapterId/grammar'
+import { Route as AuthedChapterChapterIdDialoguesRouteImport } from './routes/_authed/chapter/$chapterId/dialogues'
 
 const AuthedRoute = AuthedRouteImport.update({
   id: '/_authed',
@@ -25,9 +32,8 @@ const AuthRoute = AuthRouteImport.update({
   id: '/_auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthedIndexRoute = AuthedIndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AuthedTabsRoute = AuthedTabsRouteImport.update({
+  id: '/_tabs',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthSignupRoute = AuthSignupRouteImport.update({
@@ -50,20 +56,70 @@ const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
   path: '/forgot-password',
   getParentRoute: () => AuthRoute,
 } as any)
+const AuthedTabsIndexRoute = AuthedTabsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthedTabsRoute,
+} as any)
+const AuthedChapterBookIdRoute = AuthedChapterBookIdRouteImport.update({
+  id: '/chapter/$bookId',
+  path: '/chapter/$bookId',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedTabsSettingsRoute = AuthedTabsSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthedTabsRoute,
+} as any)
+const AuthedTabsBooksRoute = AuthedTabsBooksRouteImport.update({
+  id: '/books',
+  path: '/books',
+  getParentRoute: () => AuthedTabsRoute,
+} as any)
+const AuthedChapterChapterIdVocabularyRoute =
+  AuthedChapterChapterIdVocabularyRouteImport.update({
+    id: '/chapter/$chapterId/vocabulary',
+    path: '/chapter/$chapterId/vocabulary',
+    getParentRoute: () => AuthedRoute,
+  } as any)
+const AuthedChapterChapterIdGrammarRoute =
+  AuthedChapterChapterIdGrammarRouteImport.update({
+    id: '/chapter/$chapterId/grammar',
+    path: '/chapter/$chapterId/grammar',
+    getParentRoute: () => AuthedRoute,
+  } as any)
+const AuthedChapterChapterIdDialoguesRoute =
+  AuthedChapterChapterIdDialoguesRouteImport.update({
+    id: '/chapter/$chapterId/dialogues',
+    path: '/chapter/$chapterId/dialogues',
+    getParentRoute: () => AuthedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof AuthedIndexRoute
+  '/': typeof AuthedTabsIndexRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
   '/reset-password': typeof AuthResetPasswordRoute
   '/signup': typeof AuthSignupRoute
+  '/books': typeof AuthedTabsBooksRoute
+  '/settings': typeof AuthedTabsSettingsRoute
+  '/chapter/$bookId': typeof AuthedChapterBookIdRoute
+  '/chapter/$chapterId/dialogues': typeof AuthedChapterChapterIdDialoguesRoute
+  '/chapter/$chapterId/grammar': typeof AuthedChapterChapterIdGrammarRoute
+  '/chapter/$chapterId/vocabulary': typeof AuthedChapterChapterIdVocabularyRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof AuthedIndexRoute
+  '/': typeof AuthedTabsIndexRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
   '/reset-password': typeof AuthResetPasswordRoute
   '/signup': typeof AuthSignupRoute
+  '/books': typeof AuthedTabsBooksRoute
+  '/settings': typeof AuthedTabsSettingsRoute
+  '/chapter/$bookId': typeof AuthedChapterBookIdRoute
+  '/chapter/$chapterId/dialogues': typeof AuthedChapterChapterIdDialoguesRoute
+  '/chapter/$chapterId/grammar': typeof AuthedChapterChapterIdGrammarRoute
+  '/chapter/$chapterId/vocabulary': typeof AuthedChapterChapterIdVocabularyRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -73,13 +129,42 @@ export interface FileRoutesById {
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/reset-password': typeof AuthResetPasswordRoute
   '/_auth/signup': typeof AuthSignupRoute
-  '/_authed/': typeof AuthedIndexRoute
+  '/_authed/_tabs': typeof AuthedTabsRouteWithChildren
+  '/_authed/_tabs/books': typeof AuthedTabsBooksRoute
+  '/_authed/_tabs/settings': typeof AuthedTabsSettingsRoute
+  '/_authed/chapter/$bookId': typeof AuthedChapterBookIdRoute
+  '/_authed/_tabs/': typeof AuthedTabsIndexRoute
+  '/_authed/chapter/$chapterId/dialogues': typeof AuthedChapterChapterIdDialoguesRoute
+  '/_authed/chapter/$chapterId/grammar': typeof AuthedChapterChapterIdGrammarRoute
+  '/_authed/chapter/$chapterId/vocabulary': typeof AuthedChapterChapterIdVocabularyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/forgot-password' | '/login' | '/reset-password' | '/signup'
+  fullPaths:
+    | '/'
+    | '/forgot-password'
+    | '/login'
+    | '/reset-password'
+    | '/signup'
+    | '/books'
+    | '/settings'
+    | '/chapter/$bookId'
+    | '/chapter/$chapterId/dialogues'
+    | '/chapter/$chapterId/grammar'
+    | '/chapter/$chapterId/vocabulary'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/forgot-password' | '/login' | '/reset-password' | '/signup'
+  to:
+    | '/'
+    | '/forgot-password'
+    | '/login'
+    | '/reset-password'
+    | '/signup'
+    | '/books'
+    | '/settings'
+    | '/chapter/$bookId'
+    | '/chapter/$chapterId/dialogues'
+    | '/chapter/$chapterId/grammar'
+    | '/chapter/$chapterId/vocabulary'
   id:
     | '__root__'
     | '/_auth'
@@ -88,7 +173,14 @@ export interface FileRouteTypes {
     | '/_auth/login'
     | '/_auth/reset-password'
     | '/_auth/signup'
-    | '/_authed/'
+    | '/_authed/_tabs'
+    | '/_authed/_tabs/books'
+    | '/_authed/_tabs/settings'
+    | '/_authed/chapter/$bookId'
+    | '/_authed/_tabs/'
+    | '/_authed/chapter/$chapterId/dialogues'
+    | '/_authed/chapter/$chapterId/grammar'
+    | '/_authed/chapter/$chapterId/vocabulary'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -112,11 +204,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authed/': {
-      id: '/_authed/'
-      path: '/'
+    '/_authed/_tabs': {
+      id: '/_authed/_tabs'
+      path: ''
       fullPath: '/'
-      preLoaderRoute: typeof AuthedIndexRouteImport
+      preLoaderRoute: typeof AuthedTabsRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_auth/signup': {
@@ -147,6 +239,55 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthForgotPasswordRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/_authed/_tabs/': {
+      id: '/_authed/_tabs/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof AuthedTabsIndexRouteImport
+      parentRoute: typeof AuthedTabsRoute
+    }
+    '/_authed/chapter/$bookId': {
+      id: '/_authed/chapter/$bookId'
+      path: '/chapter/$bookId'
+      fullPath: '/chapter/$bookId'
+      preLoaderRoute: typeof AuthedChapterBookIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/_tabs/settings': {
+      id: '/_authed/_tabs/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthedTabsSettingsRouteImport
+      parentRoute: typeof AuthedTabsRoute
+    }
+    '/_authed/_tabs/books': {
+      id: '/_authed/_tabs/books'
+      path: '/books'
+      fullPath: '/books'
+      preLoaderRoute: typeof AuthedTabsBooksRouteImport
+      parentRoute: typeof AuthedTabsRoute
+    }
+    '/_authed/chapter/$chapterId/vocabulary': {
+      id: '/_authed/chapter/$chapterId/vocabulary'
+      path: '/chapter/$chapterId/vocabulary'
+      fullPath: '/chapter/$chapterId/vocabulary'
+      preLoaderRoute: typeof AuthedChapterChapterIdVocabularyRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/chapter/$chapterId/grammar': {
+      id: '/_authed/chapter/$chapterId/grammar'
+      path: '/chapter/$chapterId/grammar'
+      fullPath: '/chapter/$chapterId/grammar'
+      preLoaderRoute: typeof AuthedChapterChapterIdGrammarRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/chapter/$chapterId/dialogues': {
+      id: '/_authed/chapter/$chapterId/dialogues'
+      path: '/chapter/$chapterId/dialogues'
+      fullPath: '/chapter/$chapterId/dialogues'
+      preLoaderRoute: typeof AuthedChapterChapterIdDialoguesRouteImport
+      parentRoute: typeof AuthedRoute
+    }
   }
 }
 
@@ -166,12 +307,36 @@ const AuthRouteChildren: AuthRouteChildren = {
 
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
+interface AuthedTabsRouteChildren {
+  AuthedTabsBooksRoute: typeof AuthedTabsBooksRoute
+  AuthedTabsSettingsRoute: typeof AuthedTabsSettingsRoute
+  AuthedTabsIndexRoute: typeof AuthedTabsIndexRoute
+}
+
+const AuthedTabsRouteChildren: AuthedTabsRouteChildren = {
+  AuthedTabsBooksRoute: AuthedTabsBooksRoute,
+  AuthedTabsSettingsRoute: AuthedTabsSettingsRoute,
+  AuthedTabsIndexRoute: AuthedTabsIndexRoute,
+}
+
+const AuthedTabsRouteWithChildren = AuthedTabsRoute._addFileChildren(
+  AuthedTabsRouteChildren,
+)
+
 interface AuthedRouteChildren {
-  AuthedIndexRoute: typeof AuthedIndexRoute
+  AuthedTabsRoute: typeof AuthedTabsRouteWithChildren
+  AuthedChapterBookIdRoute: typeof AuthedChapterBookIdRoute
+  AuthedChapterChapterIdDialoguesRoute: typeof AuthedChapterChapterIdDialoguesRoute
+  AuthedChapterChapterIdGrammarRoute: typeof AuthedChapterChapterIdGrammarRoute
+  AuthedChapterChapterIdVocabularyRoute: typeof AuthedChapterChapterIdVocabularyRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
-  AuthedIndexRoute: AuthedIndexRoute,
+  AuthedTabsRoute: AuthedTabsRouteWithChildren,
+  AuthedChapterBookIdRoute: AuthedChapterBookIdRoute,
+  AuthedChapterChapterIdDialoguesRoute: AuthedChapterChapterIdDialoguesRoute,
+  AuthedChapterChapterIdGrammarRoute: AuthedChapterChapterIdGrammarRoute,
+  AuthedChapterChapterIdVocabularyRoute: AuthedChapterChapterIdVocabularyRoute,
 }
 
 const AuthedRouteWithChildren =

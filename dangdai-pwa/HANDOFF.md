@@ -1,405 +1,363 @@
-# dangdai-pwa Handoff
+# dangdai-pwa Handoff (Phase 3 onward)
 
-You are picking up the migration of `dangdai-mobile/` (React Native + Expo + Tamagui) into `dangdai-pwa/` (Vite + React + shadcn/ui + Tailwind v4 + TanStack Router). The scaffold and all shared logic are in place. **Your job: port every screen, component, and hook from `dangdai-mobile/` to `dangdai-pwa/`**, except the two commented-out exercise types listed below.
+You are picking up the migration of `dangdai-mobile/` (React Native + Expo + Tamagui) into `dangdai-pwa/` (Vite + React + shadcn/ui + Tailwind v4 + TanStack Router).
+
+**Phases 1 (auth) and 2 (books + chapter navigation) are complete and live-tested.** Your next job is **Phase 3: quiz flow without DnD**. After that, continue through Phases 4–6 from the original plan (reproduced in §6 below).
 
 The Supabase project and FastAPI backend are unchanged — same data, same endpoints. Only the client is being rebuilt.
 
 ---
 
-## 1. Scope: what to port vs skip
+## 0. What just got done (Phase 2)
 
-### Port (active exercise types)
-- `vocabulary`
-- `grammar`
-- `fill_in_blank`
-- `dialogue_completion`
-- `sentence_construction` (needs drag-and-drop — see §5)
-- `reading_comprehension`
+### Bottom tab bar + tab screens
 
-### Skip (commented out in mobile, do NOT migrate)
-- `matching` — disabled in mobile due to a Reanimated color bug. **Skip the entire `MatchingExercise.tsx` component and any references.**
-- `mixed` — hidden for now.
+`src/routes/_authed/_tabs.tsx` is a pathless layout that renders `<Outlet />` plus a fixed-position `<nav aria-label="Primary">` at the bottom (`fixed inset-x-0 bottom-0 max-w-md mx-auto`). Active-tab detection is via `useLocation().pathname` — exact match for `/`, prefix match for `/books` and `/settings`. Icons from `lucide-react`. The whole layout is wrapped in `max-w-md mx-auto` so it stays phone-shaped on desktop. Main content gets `pb-20` to clear the tab bar.
 
-Source of truth: `dangdai-mobile/app/chapter/[chapterId]/exercises.tsx` (`AI_GENERATABLE_TYPES_LIST` array — both skipped types are commented out there).
+Tab screens:
+- `_authed/_tabs/index.tsx` — home placeholder: app name, signed-in email, "Browse books" CTA. Paused-quiz cards and stats land in Phase 3+.
+- `_authed/_tabs/books.tsx` — `<BookCard>` list driven by `useBooks`.
+- `_authed/_tabs/settings.tsx` — email + Sign out. Sign-out applies the §1 gap-fix: `await signOut()` → `await navigate({ to: '/login' })`. Full settings screen is Phase 5.
 
-When porting `EXERCISE_TYPE_LABELS` / `ExerciseType` from `types/quiz.ts`, **leave** `matching` and `mixed` in the union (the backend still returns them in places) but **never render UI for them** and never include them in the user-facing list.
+The Phase 1 `_authed/index.tsx` placeholder has been deleted — `_authed/_tabs/index.tsx` is the new `/` route.
+
+### Chapter routes
+
+| Route | Component |
+|---|---|
+| `_authed/chapter/$bookId.tsx` | Chapter list for one book, uses `useChapters` + `useChapterProgress` |
+| `_authed/chapter/$chapterId/vocabulary.tsx` | Section list (Vocab I / Vocab II), uses `useVocabulary` |
+| `_authed/chapter/$chapterId/grammar.tsx` | List of grammar points, uses `useGrammarPoints` |
+| `_authed/chapter/$chapterId/dialogues.tsx` | Chat-bubble layout with Pinyin / English / Simplified toggles, uses `useDialogues` |
+
+The vocabulary route file also exports four shared layout helpers (`ChapterSubheader`, `CenterLoader`, `CenterMessage`, `ErrorState`) that `grammar.tsx` and `dialogues.tsx` reuse. The chapter detail screens deliberately do **not** sit inside `_tabs` — they are full-screen detail views without the bottom tab bar, like the mobile app's `app/chapter/...` routes. Reach them by clicking a `<BookCard>` on `/books`, then a `<ChapterListItem>`.
+
+### Chapter / book components
+
+Rewritten with shadcn primitives in `src/components/chapter/`. None are direct copies — they use semantic Tailwind tokens (`bg-card`, `text-muted-foreground`, `border`, `bg-muted`) instead of Tamagui's `$gray11` / `$blue9` token system. Book cover colors map from Tamagui's `$blue9 / $green9 / $orange9 / $purple9` to literal Tailwind palette classes (`bg-blue-500`, `bg-emerald-500`, etc.) via a small lookup in `BookCard.tsx`.
+
+- `BookCard.tsx` + `BookCardSkeleton.tsx` — interactive `<button>` (not a `<div onClick>`) for keyboard + a11y.
+- `ChapterListItem.tsx` + `ChapterListSkeleton.tsx` — status badge (not-started / in-progress / mastered) drives badge color + inline progress bar.
+- `VocabularyItem.tsx`, `GrammarPointCard.tsx`, `DialogueBubble.tsx` — plain rounded cards with `border bg-card shadow-sm`.
+
+The `<Card>` shadcn component (with internal `py-6` and `px-6` from `CardHeader` / `CardContent`) is too padded for the tight mobile-first layouts these need — so the chapter components use raw `<div>` + Tailwind utility classes for layout. Use `<Card>` for the bigger Phase 3 quiz cards.
+
+### Hooks ported
+
+`useBooks`, `useChapters` (+ `useChapter`), `useChapterProgress`, `useVocabulary` (+ `useVocabularyCount`), `useGrammarPoints` (+ `useGrammarPointsCount`), `useDialogues` (+ `useDialoguesCount`), `useSession`. All use `@/` path aliases and import `useAuth` from `@/providers/AuthProvider`. Logic is verbatim from mobile — same query keys, same 42P01 fallbacks, same staleTimes.
+
+### shadcn added in Phase 2
+
+`skeleton`, `scroll-area`, `separator`, `avatar`, `tabs` (skeleton + tabs are the only ones consumed so far — the others are queued for Phase 3+).
+
+### Verified end-to-end in Chrome DevTools
+
+- Sign in → home (`/`) renders, bottom tab bar visible
+- `/books` → 4 BookCards render with default 0/N progress
+- Book 1 → `/chapter/1` shows all 15 chapters with Chinese subtitle and "15 chapters" header
+- Chapter 1 → `/chapter/101/vocabulary` shows 43 words across Vocab I (24) + Vocab II (19), with POS badges and "Name" indicators
+- `/chapter/101/grammar` renders all 6 grammar points with Function/Structure/Usage/Examples sections
+- `/chapter/101/dialogues` shows both dialogues; Pinyin/English/Simplified toggles work
+- Settings → Sign out → auto-redirects to `/login`
+- No console errors; `npm run build` green (583 KB main chunk gzipped to 169 KB — Phase 6 can split if needed)
+
+### Phase 2 gotchas worth remembering
+
+1. **Route tree is auto-generated, not auto-watched at type-check time.** When you add a new route file the `tsc` step in `npm run build` fails referencing the old tree. Fix: run `npx vite build` once first — the `@tanstack/router-plugin` Vite plugin regenerates `src/routeTree.gen.ts` before tsc runs in subsequent invocations. Or just run `npm run dev`. (Documented in §4 already; learned the hard way during Phase 2.)
+2. **Link / navigate paths are typed.** TS errors about `"/chapter/$bookId"` not assignable to a literal union mean the route tree hasn't picked up the new file — same fix as above.
+3. **Book cover colors live in `src/components/chapter/BookCard.tsx`.** If you add Book 5+ (or change palette), update the `coverColorMap` there. Don't rely on the `coverColor: '$blue9'` strings from `constants/books.ts` directly.
+4. **Roman-numeral helper for dialogues** is inline in `dialogues.tsx` (`ROMAN` array + `toRoman`). If quiz screens need it too, pull it into `src/lib/roman.ts`.
 
 ---
 
-## 2. Current state of the PWA
+## 1. What just got done (Phase 1)
 
-### Stack (already wired in `package.json`, `vite.config.ts`)
+### Shadcn components installed
+`npx shadcn@latest add button input label card sonner` — see `src/components/ui/`. `sonner` pulled in `next-themes` and `sonner` as new deps (visible in `package.json`).
+
+### Routing structure (TanStack file-based)
+The Phase-0 plan called for `index.tsx` at `/` that redirects. **That structure was changed during Phase 1.** A pathless layout with no children conflicts with a sibling `index.tsx` at the same path — so the home placeholder was moved *inside* the guard:
+
+```
+src/routes/
+├── __root.tsx           ← mounts <Toaster richColors position="top-center" /> + router devtools
+├── _auth.tsx            ← pathless layout, beforeLoad redirects signed-in users to /
+│                          renders <MaixinLogo width={180} /> + <Outlet />, centered max-w-md card
+├── _auth/
+│   ├── login.tsx        ← /login
+│   ├── signup.tsx       ← /signup
+│   ├── forgot-password.tsx  ← /forgot-password
+│   └── reset-password.tsx   ← /reset-password
+├── _authed.tsx          ← pathless layout, beforeLoad redirects unauthed → /login?redirect=<href>
+└── _authed/
+    └── index.tsx        ← / (home placeholder — replace with the real home tab in Phase 2)
+```
+
+**Why `_authed/index.tsx` instead of a top-level `index.tsx`:** TanStack treats a childless `_authed.tsx` as a route at `/`, which conflicts with `index.tsx` at `/`. Giving `_authed.tsx` a child (`_authed/index.tsx`) makes it a proper pathless layout. When you build the bottom tab bar, the home tab should live at `src/routes/_authed/_tabs/index.tsx` and the current placeholder at `_authed/index.tsx` should be deleted (or repurposed).
+
+### Auth UI ported
+All four forms rebuilt with shadcn primitives (Tamagui `<YStack>` / `<XStack>` / `<Input>` / `<Button>` / `<Spinner>` → `<div className="flex...">` / shadcn `<Input>` / shadcn `<Button>` / `Loader2` from lucide):
+
+- `src/components/auth/LoginForm.tsx` — email + password, "Forgot Password?" link, "Sign Up" link
+- `src/components/auth/SignupForm.tsx` — email + password + confirm
+- `src/components/auth/ForgotPasswordForm.tsx` — email, success state shows green confirmation card
+- `src/components/auth/ResetPasswordForm.tsx` — new password + confirm + strength hint
+
+Each form keeps a **local `submitting` boolean** to drive the spinner and disabled state. **Don't reach for `isLoading` from `useAuth`** for submission state — `AuthProvider.loading` only tracks the initial `getSession()` call and is `false` during sign-in/up calls. The local-state pattern matches the mobile UX without changing the provider's surface.
+
+### Supporting bits
+- `src/components/MaixinLogo.tsx` — web port. Uses `<img src="/logo.png">` with the 440:172 aspect ratio. Assets copied into `public/`: `logo.png`, `maixin-chinese-logo.svg`.
+- `src/hooks/useAuth.ts` — re-exports `useAuth` and `AuthError` from `@/providers/AuthProvider` so future hook ports can `import { useAuth } from '@/hooks/useAuth'` like mobile.
+- `__root.tsx` mounts `<Toaster richColors position="top-center" />` once globally; sonner's default `useTheme()` from `next-themes` works without a ThemeProvider (defaults to `"system"`).
+
+### Verified end-to-end in Chrome DevTools
+- `/` → redirects to `/login?redirect=%2F`
+- Login with `test@test.com` / `maxime11` → redirected to `/`, home renders user email
+- Sign-out clears the session
+- All four routes render without console errors (only a benign Chrome a11y hint about hidden username fields on password-only screens)
+- `npm run build` is green; `npm run dev` boots clean
+
+### Known gap to fix later (not blocking)
+**Sign-out doesn't auto-redirect.** The `_authed.beforeLoad` guard only fires on navigation, so clicking Sign out clears the session but the user stays on `/` until they reload. Two clean fixes:
+1. In the sign-out handler, call `navigate({ to: '/login' })` right after `supabase.auth.signOut()` resolves.
+2. Listen for `onAuthStateChange` in `AuthProvider` and call `router.invalidate()` on `SIGNED_OUT`.
+
+Pick (1) for the home placeholder you'll replace anyway; consider (2) when building the settings screen sign-out button, since it's the right long-term home.
+
+---
+
+## 2. Current state of the PWA (cumulative)
+
+### Stack (unchanged from Phase 0)
 - Vite 8 + React 19 + TypeScript 6 (strict mode, `verbatimModuleSyntax`)
 - Tailwind v4 via `@tailwindcss/vite` + `tw-animate-css`
-- shadcn/ui configured (new-york style, neutral base color, CSS vars). Add components with `npx shadcn@latest add <name>`. `components.json` is in place.
-- TanStack Router (file-based, `autoCodeSplitting`) — routes live in `src/routes/`
+- shadcn/ui (new-york style, neutral base, CSS vars) — `components.json` in place
+- TanStack Router (file-based, `autoCodeSplitting`) — routes in `src/routes/`
 - TanStack Query + devtools, Zustand, `@supabase/supabase-js`
 - vite-plugin-pwa (Workbox, autoUpdate, runtime caching for Supabase REST + storage)
 - Path alias: `@/* → src/*`
 
-### What's already ported (don't redo these)
+### shadcn components added so far
+`button`, `input`, `label`, `card`, `sonner` (Phase 1), `skeleton`, `scroll-area`, `separator`, `avatar`, `tabs` (Phase 2).
 
-| Path in PWA | Status | Notes |
-|---|---|---|
-| `src/types/*.ts` | ✅ Copied verbatim | quiz, chapter, paused-quiz, supabase |
-| `src/lib/queryClient.ts` | ✅ Copied verbatim | |
-| `src/lib/queryKeys.ts` | ✅ Copied verbatim | |
-| `src/lib/pinyinNormalize.ts` | ✅ Copied verbatim | Pure logic |
-| `src/lib/quizValidation.ts` | ✅ Copied verbatim | Pure logic |
-| `src/lib/validateFillInBlank.ts` | ✅ Copied verbatim | Pure logic |
-| `src/lib/premadeExerciseAdapter.ts` | ✅ Copied + 1 cast fix at line 315 (`exerciseType as QuizQuestion['exercise_type']`) | Pre-existing TS bug in mobile |
-| `src/lib/supabase.ts` | ✅ Rewritten for web | Drops AsyncStorage/Platform; uses Supabase default localStorage, `detectSessionInUrl: true` |
-| `src/lib/api.ts` | ✅ Ported | Env vars swapped: `process.env.EXPO_PUBLIC_*` → `import.meta.env.VITE_*` |
-| `src/lib/utils.ts` | ✅ Created | shadcn's `cn()` helper |
-| `src/stores/useUserStore.ts` | ✅ Copied verbatim | |
-| `src/stores/useSettingsStore.ts` | ✅ Copied verbatim | |
-| `src/stores/useQuizStore.ts` | ✅ Ported | `AsyncStorage` → `localStorage` (line in `persist({storage:...})`) |
-| `src/stores/index.ts` | ✅ Copied verbatim | |
-| `src/constants/{books,chapters,tips,app}.ts` | ✅ Copied verbatim | |
-| `src/providers/AuthProvider.tsx` | ✅ Rewritten | Same `useAuth()` API surface. **Routing moved out** — see §3.3. No toast calls (re-add via shadcn `sonner` later). |
-| `src/routes/__root.tsx` | ✅ Created | Mounts router + devtools |
-| `src/routes/index.tsx` | ⚠️ Placeholder | Replace with home tab once `(tabs)` group is ported |
+For Phase 3 add: `progress`, `dialog`, `alert-dialog`, `radio-group`
+```bash
+npx shadcn@latest add progress dialog alert-dialog radio-group
+```
+
+### Files that already exist (don't redo)
+
+| Path | Status |
+|---|---|
+| `src/types/*.ts` | ✅ verbatim (quiz, chapter, paused-quiz, supabase) |
+| `src/lib/queryClient.ts` | ✅ verbatim |
+| `src/lib/queryKeys.ts` | ✅ verbatim |
+| `src/lib/pinyinNormalize.ts` | ✅ verbatim |
+| `src/lib/quizValidation.ts` | ✅ verbatim |
+| `src/lib/validateFillInBlank.ts` | ✅ verbatim |
+| `src/lib/premadeExerciseAdapter.ts` | ✅ + 1 cast fix at line 315 |
+| `src/lib/supabase.ts` | ✅ web rewrite (localStorage, `detectSessionInUrl: true`) |
+| `src/lib/api.ts` | ✅ env vars swapped `process.env.EXPO_PUBLIC_*` → `import.meta.env.VITE_*` |
+| `src/lib/utils.ts` | ✅ shadcn's `cn()` |
+| `src/stores/useUserStore.ts` | ✅ verbatim |
+| `src/stores/useSettingsStore.ts` | ✅ verbatim |
+| `src/stores/useQuizStore.ts` | ✅ AsyncStorage → localStorage in `persist({storage:...})` |
+| `src/stores/index.ts` | ✅ verbatim |
+| `src/constants/{books,chapters,tips,app}.ts` | ✅ verbatim |
+| `src/providers/AuthProvider.tsx` | ✅ web rewrite, same `useAuth()` surface |
+| `src/hooks/useAuth.ts` | ✅ re-exports from AuthProvider |
+| `src/components/MaixinLogo.tsx` | ✅ web port (img tag) |
+| `src/components/auth/*` | ✅ all four forms ported (Phase 1) |
+| `src/routes/__root.tsx` | ✅ Toaster wired |
+| `src/routes/_auth.tsx` + `_auth/*` | ✅ Phase 1 |
+| `src/routes/_authed.tsx` | ✅ Phase 1 (guard) |
+| `src/routes/_authed/_tabs.tsx` + `_authed/_tabs/*` | ✅ Phase 2 (tab bar + home/books/settings) |
+| `src/routes/_authed/chapter/$bookId.tsx` | ✅ Phase 2 (chapter list) |
+| `src/routes/_authed/chapter/$chapterId/{vocabulary,grammar,dialogues}.tsx` | ✅ Phase 2 |
+| `src/hooks/{useBooks,useChapters,useChapterProgress,useVocabulary,useGrammarPoints,useDialogues,useSession}.ts` | ✅ Phase 2 |
+| `src/components/chapter/*` | ✅ Phase 2 (BookCard + skeleton, ChapterListItem + skeleton, VocabularyItem, GrammarPointCard, DialogueBubble) |
 
 ### Env
-- `.env.local` is already populated with the same Supabase project as mobile (`qhsjaybldyqsavjimxes`) and `VITE_API_URL=http://localhost:8000`
-- `.env.example` documents the keys
-
-### Verified working
-- `npm run build` is green (TS clean, PWA service worker emitted, manifest generated)
-- `npm run dev` boots and renders without console errors
-- Tested via chrome-devtools MCP — clean console, all assets load, Zustand quiz store hydrates from localStorage
+`.env.local` is populated; `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_API_URL=http://localhost:8000`. Test account: **test@test.com / maxime11**.
 
 ---
 
-## 3. Architectural decisions (already locked)
+## 3. Phase 2 plan — books + chapter navigation ✅ DONE
 
-### 3.1 Routing: TanStack Router, file-based
-Routes live in `src/routes/`. Conventions:
-- `__root.tsx` — root layout, wraps everything
-- `index.tsx` → `/`
-- `_layout.tsx` files don't exist in TanStack Router; instead, **layout routes** are folders with a `route.tsx` that uses `<Outlet />`
-- Route groups (Expo `(auth)`) become **pathless layout routes**: name the parent file `_auth.tsx` (underscore prefix = pathless). Example: `routes/_auth.tsx` is the layout, `routes/_auth/login.tsx` is `/login`.
-- Dynamic params use `$` not brackets: `routes/chapter/$bookId.tsx` not `[bookId].tsx`
-- Authenticated routes should use `beforeLoad` to redirect to `/login` if no session
+This section is preserved for reference. Phase 2 is complete; see §0 for what was actually shipped.
 
-The plugin auto-generates `src/routeTree.gen.ts` on dev/build. Don't edit it; don't commit conflicts in it (regenerate by running `npm run dev`).
+**Goal:** signed-in user can browse books → pick a book → see chapter list → tap a chapter to see vocabulary / grammar / dialogue browse screens. **No quizzes yet.**
 
-Docs: `https://tanstack.com/router/latest`. Context7 ID: `/tanstack/router`.
+### 3.1 Bottom tab bar
 
-### 3.2 UI: shadcn/ui + Tailwind v4
-- All Tamagui components must be rewritten using shadcn primitives. There is **no automatic conversion**.
-- Add components on demand: `npx shadcn@latest add button card input dialog scroll-area separator skeleton sonner tabs avatar progress`
-- Theme tokens are in `src/index.css` (`--background`, `--foreground`, `--primary`, etc.). Don't add competing CSS variables.
-- Icons: use `lucide-react` (already installed). Mobile used `@tamagui/lucide-icons` — same icon names work.
+The mobile app uses Expo `(tabs)/_layout.tsx` with five tabs: Home, Books, Generate, Chat, Settings. Port as a pathless layout:
 
-### 3.3 Auth redirects: TanStack Router `beforeLoad` guards (NOT useEffect)
-The PWA's `AuthProvider` only owns **session state**. Redirects are handled in route definitions. Pattern:
-
-```tsx
-// src/routes/_authed.tsx — pathless layout that gates everything inside it
-import { createFileRoute, redirect, Outlet } from '@tanstack/react-router';
-import { supabase } from '@/lib/supabase';
-
-export const Route = createFileRoute('/_authed')({
-  beforeLoad: async ({ location }) => {
-    const { data } = await supabase.auth.getSession();
-    if (!data.session) {
-      throw redirect({ to: '/login', search: { redirect: location.href } });
-    }
-  },
-  component: () => <Outlet />,
-});
+```
+src/routes/_authed/_tabs.tsx          ← pathless layout, renders <Outlet /> + sticky bottom <nav>
+src/routes/_authed/_tabs/index.tsx    ← / (home)
+src/routes/_authed/_tabs/books.tsx    ← /books
+src/routes/_authed/_tabs/settings.tsx ← /settings (Phase 5 fully — stub now)
 ```
 
-Then put protected routes under `routes/_authed/` (tabs, chapter, quiz). The login screen lives at `routes/login.tsx` (public).
+Defer Generate and Chat tabs to Phase 5; just include Home / Books / Settings in the tab bar for now (and leave room for the other two).
 
-### 3.4 Why this is NOT a 1:1 port
-- Tamagui `<YStack>` / `<XStack>` → shadcn divs with Tailwind flex utilities (`flex flex-col gap-4` etc.)
-- Expo Router `useRouter().push()` → TanStack Router `useNavigate()` or `<Link>`
-- `useLocalSearchParams` → TanStack's `Route.useParams()` and `Route.useSearch()`
-- Expo `Stack.Screen` options (headers, titles) → render your own header component in each route
-- `react-native-gesture-handler` + `react-native-reanimated` → **dnd-kit** (see §5) + Tailwind/Framer Motion if you need animations (avoid adding Framer unless needed)
-- `ScrollView` → native `<div className="overflow-y-auto">` or shadcn `<ScrollArea>`
-- `Pressable` / Tamagui `<Button>` → shadcn `<Button>` (`onClick`, not `onPress`)
-- `react-native` `StyleSheet` and inline styles → Tailwind classes
+**Implementation notes:**
+- Bottom bar is a fixed-position `<nav>` at the bottom on mobile widths (`max-w-md mx-auto`). Use shadcn `<Button variant="ghost">` for tab items, or plain `<Link>` with active styling.
+- Active tab styling: use TanStack Router's `useMatchRoute` or check `useLocation().pathname` against each tab's path. Render an underline / bold / colored icon for the active tab.
+- Icons: `Home`, `BookOpen`, `Settings` from `lucide-react`. Mobile used `@tamagui/lucide-icons` — same names.
+- **Delete** `src/routes/_authed/index.tsx` (the Phase 1 placeholder) when you create `_authed/_tabs/index.tsx`, otherwise you'll get a route-tree conflict on `/`.
 
----
+### 3.2 Hooks to port (mostly verbatim)
 
-## 4. Tamagui → shadcn/Tailwind quick reference
+All from `dangdai-mobile/hooks/` → `dangdai-pwa/src/hooks/`. Check imports for any `react-native` references (these don't use RN) and prefer `@/lib/...` / `@/types/...` aliases:
 
-| Tamagui | shadcn / Tailwind |
-|---|---|
-| `<YStack gap="$3" padding="$4">` | `<div className="flex flex-col gap-3 p-4">` |
-| `<XStack gap="$2" alignItems="center">` | `<div className="flex items-center gap-2">` |
-| `<Text fontSize="$5" color="$gray11">` | `<p className="text-base text-muted-foreground">` |
-| `<H2 fontSize="$6" fontWeight="bold">` | `<h2 className="text-xl font-bold">` |
-| `<Button theme="primary" size="$3">` | `<Button>` (shadcn) |
-| `<Card elevate bordered padding="$3">` | `<Card><CardContent className="p-3">…</CardContent></Card>` |
-| `<Input ... />` | `<Input ... />` (shadcn) |
-| `<Spinner />` | `<Loader2 className="animate-spin" />` from lucide |
-| `<AlertDialog>` | shadcn `<AlertDialog>` (`npx shadcn@latest add alert-dialog`) |
-| `useTheme().primary.val` | use CSS var `var(--primary)` or Tailwind class `bg-primary` |
-| `testID="x"` | `data-testid="x"` (or drop — these were for Playwright; reuse if Playwright tests get ported) |
+- `useBooks.ts` — pure Query
+- `useChapters.ts` — pure Query
+- `useChapterProgress.ts` — pure Query
+- `useVocabulary.ts` — pure Query
+- `useGrammarPoints.ts` — pure Query
+- `useDialogues.ts` — pure Query
+- `useSession.ts` — verify thin wrapper, port if used
 
-Tamagui token scale (`$1`..`$10`) maps roughly to Tailwind spacing scale `1`..`10` (`4px` * N). Use judgment, not literal conversion.
+### 3.3 Components to port (rewrite with shadcn — don't copy)
 
----
+From `dangdai-mobile/components/chapter/` → `dangdai-pwa/src/components/chapter/`:
 
-## 5. Drag and drop: use **dnd-kit**
+- `BookCard.tsx` + `BookCardSkeleton.tsx` — book cover + title + progress; use shadcn `<Card>` + `<Skeleton>`
+- `ChapterListItem.tsx` + `ChapterListSkeleton.tsx` — row item; tap to go to chapter detail
+- `VocabularyItem.tsx`
+- `GrammarPointCard.tsx`
+- `DialogueBubble.tsx`
+- `ExerciseTypeCard.tsx` — used on the exercises landing (Phase 3); leave for now
+- `PremadeExerciseCard.tsx` — Phase 3
 
-Only `sentence_construction` needs DnD in the active set (`matching` is skipped).
+### 3.4 Routes to create
 
-**Recommended:** `@dnd-kit/core` + `@dnd-kit/sortable` + `@dnd-kit/utilities`
-
-- Modern (active 2024–2026), lightweight, modular, no HTML5 DnD dependency
-- Built-in **touch support** (critical — this is a mobile PWA)
-- Built-in **keyboard accessibility**
-- Has `DragOverlay` for smooth visual feedback
-- Context7 ID: `/clauderic/dnd-kit` (610 snippets, high reputation, score 79.65)
-- Docs: `https://docs.dndkit.com/`
-
-Install:
-```bash
-npm install @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities
-```
-
-### Sentence builder mapping (mobile → dnd-kit)
-Mobile uses `Gesture.Pan()` + `useSharedValue`. Web version should use:
-- A `<DndContext>` wrapping the whole screen with a `closestCenter` collision detection strategy
-- Two droppable zones: the **answer slot area** (top) and **word bank** (bottom)
-- Each tile is a `useDraggable` (or part of a `SortableContext` if you want reordering inside the slot area)
-- Touch + keyboard sensors enabled: `useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor))`
-- Use `<DragOverlay>` so the dragged tile follows the pointer with a shadow
-- Hit-test is automatic — no manual `LayoutRectangle` measuring like the mobile code does
-
-Keep these mobile features when porting:
-- Tap-to-place (primary interaction — DnD is the secondary one). A tile click should immediately move it from bank → slot.
-- Per-tile feedback colors (green correct / orange incorrect on submit)
-- "Your answer is also valid!" message for LLM-validated alternatives
-
-### Alternative if dnd-kit feels heavy
-`@hello-pangea/dnd` (fork of `react-beautiful-dnd`) — Context7 ID `/hello-pangea/dnd`. Beautiful for sortable lists but less flexible for the "two distinct zones" model. **Stick with dnd-kit** unless you hit a specific blocker.
-
-Do **not** use `react-dnd` (older, HTML5-based, weaker touch support).
-
----
-
-## 6. File-by-file port map
-
-### 6.1 Routes (mobile `app/` → PWA `src/routes/`)
-
-| Mobile path | PWA path | Notes |
+| Mobile path | PWA path | Phase 2 contents |
 |---|---|---|
-| `app/_layout.tsx` | `src/routes/__root.tsx` (already done) | Drop `QuizResumeDialog` here too (port it from mobile) |
-| `app/(auth)/_layout.tsx` | `src/routes/_auth.tsx` (pathless layout) | Just renders `<Outlet />` with centered card styling |
-| `app/(auth)/login.tsx` | `src/routes/_auth/login.tsx` | Use shadcn `<Card>` + `<Input>` + `<Button>` |
-| `app/(auth)/signup.tsx` | `src/routes/_auth/signup.tsx` | |
-| `app/(auth)/forgot-password.tsx` | `src/routes/_auth/forgot-password.tsx` | |
-| `app/(auth)/reset-password.tsx` | `src/routes/_auth/reset-password.tsx` | Triggered by Supabase email link; `detectSessionInUrl:true` is already set |
-| `app/(tabs)/_layout.tsx` | `src/routes/_authed/_tabs.tsx` (pathless layout) | Bottom tab nav. Build with flex + shadcn buttons; mobile-first sticky bottom bar |
-| `app/(tabs)/index.tsx` | `src/routes/_authed/_tabs/index.tsx` | Home screen |
-| `app/(tabs)/books.tsx` | `src/routes/_authed/_tabs/books.tsx` | |
-| `app/(tabs)/generate.tsx` | `src/routes/_authed/_tabs/generate.tsx` | |
-| `app/(tabs)/chat.tsx` | `src/routes/_authed/_tabs/chat.tsx` | |
-| `app/(tabs)/settings.tsx` | `src/routes/_authed/_tabs/settings.tsx` | |
-| `app/(tabs)/theme-demo.tsx` | **SKIP** | Dev-only |
-| `app/chapter/[bookId].tsx` | `src/routes/_authed/chapter/$bookId.tsx` | Chapter list for a book |
-| `app/chapter/[chapterId]/exercises.tsx` | `src/routes/_authed/chapter/$chapterId/exercises.tsx` | **Strip `matching` and `mixed` from the rendered list** |
-| `app/chapter/[chapterId]/vocabulary.tsx` | `src/routes/_authed/chapter/$chapterId/vocabulary.tsx` | |
-| `app/chapter/[chapterId]/grammar.tsx` | `src/routes/_authed/chapter/$chapterId/grammar.tsx` | |
-| `app/chapter/[chapterId]/dialogues.tsx` | `src/routes/_authed/chapter/$chapterId/dialogues.tsx` | |
-| `app/quiz/ai-loading.tsx` | `src/routes/_authed/quiz/ai-loading.tsx` | |
-| `app/quiz/loading.tsx` | `src/routes/_authed/quiz/loading.tsx` | |
-| `app/quiz/premade.tsx` | `src/routes/_authed/quiz/premade.tsx` | |
-| `app/quiz/play.tsx` | `src/routes/_authed/quiz/play.tsx` | The main quiz session screen |
-| `app/quiz/[chapterId].tsx` | `src/routes/_authed/quiz/$chapterId.tsx` | |
-| `app/+not-found.tsx` | `src/routes/__root.tsx` `notFoundComponent` prop | |
-| `app/+html.tsx` | **SKIP** | Expo-only |
-| `app/modal.tsx` | **SKIP or convert to shadcn `<Dialog>`** | Only port if referenced from a screen you are porting |
+| `app/(tabs)/index.tsx` | `src/routes/_authed/_tabs/index.tsx` | Home screen (your call — show last-played chapter, daily tip, etc.) |
+| `app/(tabs)/books.tsx` | `src/routes/_authed/_tabs/books.tsx` | Grid/list of `<BookCard>` from `useBooks` |
+| `app/(tabs)/settings.tsx` | `src/routes/_authed/_tabs/settings.tsx` | Minimal stub: email + Sign out (proper version in Phase 5) |
+| `app/chapter/[bookId].tsx` | `src/routes/_authed/chapter/$bookId.tsx` | Chapter list for one book; uses `useChapters` |
+| `app/chapter/[chapterId]/vocabulary.tsx` | `src/routes/_authed/chapter/$chapterId/vocabulary.tsx` | Vocabulary list |
+| `app/chapter/[chapterId]/grammar.tsx` | `src/routes/_authed/chapter/$chapterId/grammar.tsx` | Grammar points |
+| `app/chapter/[chapterId]/dialogues.tsx` | `src/routes/_authed/chapter/$chapterId/dialogues.tsx` | Dialogues |
 
-Chapter ID convention (unchanged): `bookId * 100 + chapterNumber` (e.g., Book 2 Chapter 12 → 212). Already documented in `AGENTS.md`.
+**Dynamic params:** brackets `[bookId]` → `$bookId` in TanStack. Read with `Route.useParams()`.
 
-### 6.2 Components
+**Chapter ID convention** (unchanged): `bookId * 100 + chapterNumber` (Book 2 Chapter 12 → 212). Documented in `AGENTS.md`.
 
-For each `dangdai-mobile/components/<folder>/<Name>.tsx`, rebuild at `dangdai-pwa/src/components/<folder>/<Name>.tsx` using shadcn primitives. **Read the mobile file, understand the behavior and props, then rewrite — do not copy.**
+### 3.5 Exit criteria for Phase 2
 
-Active set to port:
-
-**`components/auth/`**
-- `LoginForm.tsx`, `SignupForm.tsx`, `ForgotPasswordForm.tsx`, `ResetPasswordForm.tsx`
-- `AppleSignInButton.tsx` — **SKIP for now** (web Apple Sign-in needs a different setup; ask the user before tackling)
-
-**`components/chapter/`**
-- `BookCard.tsx`, `BookCardSkeleton.tsx`
-- `ChapterListItem.tsx`, `ChapterListSkeleton.tsx`
-- `ExerciseTypeCard.tsx`
-- `VocabularyItem.tsx`, `GrammarPointCard.tsx`, `DialogueBubble.tsx`
-- `PremadeExerciseCard.tsx`
-
-**`components/quiz/`** (the active exercise UIs)
-- `QuizQuestionCard.tsx` — the wrapper that dispatches to a type-specific renderer
-- `AnswerOptionGrid.tsx` — vocab/grammar multiple choice
-- `FillInBlankSentence.tsx` — fill_in_blank
-- `WordBankSelector.tsx` — used inside fill_in_blank
-- `SentenceBuilder.tsx` — **rewrite with dnd-kit (§5)**
-- `DialogueCard.tsx` — dialogue_completion
-- `ReadingPassageCard.tsx` — reading_comprehension
-- `TextInputAnswer.tsx`
-- `QuizProgress.tsx`, `PointsCounter.tsx`, `FeedbackOverlay.tsx`
-- `CompletionScreen.tsx`
-- `ExitConfirmationModal.tsx` — use shadcn `<AlertDialog>`
-- `PausedQuizBanner.tsx`
-- `ExerciseTypeProgressList.tsx`
-- **SKIP: `MatchingExercise.tsx`** (matching is disabled)
-
-**`components/`** (root)
-- `MaixinLogo.tsx` — port the SVG
-- `SplashScreen.tsx` — show during `AuthProvider` loading; use a Tailwind centered layout
-- `Provider.tsx` — **SKIP** (was Tamagui+Query+Toast wrapper; PWA wires these in `main.tsx` already)
-- `CurrentToast.tsx` — **SKIP**; replace with shadcn `sonner` (`npx shadcn@latest add sonner`). Add `<Toaster />` in `__root.tsx` and call `toast.error(...)` / `toast.success(...)` where the mobile code used `useToastController()`.
-
-### 6.3 Hooks
-
-All hooks live at `src/hooks/<name>.ts` (folder already exists). Most are pure TanStack Query / Zustand wrappers and should port with **zero code changes**. Just check imports:
-- Replace any `import X from 'react-native...'` (rare — almost none use RN)
-- Path aliases: prefer `@/lib/...`, `@/types/...`, `@/stores/...` (but relative paths also work)
-
-| Hook | Action |
-|---|---|
-| `useAuth.ts` | Re-export from `@/providers/AuthProvider` (the PWA AuthProvider already exports `useAuth`) |
-| `useSession.ts` | Likely thin wrapper — verify and port |
-| `useBooks.ts`, `useChapters.ts`, `useChapterProgress.ts` | Pure Query hooks. Copy verbatim. |
-| `useVocabulary.ts`, `useGrammarPoints.ts`, `useDialogues.ts` | Pure. Copy verbatim. |
-| `usePremadeExercises.ts`, `usePremadeExercise.ts` | Pure. Copy verbatim. |
-| `useExerciseTypeProgress.ts` | Pure. Copy verbatim. |
-| `useUserStats.ts` | Pure. Copy verbatim. |
-| `useQuizGeneration.ts` | Calls `api.generateQuiz` etc. Already ported in PWA's `lib/api.ts`. Copy. |
-| `useQuizPersistence.ts` | Zustand-only. Copy verbatim. |
-| `usePauseQuiz.ts`, `usePausedQuiz.ts` | Supabase + Zustand. Copy verbatim. |
-| `useAnswerValidation.ts` | Pure logic + API. Copy. |
-| `useQuestionTimer.ts` | Pure `setInterval` logic. Copy. |
-| `useSound.ts` | **Rewrite for web.** Mobile uses `expo-av`. Web: use `HTMLAudioElement` or `<audio>` refs. Keep the same hook signature so callers don't change. |
-| `useResolvedColorScheme.ts` | Mobile reads OS theme via RN APIs. Web: `window.matchMedia('(prefers-color-scheme: dark)')`. Reuse the same return shape. Or skip until dark mode is wired up. |
+- Signed-in user lands on `/` → home tab visible
+- Bottom tab bar lets you switch Home / Books / Settings without console errors
+- `/books` loads books from Supabase (TanStack Query)
+- Tapping a book → `/chapter/$bookId` shows chapter list
+- Tapping a chapter or its content links → vocabulary / grammar / dialogue screens render content
+- `npm run build` green; Lighthouse mobile audit not regressed
+- Settings stub has Sign out that actually returns the user to `/login` (apply the gap-fix from §1)
 
 ---
 
-## 7. Suggested phasing
+## 4. Architectural reminders (unchanged from Phase 0 but easy to forget)
 
-Do it in this order — each phase ends in a buildable, demo-able app.
+### TanStack Router
+- Pathless layouts use `_name.tsx`; their children sit in `_name/`
+- A pathless layout with **no children** is treated as a route at the parent path — give it at least one child or it'll conflict
+- Dynamic params: `$param.tsx`, read via `Route.useParams()`; search params via `Route.useSearch()`
+- `routeTree.gen.ts` is auto-generated on dev/build by `tanstackRouter` Vite plugin. **Don't edit it.** If `npm run build` fails on stale types, run `npx vite build` once first (it regenerates the tree before tsc would in a fresh `npm run build`), or just run dev.
+- Protected routes: `beforeLoad` with `redirect()` — already done in `_authed.tsx`
 
-### Phase 1 — Auth flow (smallest meaningful slice)
-1. `npx shadcn@latest add button input label card form sonner`
-2. Add `<Toaster />` in `src/routes/__root.tsx`
-3. Build `src/routes/_auth.tsx` (centered card layout)
-4. Port `LoginForm`, `SignupForm`, `ForgotPasswordForm`, `ResetPasswordForm`
-5. Build `src/routes/_authed.tsx` (the `beforeLoad` guard from §3.3)
-6. Replace `src/routes/index.tsx` with a redirect: signed-in → `/home`, signed-out → `/login`
-7. Verify: can sign up, sign in, sign out, password reset (use real Supabase project; same one as mobile)
+### shadcn / Tailwind
+- Theme tokens are in `src/index.css` (`--background`, `--foreground`, `--primary`, etc.). Don't add competing CSS vars.
+- Tamagui token scale (`$1`..`$10`) ≈ Tailwind spacing scale (`1`..`10` = `4px * N`). Use judgment, not literal conversion.
+- Mobile-first: design at 360–414px. Wrap each screen in `max-w-md mx-auto` to keep it phone-shaped on desktop.
 
-### Phase 2 — Books + chapter navigation (no quizzes yet)
-1. `npx shadcn@latest add skeleton scroll-area separator avatar tabs`
-2. Build the bottom tab bar at `src/routes/_authed/_tabs.tsx` (just Home, Books, Settings to start; add Generate, Chat later)
-3. Port `useBooks`, `useChapters`, `useChapterProgress`, then `BookCard`, `ChapterListItem`, and the screens that use them
-4. `src/routes/_authed/_tabs/books.tsx`, `src/routes/_authed/chapter/$bookId.tsx`
-5. Port content browse screens: `vocabulary`, `grammar`, `dialogues` + their components
+### TS strictness gotchas
+- `verbatimModuleSyntax`: use `import type { Foo } from 'bar'` for types
+- `noUnusedLocals` + `erasableSyntaxOnly`: stricter than mobile — expect to trim imports or prefix unused vars with `_`
+- `React.FormEvent<HTMLFormElement>` is marked deprecated (warning, not error) in TS 6 — ignore the hint, it still works. (The Phase 1 forms keep it.)
 
-### Phase 3 — Quiz flow without DnD (vocab, grammar, fill_in_blank, dialogue, reading)
-1. `npx shadcn@latest add progress dialog alert-dialog radio-group`
-2. Port quiz hooks: `useQuizGeneration`, `useQuizPersistence`, `useAnswerValidation`, `useQuestionTimer`
-3. Port `QuizQuestionCard`, `AnswerOptionGrid`, `FillInBlankSentence`, `WordBankSelector`, `DialogueCard`, `ReadingPassageCard`, `TextInputAnswer`, `QuizProgress`, `PointsCounter`, `FeedbackOverlay`, `CompletionScreen`, `ExitConfirmationModal`, `PausedQuizBanner`
-4. Port quiz route screens: `loading`, `ai-loading`, `premade`, `play`, `$chapterId`
-5. Wire `QuizResumeDialog` in `__root.tsx`
-6. End-to-end test: pick a chapter → generate vocab quiz → complete it → see results saved in Supabase
+### Env / globals
+- No `process.env` in source — use `import.meta.env.VITE_*`
+- No `__DEV__` — use `import.meta.env.DEV` (boolean)
 
-### Phase 4 — Sentence construction (dnd-kit)
-1. `npm install @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities`
-2. Build `SentenceBuilder.tsx` from scratch per §5
-3. Test on touch device (or Chrome DevTools mobile emulation)
-4. Verify tap-to-place still works alongside drag
+---
 
-### Phase 5 — Generate, Chat, Settings tabs
-1. Port `generate.tsx` (multi-chapter quiz generation form — uses `api.generateMultiChapterQuiz`)
-2. Port `chat.tsx` (RAG Q&A — uses `api.askChat`)
-3. Port `settings.tsx`
-4. Port `useSound` (web rewrite) if any screen relies on sound effects (check `useSound` callers in mobile)
+## 5. Drag and drop (Phase 4 only, but plan ahead)
+
+Only `sentence_construction` needs DnD in the active set. Use `@dnd-kit/core` + `@dnd-kit/sortable` + `@dnd-kit/utilities`. See §5 of the original Phase 0 doc (now in `git log` if you need it) for the sentence-builder mapping. **Skip `matching` and `mixed` entirely** — `matching` is disabled in mobile due to a Reanimated bug; `mixed` is hidden for now. Keep them in the `ExerciseType` union but never render UI for them.
+
+---
+
+## 6. Remaining phases at a glance
+
+After Phase 2, continue with the original plan:
+
+### Phase 3 — Quiz flow without DnD
+shadcn: `progress dialog alert-dialog radio-group`
+Hooks: `useQuizGeneration`, `useQuizPersistence`, `useAnswerValidation`, `useQuestionTimer`
+Components: `QuizQuestionCard`, `AnswerOptionGrid`, `FillInBlankSentence`, `WordBankSelector`, `DialogueCard`, `ReadingPassageCard`, `TextInputAnswer`, `QuizProgress`, `PointsCounter`, `FeedbackOverlay`, `CompletionScreen`, `ExitConfirmationModal`, `PausedQuizBanner`. **Skip `MatchingExercise.tsx`.**
+Routes: `_authed/quiz/loading`, `ai-loading`, `premade`, `play`, `$chapterId`
+Wire `QuizResumeDialog` in `__root.tsx`.
+
+### Phase 4 — Sentence construction
+`npm install @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities` and build `SentenceBuilder.tsx` with two droppable zones (answer slot + word bank), `PointerSensor` + `KeyboardSensor`, `<DragOverlay>`. **Keep tap-to-place** as the primary interaction.
+
+### Phase 5 — Generate, Chat, Settings
+Port `generate.tsx`, `chat.tsx`, `settings.tsx`. `useSound` needs a web rewrite (mobile uses `expo-av` → use `HTMLAudioElement`).
 
 ### Phase 6 — Polish
-1. Dark mode (`useResolvedColorScheme` web version + Tailwind `dark:` classes)
-2. PWA icons: generate `pwa-192x192.png`, `pwa-512x512.png`, `pwa-maskable-512x512.png`, `apple-touch-icon.png`, `favicon.svg` → place in `public/`
-3. Apple Sign-in (if user confirms scope)
-4. Lighthouse PWA audit; install prompt UX
+Dark mode (`useResolvedColorScheme` web version + Tailwind `dark:`), PWA icons (`pwa-192x192.png`, `pwa-512x512.png`, `pwa-maskable-512x512.png`, `apple-touch-icon.png`, `favicon.svg`), Lighthouse audit. Apple Sign-in only if user confirms scope.
 
 ---
 
-## 8. Gotchas & things to watch for
+## 7. Out of scope (do NOT do unless user asks)
 
-1. **TanStack Router type-safety**: route params/search are fully typed. Use `Route.useParams()` and `Route.useSearch()` from each generated route. If you see `'/path' not assignable to undefined`, the router hasn't generated `routeTree.gen.ts` yet — run `npm run dev` once to regenerate.
-
-2. **Strict TS**: `verbatimModuleSyntax: true` means types must use `import type { Foo } from 'bar'`. The mobile codebase usually does this already.
-
-3. **`noUnusedLocals` and `erasableSyntaxOnly`**: PWA tsconfig is stricter than mobile. Expect more `_var` prefixes or trimmed imports when porting.
-
-4. **No `process.env`** in source. Use `import.meta.env.VITE_*`. The PWA scaffold has only three: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_API_URL`. Add more sparingly and document in `.env.example`.
-
-5. **No `__DEV__`** global. Use `import.meta.env.DEV` (boolean) instead.
-
-6. **Supabase reset-password redirect**: mobile used a deep link `maixin-chinese://reset-password`. PWA AuthProvider already sets `${window.location.origin}/reset-password`. Make sure that route exists at `routes/_auth/reset-password.tsx`. Also confirm in Supabase Auth dashboard that the new web origin is on the allowed redirect URL list.
-
-7. **No deep linking, no Apple Sign In on web (for now)** — both deferred. If a screen depends on Apple sign in, leave a stub button or skip until §6.
-
-8. **Mobile-first sizing**: this is a *mobile* PWA. Design at 360–414px width. Use `max-w-md mx-auto` on screens to keep them narrow on desktop, or simulate phone width with a centered container.
-
-9. **Mobile tests use `testID`** for Playwright. The mobile Playwright suite is at `dangdai-mobile/tests/`. The user has not asked for tests to be ported in the PWA yet — leave `data-testid` props off unless asked. If asked later, mirror the same testIDs as `data-testid` so test files can be ported with minor changes.
-
-10. **`MatchingExercise.tsx` references**: when porting `exercises.tsx` and `QuizQuestionCard.tsx`, search for `matching` and remove dispatch branches. The type still exists in the `ExerciseType` union (backend may send it) but the UI should never render it. Throw or return a "not supported" placeholder if you hit it at runtime, to surface backend bugs early.
-
-11. **Reading comprehension**: mobile's `lib/api.ts` (already ported) has a `resolveComprehensionAnswers` step that resolves sub-question `correct` indices to `correct_answer` strings. Don't duplicate that logic in the renderer.
-
----
-
-## 9. Verification checklist (run after each phase)
-
-```bash
-cd /home/maxime/repos/dangdai-app/dangdai-pwa
-npm run build          # tsc -b && vite build (must be green)
-npm run dev            # smoke test in browser
-```
-
-In Chrome DevTools (or via the chrome-devtools MCP if available):
-- No console errors or React warnings
-- Network: all requests 200; Supabase REST calls succeed
-- Application → Service Workers: SW registers in production (not dev)
-- Application → Manifest: valid manifest (production build only)
-- Lighthouse mobile audit: aim for PWA installable + green on Performance
-
----
-
-## 10. Reference docs (use Context7 MCP)
-
-Always prefer Context7 over training data:
-- `/tanstack/router` — TanStack Router (file-based routing, beforeLoad guards, typed params)
-- `/tanstack/query` — TanStack Query (already familiar to mobile codebase)
-- `/clauderic/dnd-kit` — dnd-kit (sortable, draggable, sensors, accessibility)
-- `/shadcn-ui/ui` — shadcn/ui components
-- `/tailwindlabs/tailwindcss` — Tailwind v4
-- `/supabase/supabase` — Supabase JS client (web auth flow)
-- `/vite-pwa/vite-plugin-pwa` — vite-plugin-pwa (manifest, Workbox runtime caching)
-
-For schema, RLS, migrations, type generation: use the **Supabase MCP** (`list_tables`, `execute_sql`, `apply_migration`, `generate_typescript_types`, `get_advisors`) — never write SQL by hand.
-
----
-
-## 11. Out of scope (do NOT do unless user explicitly asks)
-
-- Porting unit tests (`*.test.ts(x)`) from mobile. Wait for the user to ask before adding Jest/Vitest.
+- Porting unit tests (`*.test.ts(x)`) from mobile
 - Porting Playwright E2E tests
 - Setting up CI for the PWA
 - Apple Sign In on web
 - Push notifications
-- Native modules (camera, audio recording, etc.)
-- The `matching` and `mixed` exercise types
-- The `(tabs)/theme-demo` dev-only screen
-- The `dangdai-rag/` or `dangdai-api/` directories (backend untouched)
-- The mobile codebase itself — leave `dangdai-mobile/` alone. The user is keeping both.
+- Native modules (camera, audio recording)
+- `matching` and `mixed` exercise types
+- `(tabs)/theme-demo` (dev-only)
+- The `dangdai-rag/` or `dangdai-api/` directories
+- The mobile codebase — leave `dangdai-mobile/` alone
 
-When in doubt about scope, ask the user before adding anything not on this doc.
+When in doubt about scope, ask before adding.
+
+---
+
+## 8. Reference docs
+
+Always prefer Context7 over training data:
+- `/tanstack/router` — file-based routing, beforeLoad guards, typed params
+- `/tanstack/query` — already familiar to mobile codebase
+- `/clauderic/dnd-kit` — sortable, draggable, sensors, accessibility (Phase 4)
+- `/shadcn-ui/ui` — shadcn/ui components
+- `/tailwindlabs/tailwindcss` — Tailwind v4
+- `/supabase/supabase` — Supabase JS client
+- `/vite-pwa/vite-plugin-pwa` — manifest, Workbox runtime caching
+
+For Supabase schema / RLS / migrations / type generation: use the **Supabase MCP** (`list_tables`, `execute_sql`, `apply_migration`, `generate_typescript_types`, `get_advisors`) — never hand-write SQL.
+
+For structural questions across mobile + api (call graphs, who-calls-X): use the **CodeGraphContext MCP** (`find_code`, `analyze_code_relationships`). Don't use it for plain text search — that's what grep is for.
+
+---
+
+## 9. Verification per phase
+
+```bash
+cd /home/maxime/repos/dangdai-app/dangdai-pwa
+npm run build          # tsc -b && vite build — must be green
+npm run dev            # smoke test in browser at localhost:5173
+```
+
+In Chrome (or chrome-devtools MCP), verify after each phase:
+- No console errors or React warnings
+- Network: all requests 200; Supabase REST calls succeed
+- Production build: SW registers, manifest valid
+- Lighthouse mobile audit: PWA installable, performance green
+
+Test login: **test@test.com / maxime11**.
