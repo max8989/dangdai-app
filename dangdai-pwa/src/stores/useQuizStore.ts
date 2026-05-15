@@ -1,0 +1,517 @@
+/**
+ * Quiz Store
+ *
+ * Per architecture specification, Zustand is used for local state:
+ * - Current quiz state (answers, progress within a quiz session)
+ *
+ * This store manages the state of an active quiz session.
+ * It is crash-safe — Zustand persist middleware serializes minimal resume state
+ * to AsyncStorage on every change and rehydrates on app launch (NFR10).
+ *
+ * Server data like quiz history is managed by TanStack Query, not this store.
+ *
+ * Story 4.3: Extended with quizPayload, getCurrentQuestion, isLastQuestion
+ * Story 4.4: Extended with blankAnswers, setBlankAnswer, clearBlankAnswer
+ * Story 4.5: Extended with matchingScore, addMatchedPairScore, addIncorrectAttempt, resetMatchingScore
+ * Story 4.7: Extended with placedTileIds, placeTile, removeTile, clearTiles
+ * Story 4.9: Extended with showFeedback, feedbackIsCorrect, triggerShowFeedback, hideFeedback
+ * Story 4.10: Added persist middleware, chapterId/bookId/exerciseType, hasActiveQuiz, _hasHydrated
+ * Story 4.11: Extended with isComplete, quizStartTime, completeQuiz(), getQuizDuration(), getIncorrectAnswers()
+ * Story 4.10b: Extended with startedAt, timeElapsed, restoreState() for pause/resume feature
+ */
+
+import { create } from 'zustand'
+import { persist, createJSONStorage } from 'zustand/middleware'
+
+import type { QuizResponse, QuizQuestion } from '../types/quiz'
+import type { PausedQuizState } from '../types/paused-quiz'
+
+/** A single incorrect answer entry returned by getIncorrectAnswers(). */
+export interface IncorrectAnswerDetail {
+  questionIndex: number
+  userAnswer: string
+  correctAnswer: string
+  /** Sub-question index for reading comprehension (undefined for other types) */
+  subQuestionIndex?: number
+  /** Sub-question text for reading comprehension */
+  subQuestionText?: string
+}
+
+/**
+ * Quiz session state interface
+ */
+interface QuizState {
+  // Current quiz session
+  currentQuizId: string | null
+  currentQuestion: number
+  answers: Record<number, string>
+  score: number
+
+  // Quiz payload (full quiz data for active session — persisted for crash recovery)
+  quizPayload: QuizResponse | null
+
+  // Quiz context metadata (persisted for crash recovery and Supabase writes)
+  chapterId: number | null
+  bookId: number | null
+  exerciseType: string | null
+  /** End of the chapter range for multi-chapter quizzes; null for single-chapter. */
+  chapterIdEnd: number | null
+
+  // Fill-in-blank state (per question, resets on nextQuestion/resetQuiz)
+  blankAnswers: Record<number, string | null>
+  /**
+   * Tracks which word-bank *index* fills each blank position.
+   * Index-based (not value-based) to correctly handle duplicate words in the bank.
+   * blankIndex → wordBankIndex | null
+   */
+  blankAnswerIndices: Record<number, number | null>
+
+  // Matching exercise session-level score tracking (Story 4.5)
+  // Aggregate score for the session — used by completion flow (Story 4.11) and
+  // progress saving (Story 4.10). Transient interaction state (selectedLeft, etc.)
+  // lives in the MatchingExercise component, NOT here.
+  matchingScore: { correct: number; incorrect: number }
+
+  // Sentence construction tile placement state (Story 4.7)
+  // Ordered list of tile IDs placed in the answer area.
+  // Tile ID format: "tile-N" where N is the index into scrambled_words[].
+  // This handles duplicate words correctly (two "的" tiles get different IDs).
+  // NOT persisted — ephemeral UI state.
+  placedTileIds: string[]
+
+  // Feedback overlay state (Story 4.9)
+  // Controls visibility of FeedbackOverlay after each answer submission.
+  showFeedback: boolean
+  feedbackIsCorrect: boolean | null
+
+  // Hydration tracking (Story 4.10)
+  // Set to true by onRehydrateStorage callback after AsyncStorage data is loaded.
+  // Use this to gate the resume dialog check.
+  _hasHydrated: boolean
+
+  // Quiz completion state (Story 4.11)
+  // Set to true by completeQuiz() when the quiz is finished and CompletionScreen shows.
+  // Persisted so crash on CompletionScreen doesn't trigger a false-positive resume dialog.
+  isComplete: boolean
+  // Timestamp (ms) when the quiz was started, used to compute quiz duration.
+  // Persisted so duration is accurate after crash recovery. Set in startQuiz(), cleared in resetQuiz().
+  quizStartTime: number | null
+
+  // Pause/Resume state (Story 4.10b)
+  // ISO timestamp when the quiz was originally started (for PausedQuizState serialization).
+  startedAt: string | null
+  // Time elapsed in milliseconds before the quiz was paused (for accurate duration tracking).
+  timeElapsed: number
+
+  // Derived getters
+  getCurrentQuestion: () => QuizQuestion | null
+  isLastQuestion: () => boolean
+  hasActiveQuiz: () => boolean
+  /** Returns elapsed quiz duration in minutes (0 if not started). Story 4.11 Task 1.4 */
+  getQuizDuration: () => number
+  /** Returns details of incorrectly answered questions. Story 4.11 Task 1.5 */
+  getIncorrectAnswers: () => IncorrectAnswerDetail[]
+
+  // Actions
+  /** Sets isComplete to true — called when the last question's feedback timer fires. Story 4.11 Task 1.3 */
+  completeQuiz: () => void
+  startQuiz: (quizId: string, payload?: QuizResponse, chapterId?: number | null, bookId?: number | null, exerciseType?: string | null, chapterIdEnd?: number | null) => void
+  /**
+   * Restore a paused quiz state into the store (Story 4.10b).
+   * Called on quiz screen mount when a paused quiz is detected.
+   */
+  restoreState: (state: PausedQuizState) => void
+  setQuizPayload: (payload: QuizResponse) => void
+  setAnswer: (questionIndex: number, answer: string) => void
+  nextQuestion: () => void
+  addScore: (points: number) => void
+  resetQuiz: () => void
+  setHasHydrated: (hydrated: boolean) => void
+
+  // Matching exercise score actions (Story 4.5)
+  /** Increment the correct pair count for the current matching exercise session */
+  addMatchedPairScore: () => void
+  /** Increment the incorrect attempt count for the current matching exercise session */
+  addIncorrectMatchingAttempt: () => void
+  /** Reset matching score state (called on nextQuestion and resetQuiz) */
+  resetMatchingScore: () => void
+
+  // Fill-in-blank actions
+  setBlankAnswer: (blankIndex: number, word: string | null, wordBankIndex?: number | null) => void
+  clearBlankAnswer: (blankIndex: number) => void
+
+  // Sentence construction tile placement actions (Story 4.7)
+  placeTile: (tileId: string) => void
+  removeTile: (tileId: string) => void
+  clearTiles: () => void
+  /** Replace the entire placedTileIds array (used by drag-and-drop reorder) */
+  setPlacedTileIds: (ids: string[]) => void
+  /** Move a tile from one index to another within placedTileIds */
+  reorderTiles: (fromIndex: number, toIndex: number) => void
+
+  // Feedback overlay actions (Story 4.9)
+  triggerShowFeedback: (isCorrect: boolean) => void
+  hideFeedback: () => void
+}
+
+/**
+ * Quiz store for managing active quiz session state
+ *
+ * Uses Zustand persist middleware to write minimal resume state to AsyncStorage
+ * on every state change (NFR10 — crash-safe progress).
+ *
+ * Persisted fields: currentQuizId, currentQuestion, answers, score, quizPayload,
+ *   chapterId, bookId, exerciseType, isComplete, quizStartTime
+ * NOT persisted: placedTileIds, blankAnswers, blankAnswerIndices, showFeedback,
+ *   feedbackIsCorrect, matchingScore, _hasHydrated (and all action functions)
+ *
+ * Usage:
+ * ```tsx
+ * import { useQuizStore } from '../stores/useQuizStore';
+ *
+ * function QuizScreen() {
+ *   const { currentQuestion, setAnswer, nextQuestion } = useQuizStore();
+ *   // ... quiz logic
+ * }
+ * ```
+ */
+export const useQuizStore = create<QuizState>()(
+  persist(
+    (set, get) => ({
+      // Initial state
+      currentQuizId: null,
+      currentQuestion: 0,
+      answers: {},
+      score: 0,
+      quizPayload: null,
+      chapterId: null,
+      bookId: null,
+      exerciseType: null,
+      chapterIdEnd: null,
+      blankAnswers: {},
+      blankAnswerIndices: {},
+      matchingScore: { correct: 0, incorrect: 0 },
+      placedTileIds: [],
+      showFeedback: false,
+      feedbackIsCorrect: null,
+      _hasHydrated: false,
+      // Story 4.11 completion state
+      isComplete: false,
+      quizStartTime: null,
+
+      // Story 4.10b pause/resume state
+      startedAt: null,
+      timeElapsed: 0,
+
+      // Derived getters
+      getCurrentQuestion: () => {
+        const { quizPayload, currentQuestion } = get()
+        if (!quizPayload || !quizPayload.questions) return null
+        return quizPayload.questions[currentQuestion] ?? null
+      },
+
+      isLastQuestion: () => {
+        const { quizPayload, currentQuestion } = get()
+        if (!quizPayload || !quizPayload.questions) return false
+        return currentQuestion >= quizPayload.questions.length - 1
+      },
+
+      hasActiveQuiz: () => {
+        const state = get()
+        // A quiz is resumable only if it exists AND is not already completed.
+        // isComplete is persisted so crash-on-CompletionScreen doesn't cause
+        // a false-positive resume dialog on next app launch.
+        return state.currentQuizId !== null && state.quizPayload !== null && !state.isComplete
+      },
+
+      // Story 4.11 derived getters
+      getQuizDuration: () => {
+        const { quizStartTime } = get()
+        if (quizStartTime === null) return 0
+        const elapsedMs = Date.now() - quizStartTime
+        return Math.round(elapsedMs / 60_000)
+      },
+
+      getIncorrectAnswers: () => {
+        const { quizPayload, answers } = get()
+        if (!quizPayload || !quizPayload.questions) return []
+        const result: IncorrectAnswerDetail[] = []
+        quizPayload.questions.forEach((question, index) => {
+          const userAnswer = answers[index]
+          if (userAnswer === undefined) return // Not answered — skip
+
+          // Reading comprehension: answers stored as JSON array of sub-answers
+          if (
+            question.exercise_type === 'reading_comprehension' &&
+            question.comprehension_questions
+          ) {
+            let parsedAnswers: unknown
+            try {
+              parsedAnswers = JSON.parse(userAnswer)
+            } catch {
+              // Malformed JSON — treat entire question as incorrect
+              result.push({
+                questionIndex: index,
+                userAnswer,
+                correctAnswer: question.correct_answer,
+              })
+              return
+            }
+            // Guard: ensure parsed value is actually an array
+            if (!Array.isArray(parsedAnswers)) {
+              result.push({
+                questionIndex: index,
+                userAnswer,
+                correctAnswer: question.correct_answer,
+              })
+              return
+            }
+            question.comprehension_questions.forEach((subQ, subIdx) => {
+              const subAnswer = parsedAnswers[subIdx]
+              if (subAnswer === undefined || typeof subAnswer !== 'string') return
+              // Use strict equality to match handleReadingSubQuestionAnswer scoring path
+              const isSubCorrect = subAnswer === subQ.correct_answer
+              if (!isSubCorrect) {
+                result.push({
+                  questionIndex: index,
+                  userAnswer: subAnswer,
+                  correctAnswer: subQ.correct_answer,
+                  subQuestionIndex: subIdx,
+                  subQuestionText: subQ.question,
+                })
+              }
+            })
+            return
+          }
+
+          // Standard question types: case-insensitive comparison
+          const isCorrect =
+            userAnswer.trim().toLowerCase() === question.correct_answer.trim().toLowerCase()
+          if (!isCorrect) {
+            result.push({
+              questionIndex: index,
+              userAnswer,
+              correctAnswer: question.correct_answer,
+            })
+          }
+        })
+        return result
+      },
+
+      // Actions
+      completeQuiz: () => set({ isComplete: true }),
+
+      startQuiz: (quizId, payload, chapterId = null, bookId = null, exerciseType = null, chapterIdEnd = null) =>
+        set((state) => ({
+          currentQuizId: quizId,
+          currentQuestion: 0,
+          answers: {},
+          score: 0,
+          quizPayload: payload ?? state.quizPayload,
+          chapterId,
+          bookId,
+          exerciseType,
+          chapterIdEnd,
+          blankAnswers: {}, // Reset fill-in-blank state on new session start (H3 fix)
+          blankAnswerIndices: {},
+          matchingScore: { correct: 0, incorrect: 0 }, // Reset matching score on new session
+          placedTileIds: [], // Reset tile placement state on new session start
+          showFeedback: false, // Reset feedback state on new session start
+          feedbackIsCorrect: null,
+          // Story 4.11: record start time for duration calculation; reset completion
+          isComplete: false,
+          quizStartTime: Date.now(),
+          // Story 4.10b: record ISO start time for pause/resume serialization
+          startedAt: new Date().toISOString(),
+          timeElapsed: 0,
+        })),
+
+      setQuizPayload: (payload) => set({ quizPayload: payload }),
+
+      setAnswer: (questionIndex, answer) =>
+        set((state) => ({
+          answers: { ...state.answers, [questionIndex]: answer },
+        })),
+
+      nextQuestion: () =>
+        set((state) => ({
+          currentQuestion: state.currentQuestion + 1,
+          blankAnswers: {}, // Reset blank answers on question advance
+          blankAnswerIndices: {},
+          matchingScore: { correct: 0, incorrect: 0 }, // Reset matching score on question advance
+          placedTileIds: [], // Reset tile placement on question advance
+          showFeedback: false, // Reset feedback state on question advance
+          feedbackIsCorrect: null,
+        })),
+
+      addScore: (points) => set((state) => ({ score: state.score + points })),
+
+      resetQuiz: () =>
+        set({
+          currentQuizId: null,
+          currentQuestion: 0,
+          answers: {},
+          score: 0,
+          quizPayload: null,
+          chapterId: null,
+          bookId: null,
+          exerciseType: null,
+          chapterIdEnd: null,
+          blankAnswers: {}, // Reset blank answers on quiz reset
+          blankAnswerIndices: {},
+          matchingScore: { correct: 0, incorrect: 0 }, // Reset matching score on quiz reset
+          placedTileIds: [], // Reset tile placement on quiz reset
+          showFeedback: false, // Reset feedback state on quiz reset
+          feedbackIsCorrect: null,
+          // Story 4.11: reset completion state
+          isComplete: false,
+          quizStartTime: null,
+          // Story 4.10b: reset pause/resume state
+          startedAt: null,
+          timeElapsed: 0,
+        }),
+
+      setHasHydrated: (hydrated) => set({ _hasHydrated: hydrated }),
+
+      // Story 4.10b: Restore a paused quiz state into the store
+      restoreState: (state: PausedQuizState) =>
+        set({
+          currentQuestion: state.currentQuestionIndex,
+          answers: state.answers,
+          startedAt: state.startedAt,
+          timeElapsed: state.timeElapsed,
+          chapterId: state.chapterId,
+          bookId: state.bookId,
+          exerciseType: state.exerciseType,
+          // Synthetic quiz ID for paused quizzes (no real quiz_id from API)
+          currentQuizId: `paused-${state.chapterId}-${state.exerciseType}`,
+          // Reconstruct quizPayload from the paused state
+          quizPayload: {
+            quiz_id: `paused-${state.chapterId}-${state.exerciseType}`,
+            chapter_id: state.chapterId,
+            book_id: state.bookId,
+            exercise_type: state.exerciseType,
+            question_count: state.questions.length,
+            questions: state.questions,
+          },
+          // Reset completion state
+          isComplete: false,
+          // Restore quiz start time from paused state (for duration tracking)
+          quizStartTime: new Date(state.startedAt).getTime(),
+          // Reset ephemeral UI state
+          blankAnswers: {},
+          blankAnswerIndices: {},
+          matchingScore: { correct: 0, incorrect: 0 },
+          placedTileIds: [],
+          showFeedback: false,
+          feedbackIsCorrect: null,
+        }),
+
+      // Matching exercise score actions (Story 4.5)
+      addMatchedPairScore: () =>
+        set((state) => ({
+          matchingScore: {
+            ...state.matchingScore,
+            correct: state.matchingScore.correct + 1,
+          },
+        })),
+
+      addIncorrectMatchingAttempt: () =>
+        set((state) => ({
+          matchingScore: {
+            ...state.matchingScore,
+            incorrect: state.matchingScore.incorrect + 1,
+          },
+        })),
+
+      resetMatchingScore: () =>
+        set({ matchingScore: { correct: 0, incorrect: 0 } }),
+
+      // Fill-in-blank actions
+      setBlankAnswer: (blankIndex, word, wordBankIndex = null) =>
+        set((state) => ({
+          blankAnswers: { ...state.blankAnswers, [blankIndex]: word },
+          blankAnswerIndices: { ...state.blankAnswerIndices, [blankIndex]: wordBankIndex },
+        })),
+
+      clearBlankAnswer: (blankIndex) =>
+        set((state) => ({
+          blankAnswers: { ...state.blankAnswers, [blankIndex]: null },
+          blankAnswerIndices: { ...state.blankAnswerIndices, [blankIndex]: null },
+        })),
+
+      // Sentence construction tile placement actions (Story 4.7)
+      placeTile: (tileId) =>
+        set((state) => ({
+          placedTileIds: [...state.placedTileIds, tileId],
+        })),
+
+      removeTile: (tileId) =>
+        set((state) => ({
+          placedTileIds: state.placedTileIds.filter((id) => id !== tileId),
+        })),
+
+      clearTiles: () => set({ placedTileIds: [] }),
+
+      setPlacedTileIds: (ids) => set({ placedTileIds: ids }),
+
+      reorderTiles: (fromIndex, toIndex) =>
+        set((state) => {
+          const { placedTileIds } = state
+          if (
+            fromIndex < 0 ||
+            fromIndex >= placedTileIds.length ||
+            toIndex < 0 ||
+            toIndex >= placedTileIds.length ||
+            fromIndex === toIndex
+          ) {
+            return state
+          }
+          const newIds = [...placedTileIds]
+          const [moved] = newIds.splice(fromIndex, 1)
+          newIds.splice(toIndex, 0, moved)
+          return { placedTileIds: newIds }
+        }),
+
+      // Feedback overlay actions (Story 4.9)
+      triggerShowFeedback: (isCorrect: boolean) =>
+        set({ showFeedback: true, feedbackIsCorrect: isCorrect }),
+
+      hideFeedback: () =>
+        set({ showFeedback: false, feedbackIsCorrect: null }),
+    }),
+    {
+      name: 'dangdai-quiz-store',
+      storage: createJSONStorage(() => localStorage),
+
+      // Persist ONLY the minimal fields needed to resume a quiz after crash.
+      // Excludes: _hasHydrated, placedTileIds, blankAnswers, blankAnswerIndices,
+      //   showFeedback, feedbackIsCorrect, matchingScore, and all action functions.
+      partialize: (state) => ({
+        currentQuizId: state.currentQuizId,
+        currentQuestion: state.currentQuestion,
+        answers: state.answers,
+        score: state.score,
+        quizPayload: state.quizPayload,
+        chapterId: state.chapterId,
+        bookId: state.bookId,
+        exerciseType: state.exerciseType,
+        chapterIdEnd: state.chapterIdEnd,
+        // isComplete: persisted so crash on CompletionScreen doesn't trigger
+        // a false-positive resume dialog (hasActiveQuiz returns false when complete)
+        isComplete: state.isComplete,
+        // quizStartTime: persisted so quiz duration is accurate after crash recovery
+        quizStartTime: state.quizStartTime,
+        // Story 4.10b: persist startedAt and timeElapsed for pause/resume serialization
+        startedAt: state.startedAt,
+        timeElapsed: state.timeElapsed,
+      }),
+
+      // Called after AsyncStorage data is loaded into the store.
+      // Sets _hasHydrated to true to signal that the resume dialog check can run.
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true)
+      },
+    },
+  )
+)

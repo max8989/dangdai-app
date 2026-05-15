@@ -1,0 +1,67 @@
+/**
+ * TanStack Query Keys
+ *
+ * Centralized query key factory for TanStack Query.
+ * Consistent query key structure: [resource, ...identifiers]
+ * This pattern enables efficient cache invalidation.
+ *
+ * Per architecture specification, TanStack Query manages server state:
+ * - User profile
+ * - Chapter progress
+ * - Quiz history
+ */
+
+export const queryKeys = {
+  // User data
+  user: ['user'] as const,
+  userProfile: (userId: string) => ['user', 'profile', userId] as const,
+
+  // Books and chapters
+  books: (userId: string) => ['books', userId] as const,
+  booksAll: ['books'] as const,
+  chapters: (bookId: number) => ['chapters', bookId] as const,
+  chapter: (chapterId: number) => ['chapter', chapterId] as const,
+
+  // Quiz data
+  quizzes: ['quizzes'] as const,
+  quiz: (quizId: string) => ['quiz', quizId] as const,
+  quizHistory: (userId: string) => ['quizHistory', userId] as const,
+
+  // Progress data
+  progress: ['progress'] as const,
+  userProgress: (userId: string) => ['progress', userId] as const,
+  chapterProgress: (userId: string, bookId: number) =>
+    ['chapterProgress', userId, bookId] as const,
+  singleChapterProgress: (userId: string, chapterId: number) =>
+    ['progress', userId, 'chapter', chapterId] as const,
+
+  // Activity and streaks
+  dailyActivity: (userId: string) => ['dailyActivity', userId] as const,
+  streak: (userId: string) => ['streak', userId] as const,
+
+  // Exercise type progress (Story 4.11)
+  exerciseTypeProgress: (chapterId: number) => ['exerciseTypeProgress', chapterId] as const,
+
+  // Vocabulary (Story 11.5)
+  vocabulary: (bookId: number, lessonId: number) => ['vocabulary', bookId, lessonId] as const,
+
+  // Grammar Points (Story 11.6)
+  grammarPoints: (bookId: number, lessonId: number) => ['grammarPoints', bookId, lessonId] as const,
+
+  // Dialogues (Story 11.7)
+  dialogues: (bookId: number, lessonId: number) => ['dialogues', bookId, lessonId] as const,
+
+  // Premade Exercises (Story 3.5)
+  premadeExercises: (bookId: number, lessonId: number) => ['premadeExercises', bookId, lessonId] as const,
+
+  // Single Premade Exercise with full content JSONB (Story 11.8)
+  premadeExercise: (exerciseId: string) => ['premadeExercise', exerciseId] as const,
+
+  // Content availability (Story 3.7)
+  vocabularyCount: (bookId: number, lessonId: number) => ['vocabularyCount', bookId, lessonId] as const,
+  grammarPointsCount: (bookId: number, lessonId: number) => ['grammarPointsCount', bookId, lessonId] as const,
+  dialoguesCount: (bookId: number, lessonId: number) => ['dialoguesCount', bookId, lessonId] as const,
+} as const
+
+// Type helper for query key extraction
+export type QueryKeys = typeof queryKeys
