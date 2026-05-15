@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 172" width="440" height="172" role="img" aria-labelledby="title desc">
+  <title id="title">Maixin Chinese logo</title>
+  <desc id="desc">Wordmark logo with a teal gradient speech bubble and the character 中 centered inside.</desc>
+  <defs>
+    <linearGradient id="bbl" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#22D3EE"/>
+      <stop offset="100%" stop-color="#06B6D4"/>
+    </linearGradient>
+    <filter id="sh" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#0891B2" flood-opacity="0.28"/>
+    </filter>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.18"/>
+      <stop offset="55%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Speech bubble body + tail -->
+  <path fill="url(#bbl)" filter="url(#sh)"
+    d="M40,16 L120,16
+       Q146,16 146,42
+       L146,114
+       Q146,140 120,140
+       L100,140 L124,164 L82,140
+       L40,140
+       Q14,140 14,114
+       L14,42
+       Q14,16 40,16 Z"/>
+
+  <!-- Gloss overlay -->
+  <path fill="url(#gloss)"
+    d="M40,16 L120,16
+       Q146,16 146,42
+       L146,78 L14,78
+       L14,42
+       Q14,16 40,16 Z"/>
+
+  <!-- 中 character (centered) -->
+  <text x="80" y="78" text-anchor="middle" dominant-baseline="middle"
+        font-family="'PingFang TC','PingFang SC','Noto Sans CJK TC','Microsoft JhengHei','Microsoft YaHei',sans-serif"
+        font-size="74" font-weight="700" fill="#FFFFFF">中</text>
+
+  <!-- Maixin wordmark -->
+  <text x="164" y="52" dominant-baseline="central"
+        font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif"
+        font-size="58" font-weight="800" fill="#0891B2">Maixin</text>
+
+  <!-- Chinese subtitle -->
+  <text x="166" y="112" dominant-baseline="central"
+        font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif"
+        font-size="38" font-weight="400" letter-spacing="3" fill="#0E7490">Chinese</text>
+</svg>
