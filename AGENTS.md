@@ -31,6 +31,13 @@ Consult these artifacts before making architectural decisions or implementing ne
   - `ctx-upgrade` — update context-mode from GitHub
   - `ctx-cloud-setup` — connect to Context Mode Cloud
   - `ctx-cloud-status` — show cloud sync health and event statistics
+- **CodeGraphContext MCP**: A structural graph index of `dangdai-mobile/` and `dangdai-api/` (nodes: `Repository`, `File`, `Module`, `Class`, `Function`; edges: `CONTAINS`, `CALLS`, `IMPORTS`, `INHERITS`). Both repos share one graph, so you can trace calls across the mobile/API boundary. Prefer it over grep when the question is structural:
+  - "who calls X?" / "what calls into endpoint Y?" / call chains and import graphs
+  - inheritance, complexity hotspots, dead code, cross-module relationships
+  - cross-repo traces: mobile hook → FastAPI route → service → repository
+  - Tools: `find_code`, `analyze_code_relationships`, `find_dead_code`, `find_most_complex_functions`, `execute_cypher_query` (read-only Cypher fallback), `get_repository_stats`, `list_indexed_repositories`.
+  - Skip it for plain text search (use `grep`) and for reading code logic (use `Read`). It does not index `node_modules/`, `.venv/`, build artifacts, or test output (see each repo's `.cgcignore`).
+  - Re-index after non-trivial changes: `cgc index <path>`. Or rely on `cgc watch` if a watcher is running.
 
 ## Build / Lint / Test Commands
 
