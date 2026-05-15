@@ -1,0 +1,28 @@
+# Python virtualenv & build artifacts
+.venv/
+venv/
+env/
+__pycache__/
+*.egg-info/
+dist/
+build/
+
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Static / generated
+static/
+
+# Binaries / media
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.mp4
+*.mp3
+*.zip
+*.tar
+*.gz

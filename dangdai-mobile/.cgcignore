@@ -13,6 +13,20 @@ target/
 out/
 .git/
 __pycache__/
+
+# Expo / RN / Tamagui build artifacts and caches
+.expo/
+.tamagui/
+.yarn/
+ios/
+android/
+
+# Test output
+test-results/
+playwright-report/
+coverage/
+
+# Binaries / media
 *.png
 *.jpg
 *.jpeg
