@@ -123,7 +123,12 @@ async def generate_exercise(
     timeout = _generation_timeout_seconds()
     try:
         quiz_response = await asyncio.wait_for(
-            _quiz_service.generate_quiz(quiz_request, user_id, http_request),
+            _quiz_service.generate_quiz(
+                quiz_request,
+                user_id,
+                http_request,
+                question_count=request_body.question_count,
+            ),
             timeout=timeout,
         )
     except asyncio.CancelledError:

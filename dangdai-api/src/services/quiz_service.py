@@ -61,6 +61,7 @@ class QuizService:
         request: QuizGenerateRequest,
         user_id: str,
         http_request: Request | None = None,
+        question_count: int | None = None,
     ) -> QuizGenerateResponse:
         """Generate a quiz by invoking the LangGraph agent.
 
@@ -112,6 +113,8 @@ class QuizService:
         }
         if http_request is not None:
             graph_input["request"] = http_request
+        if question_count is not None:
+            graph_input["question_count"] = question_count
 
         logger.info(
             "[QuizService] Starting graph for quiz_id=%s chapter=%d type=%s tier=%s timeout=%ds",

@@ -24,21 +24,27 @@ interface LoadingSearch {
   bookId: number
   exerciseType: string
   resumePaused?: boolean
+  questionCount?: number
 }
 
 export const Route = createFileRoute('/_authed/quiz/loading')({
   component: LoadingPage,
-  validateSearch: (search: Record<string, unknown>): LoadingSearch => ({
-    chapterId: Number(search.chapterId ?? 0),
-    bookId: Number(search.bookId ?? 0),
-    exerciseType: String(search.exerciseType ?? 'vocabulary'),
-    resumePaused: search.resumePaused === true || search.resumePaused === 'true',
-  }),
+  validateSearch: (search: Record<string, unknown>): LoadingSearch => {
+    const qc = Number(search.questionCount)
+    return {
+      chapterId: Number(search.chapterId ?? 0),
+      bookId: Number(search.bookId ?? 0),
+      exerciseType: String(search.exerciseType ?? 'vocabulary'),
+      resumePaused: search.resumePaused === true || search.resumePaused === 'true',
+      questionCount: Number.isFinite(qc) && qc > 0 ? qc : undefined,
+    }
+  },
 })
 
 function LoadingPage() {
   const navigate = useNavigate()
-  const { chapterId, bookId, exerciseType, resumePaused } = Route.useSearch()
+  const { chapterId, bookId, exerciseType, resumePaused, questionCount } =
+    Route.useSearch()
   const startQuiz = useQuizStore((s) => s.startQuiz)
   const restoreState = useQuizStore((s) => s.restoreState)
 
@@ -107,6 +113,7 @@ function LoadingPage() {
           chapterId,
           bookId,
           exerciseType: exerciseType as ExerciseType,
+          questionCount,
         },
       })
       setJobId(id)
@@ -116,6 +123,7 @@ function LoadingPage() {
     bookId,
     exerciseType,
     resumePaused,
+    questionCount,
     resumeQuiz,
     deletePausedQuiz,
     restoreState,
@@ -186,11 +194,12 @@ function LoadingPage() {
         chapterId,
         bookId,
         exerciseType: exerciseType as ExerciseType,
+        questionCount,
       },
     })
     setJobId(id)
     startedJobRef.current = true
-  }, [jobId, removeJob, chapterId, bookId, exerciseType])
+  }, [jobId, removeJob, chapterId, bookId, exerciseType, questionCount])
 
   const isError = job?.status === 'error'
   const errorMessage = job?.error ?? `Couldn't generate ${exerciseTypeLabel} exercise.`

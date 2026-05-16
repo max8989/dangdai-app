@@ -55,6 +55,16 @@ class QuizGenerateRequest(BaseModel):
         default=ExerciseType.VOCABULARY,
         description="Exercise type or 'mixed' for variety",
     )
+    question_count: int | None = Field(
+        default=None,
+        ge=1,
+        le=30,
+        description=(
+            "Optional override for the number of questions to generate. "
+            "When omitted, the backend picks a sensible default per exercise "
+            "type (12 for most, 5 for reading comprehension)."
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -377,6 +387,16 @@ class ExerciseGenerateRequest(BaseModel):
     book_id: int = Field(..., ge=1, le=6, description="Book number (1-6)")
     exercise_type: ExerciseType = Field(
         ..., description="Exercise type to generate on-the-fly"
+    )
+    question_count: int | None = Field(
+        default=None,
+        ge=1,
+        le=30,
+        description=(
+            "Optional override for the number of questions to generate. "
+            "When omitted, the backend chooses a sensible default per "
+            "exercise type (12 for most types, 5 for reading comprehension)."
+        ),
     )
     cache: bool = Field(
         default=False,

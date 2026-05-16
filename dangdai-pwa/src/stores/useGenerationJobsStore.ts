@@ -26,6 +26,8 @@ export interface ChapterJobParams {
   chapterId: number
   bookId: number
   exerciseType: ExerciseType
+  /** Optional user-specified question count override. */
+  questionCount?: number
 }
 
 export type JobParams = MultiJobParams | CustomJobParams | ChapterJobParams

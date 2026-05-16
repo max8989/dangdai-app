@@ -76,7 +76,10 @@ export function startGenerationJob({ params }: StartJobInput): string {
   } else {
     const ch = params.chapterId - params.bookId * 100
     label = `B${params.bookId}·${ch}`
-    subtitle = EXERCISE_TYPE_LABELS[params.exerciseType] ?? params.exerciseType
+    const typeLabel = EXERCISE_TYPE_LABELS[params.exerciseType] ?? params.exerciseType
+    subtitle = params.questionCount
+      ? `${params.questionCount} q · ${typeLabel}`
+      : typeLabel
   }
 
   store.addJob({
@@ -148,6 +151,7 @@ async function run(id: string, params: JobParams, label: string): Promise<void> 
         chapterId: params.chapterId,
         bookId: params.bookId,
         exerciseType: params.exerciseType,
+        questionCount: params.questionCount,
       })
       useGenerationJobsStore.getState().setJobReady(id, {
         result,

@@ -82,7 +82,10 @@ async def generate_quiz(
 
     try:
         response = await _quiz_service.generate_quiz(
-            request_body, user_id, http_request
+            request_body,
+            user_id,
+            http_request,
+            question_count=request_body.question_count,
         )
         logger.info(
             "Quiz generated successfully: quiz_id=%s questions=%d",

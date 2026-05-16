@@ -307,6 +307,10 @@ async def algorithmic_generate(state: QuizGenerationState) -> dict[str, Any]:
         grammar_points = content.get("grammar_points", [])
         structured_content = content
 
+    # Honor caller-supplied count override; falls through to generator defaults.
+    override_count = state.get("question_count")
+    count_override = override_count if override_count and override_count > 0 else None
+
     # Dispatch to generator
     questions: list[dict[str, Any]] = []
     if exercise_type == "vocabulary":
@@ -326,7 +330,12 @@ async def algorithmic_generate(state: QuizGenerationState) -> dict[str, Any]:
             ] or vocabulary
         gen = VocabularyGenerator()
         questions = gen.generate(
-            vocabulary, weakness_profile, book_id, lesson, distractor_pool
+            vocabulary,
+            weakness_profile,
+            book_id,
+            lesson,
+            distractor_pool,
+            question_count=count_override,
         )
     elif exercise_type == "matching":
         gen_m = MatchingGenerator()
@@ -334,7 +343,12 @@ async def algorithmic_generate(state: QuizGenerationState) -> dict[str, Any]:
     elif exercise_type == "fill_in_blank":
         gen_f = FillInBlankGenerator()
         questions = gen_f.generate(
-            grammar_points, vocabulary, weakness_profile, book_id, lesson
+            grammar_points,
+            vocabulary,
+            weakness_profile,
+            book_id,
+            lesson,
+            question_count=count_override,
         )
     else:
         logger.warning(
@@ -451,8 +465,12 @@ async def generate_quiz(state: QuizGenerationState) -> dict[str, Any]:
             f"Bias question difficulty toward these weak areas when possible."
         )
 
-    # Determine question count
-    question_count = 12 if exercise_type != "reading_comprehension" else 5
+    # Determine question count — honor caller override if provided
+    override_count = state.get("question_count")
+    if override_count and override_count > 0:
+        question_count = override_count
+    else:
+        question_count = 12 if exercise_type != "reading_comprehension" else 5
 
     # Build output schema hint
     output_schema = _get_output_schema_hint(exercise_type)

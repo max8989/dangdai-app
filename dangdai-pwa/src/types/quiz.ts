@@ -44,6 +44,8 @@ export interface QuizGenerationParams {
   chapterId: number
   bookId: number
   exerciseType: string
+  /** Optional user-specified question count override. */
+  questionCount?: number
 }
 
 /**

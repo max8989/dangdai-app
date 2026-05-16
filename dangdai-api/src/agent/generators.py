@@ -61,6 +61,7 @@ class VocabularyGenerator(AlgorithmicGenerator):
         book_id: int,
         lesson_id: int,
         distractor_pool: list[dict[str, Any]] | None = None,
+        question_count: int | None = None,
     ) -> list[dict[str, Any]]:
         """Generate vocabulary questions with weakness biasing.
 
@@ -71,12 +72,18 @@ class VocabularyGenerator(AlgorithmicGenerator):
             lesson_id: Lesson number (for source_citation).
             distractor_pool: Optional broader pool (current + past chapters)
                 for picking distractors. Falls back to vocabulary if not provided.
+            question_count: Optional override for how many questions to produce.
+                Falls back to the class-level QUESTION_COUNT when unset.
 
         Returns:
             List of vocabulary question dicts.
         """
         if not vocabulary:
             return []
+
+        target_count = (
+            question_count if question_count and question_count > 0 else self.QUESTION_COUNT
+        )
 
         # Use the broader pool for distractors if provided, else current chapter
         pool = distractor_pool if distractor_pool else vocabulary
@@ -93,8 +100,8 @@ class VocabularyGenerator(AlgorithmicGenerator):
         ]
 
         # Select items: 30-50% from weak pool (target 40%)
-        weak_count = min(len(weak_pool), int(self.QUESTION_COUNT * 0.4))
-        normal_count = self.QUESTION_COUNT - weak_count
+        weak_count = min(len(weak_pool), int(target_count * 0.4))
+        normal_count = target_count - weak_count
 
         selected: list[dict[str, Any]] = []
         if weak_pool:
@@ -104,9 +111,9 @@ class VocabularyGenerator(AlgorithmicGenerator):
                 random.sample(normal_pool, min(normal_count, len(normal_pool)))
             )
 
-        # Shuffle and cap at QUESTION_COUNT
+        # Shuffle and cap at target_count
         random.shuffle(selected)
-        selected = selected[: self.QUESTION_COUNT]
+        selected = selected[:target_count]
 
         # Generate questions
         questions: list[dict[str, Any]] = []
@@ -384,6 +391,7 @@ class FillInBlankGenerator(AlgorithmicGenerator):
         weakness_profile: dict[str, Any],
         book_id: int,
         lesson_id: int,
+        question_count: int | None = None,
     ) -> list[dict[str, Any]]:
         """Generate fill-in-blank questions from grammar examples.
 
@@ -393,12 +401,18 @@ class FillInBlankGenerator(AlgorithmicGenerator):
             weakness_profile: User weakness data (not heavily used here).
             book_id: Book number.
             lesson_id: Lesson number.
+            question_count: Optional override for how many questions to produce.
+                Falls back to the class-level QUESTION_COUNT when unset.
 
         Returns:
             List of fill-in-blank question dicts.
         """
         if not grammar_points:
             return []
+
+        target_count = (
+            question_count if question_count and question_count > 0 else self.QUESTION_COUNT
+        )
 
         questions: list[dict[str, Any]] = []
         required_coverage = min(self.MIN_GRAMMAR_COVERAGE, len(grammar_points))
@@ -419,9 +433,9 @@ class FillInBlankGenerator(AlgorithmicGenerator):
                 used_gp_indices.add(gp_idx)
 
         # Second pass: fill remaining slots from all grammar points
-        max_attempts = self.QUESTION_COUNT * 3
+        max_attempts = target_count * 3
         attempt = 0
-        while len(questions) < self.QUESTION_COUNT and attempt < max_attempts:
+        while len(questions) < target_count and attempt < max_attempts:
             attempt += 1
             gp = random.choice(grammar_points)
             examples = gp.get("examples", [])
@@ -435,15 +449,15 @@ class FillInBlankGenerator(AlgorithmicGenerator):
             if question:
                 questions.append(question)
 
-        final = questions[: self.QUESTION_COUNT]
+        final = questions[:target_count]
 
-        if len(final) < self.QUESTION_COUNT:
+        if len(final) < target_count:
             logger.warning(
                 "[FillInBlankGenerator] Only produced %d/%d questions — "
                 "grammar point examples may lack maskable vocabulary words "
                 "(grammar_points=%d, vocab=%d)",
                 len(final),
-                self.QUESTION_COUNT,
+                target_count,
                 len(grammar_points),
                 len(vocabulary),
             )

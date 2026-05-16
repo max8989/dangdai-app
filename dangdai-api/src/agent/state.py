@@ -28,6 +28,11 @@ class QuizGenerationState(TypedDict, total=False):
     exercise_type: str  # one of 7 types or "mixed"
     user_id: str
 
+    # Optional user-specified question count override. When unset, nodes fall
+    # back to a per-exercise-type default (12 for most types, 5 for reading
+    # comprehension). Honored by both Tier 1 (algorithmic) and Tier 2 (LLM).
+    question_count: int
+
     # HTTP request object for client disconnection detection (optional).
     # When present, graph nodes check request.is_disconnected() before
     # expensive operations (LLM calls, database queries) to abort early

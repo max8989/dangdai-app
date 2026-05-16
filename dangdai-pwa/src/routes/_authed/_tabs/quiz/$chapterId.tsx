@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   ArrowRightLeft,
   BookOpen,
@@ -7,11 +8,20 @@ import {
   MessagesSquare,
   PenLine,
   Shuffle,
+  Sparkles,
   Trophy,
 } from 'lucide-react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { PausedQuizBanner } from '@/components/quiz/PausedQuizBanner'
 import { useAllPausedQuizzes } from '@/hooks/usePausedQuiz'
 import { useChapter } from '@/hooks/useChapters'
@@ -19,6 +29,9 @@ import { useChapterProgress } from '@/hooks/useChapterProgress'
 import { BOOKS } from '@/constants/books'
 import type { ExerciseType } from '@/types/quiz'
 import { cn } from '@/lib/utils'
+
+const QUESTION_COUNT_OPTIONS = [5, 10, 15, 20] as const
+const DEFAULT_QUESTION_COUNT = 10
 
 export const Route = createFileRoute('/_authed/_tabs/quiz/$chapterId')({
   component: ChapterDetailPage,
@@ -119,6 +132,9 @@ function ChapterDetailPage() {
   const pausedQuizzesForChapter =
     allPausedQuizzes?.filter((pq) => pq.chapter_id === chapterIdNum) ?? []
 
+  const [pendingType, setPendingType] = useState<ExerciseType | null>(null)
+  const [selectedCount, setSelectedCount] = useState<number>(DEFAULT_QUESTION_COUNT)
+
   if (!valid || !chapter) {
     return (
       <div className="flex flex-col items-center justify-center p-4">
@@ -128,12 +144,21 @@ function ChapterDetailPage() {
   }
 
   const handleStartQuiz = (exerciseType: ExerciseType) => {
+    setSelectedCount(DEFAULT_QUESTION_COUNT)
+    setPendingType(exerciseType)
+  }
+
+  const confirmGenerate = () => {
+    const exerciseType = pendingType
+    if (!exerciseType) return
+    setPendingType(null)
     void navigate({
       to: '/quiz/loading',
       search: {
         chapterId: chapterIdNum,
         bookId: chapter.bookId,
         exerciseType,
+        questionCount: selectedCount,
       },
     })
   }
@@ -277,6 +302,54 @@ function ChapterDetailPage() {
           </p>
         )}
       </main>
+
+      <Dialog
+        open={pendingType !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingType(null)
+        }}
+      >
+        <DialogContent className="max-w-sm" data-testid="question-count-dialog">
+          <DialogHeader>
+            <DialogTitle>How many questions?</DialogTitle>
+            <DialogDescription>
+              Pick how many questions to generate for this exercise.
+            </DialogDescription>
+          </DialogHeader>
+          <div
+            className="grid grid-cols-4 gap-2 py-2"
+            data-testid="question-count-options"
+          >
+            {QUESTION_COUNT_OPTIONS.map((n) => {
+              const active = selectedCount === n
+              return (
+                <Button
+                  key={n}
+                  type="button"
+                  variant={active ? 'default' : 'outline'}
+                  onClick={() => setSelectedCount(n)}
+                  data-testid={`question-count-${n}`}
+                >
+                  {n}
+                </Button>
+              )
+            })}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setPendingType(null)}
+              data-testid="question-count-cancel"
+            >
+              Cancel
+            </Button>
+            <Button onClick={confirmGenerate} data-testid="question-count-confirm">
+              <Sparkles className="size-4 mr-1.5" />
+              Generate
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

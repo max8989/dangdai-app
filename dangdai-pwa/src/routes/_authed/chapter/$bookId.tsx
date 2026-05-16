@@ -8,7 +8,7 @@ import { BOOKS } from '@/constants/books';
 import { useChapterProgress } from '@/hooks/useChapterProgress';
 import { useChapters } from '@/hooks/useChapters';
 
-export const Route = createFileRoute('/_authed/_tabs/chapter/$bookId')({
+export const Route = createFileRoute('/_authed/chapter/$bookId')({
   component: ChapterListPage,
 });
 

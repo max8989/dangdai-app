@@ -142,6 +142,9 @@ export const api = {
           chapter_id: params.chapterId,
           book_id: params.bookId,
           exercise_type: params.exerciseType,
+          ...(params.questionCount !== undefined && {
+            question_count: params.questionCount,
+          }),
         }),
         signal: controller.signal,
       })
