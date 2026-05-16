@@ -24,11 +24,11 @@ export default defineConfig({
         'pwa-maskable-512x512.png',
       ],
       manifest: {
-        name: 'Dangdai - Learn Chinese',
-        short_name: 'Dangdai',
+        name: 'Maixin Chinese',
+        short_name: 'Maixin',
         description:
-          'AI-generated quizzes for the 當代中文課程 textbook series.',
-        theme_color: '#0f172a',
+          'Learn Chinese through AI-generated quizzes on the 當代中文課程 textbook series.',
+        theme_color: '#0891B2',
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait',

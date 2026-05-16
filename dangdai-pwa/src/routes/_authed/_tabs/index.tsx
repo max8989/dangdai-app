@@ -2,6 +2,7 @@ import { Link, createFileRoute } from '@tanstack/react-router';
 import { BookOpen } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { MaixinLogo } from '@/components/MaixinLogo';
 import { APP_NAME } from '@/constants/app';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -14,8 +15,9 @@ function HomePage() {
 
   return (
     <section className="flex flex-col gap-6 p-4 pt-8">
-      <header className="flex flex-col items-center gap-1 text-center">
-        <h1 className="text-3xl font-bold tracking-tight">{APP_NAME}</h1>
+      <header className="flex flex-col items-center gap-2 text-center">
+        <MaixinLogo width={220} />
+        <h1 className="sr-only">{APP_NAME}</h1>
         <p className="text-sm text-muted-foreground">Learn Chinese through quizzes</p>
       </header>
 

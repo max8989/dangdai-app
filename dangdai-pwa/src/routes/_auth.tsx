@@ -15,7 +15,13 @@ export const Route = createFileRoute('/_auth')({
 
 function AuthLayout() {
   return (
-    <main className="min-h-dvh flex flex-col items-center justify-center bg-background p-4">
+    <main
+      className="min-h-dvh flex flex-col items-center justify-center bg-background p-4"
+      style={{
+        paddingTop: 'max(1rem, env(safe-area-inset-top))',
+        paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
+      }}
+    >
       <div className="w-full max-w-md flex flex-col gap-6">
         <div className="flex flex-col items-center gap-2">
           <MaixinLogo width={180} />

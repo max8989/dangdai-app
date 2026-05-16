@@ -27,13 +27,20 @@ function TabsLayout() {
 
   return (
     <div className="min-h-dvh mx-auto flex max-w-md flex-col bg-background">
-      <main className="flex-1 pb-20">
+      <main
+        className="flex-1"
+        style={{
+          paddingTop: 'env(safe-area-inset-top)',
+          paddingBottom: 'calc(5rem + env(safe-area-inset-bottom))',
+        }}
+      >
         <Outlet />
       </main>
 
       <nav
         aria-label="Primary"
         className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-md border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <ul className="flex h-16 items-stretch justify-around px-2">
           {TABS.map(({ to, label, Icon }) => {
