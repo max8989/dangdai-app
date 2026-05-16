@@ -6,7 +6,9 @@ import {
   FileText,
   MessageSquare,
   MessagesSquare,
+  Minus,
   PenLine,
+  Plus,
   Shuffle,
   Sparkles,
   Trophy,
@@ -30,7 +32,8 @@ import { BOOKS } from '@/constants/books'
 import type { ExerciseType } from '@/types/quiz'
 import { cn } from '@/lib/utils'
 
-const QUESTION_COUNT_OPTIONS = [5, 10, 15, 20] as const
+const QUESTION_COUNT_MIN = 5
+const QUESTION_COUNT_MAX = 20
 const DEFAULT_QUESTION_COUNT = 10
 
 export const Route = createFileRoute('/_authed/_tabs/quiz/$chapterId')({
@@ -317,23 +320,42 @@ function ChapterDetailPage() {
             </DialogDescription>
           </DialogHeader>
           <div
-            className="grid grid-cols-4 gap-2 py-2"
-            data-testid="question-count-options"
+            className="flex items-center justify-center gap-4 py-3"
+            data-testid="question-count-stepper"
           >
-            {QUESTION_COUNT_OPTIONS.map((n) => {
-              const active = selectedCount === n
-              return (
-                <Button
-                  key={n}
-                  type="button"
-                  variant={active ? 'default' : 'outline'}
-                  onClick={() => setSelectedCount(n)}
-                  data-testid={`question-count-${n}`}
-                >
-                  {n}
-                </Button>
-              )
-            })}
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              disabled={selectedCount <= QUESTION_COUNT_MIN}
+              onClick={() =>
+                setSelectedCount((c) => Math.max(QUESTION_COUNT_MIN, c - 1))
+              }
+              aria-label="Decrease question count"
+              data-testid="question-count-decrement"
+            >
+              <Minus className="size-4" />
+            </Button>
+            <span
+              className="min-w-12 text-center text-3xl font-semibold tabular-nums"
+              data-testid="question-count-value"
+              aria-live="polite"
+            >
+              {selectedCount}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              disabled={selectedCount >= QUESTION_COUNT_MAX}
+              onClick={() =>
+                setSelectedCount((c) => Math.min(QUESTION_COUNT_MAX, c + 1))
+              }
+              aria-label="Increase question count"
+              data-testid="question-count-increment"
+            >
+              <Plus className="size-4" />
+            </Button>
           </div>
           <DialogFooter className="gap-2 sm:gap-2">
             <Button

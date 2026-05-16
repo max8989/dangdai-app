@@ -26,14 +26,14 @@ function TabsLayout() {
   const { pathname } = useLocation();
 
   return (
-    <div className="h-app mx-auto flex max-w-md flex-col overflow-hidden bg-background">
-      <main className="min-h-0 flex-1 overflow-y-auto">
+    <div className="min-h-dvh mx-auto flex max-w-md flex-col bg-background">
+      <main className="flex-1 pb-tabbar">
         <Outlet />
       </main>
 
       <nav
         aria-label="Primary"
-        className="shrink-0 border-t bg-background/95 pb-safe backdrop-blur supports-[backdrop-filter]:bg-background/80"
+        className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-md border-t bg-background/95 pb-safe backdrop-blur supports-[backdrop-filter]:bg-background/80"
       >
         <ul className="flex h-16 items-stretch justify-around px-2">
           {TABS.map(({ to, label, Icon }) => {

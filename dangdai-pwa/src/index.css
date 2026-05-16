@@ -79,10 +79,7 @@
     @apply border-border;
   }
   html, body, #root {
-    /* Use --app-height so iOS Safari's URL bar and soft keyboard correctly
-       shrink the root container instead of leaving content above/behind them.
-       The variable is set by the bootstrap script in index.html. */
-    height: var(--app-height, 100dvh);
+    height: 100%;
   }
   body {
     @apply bg-background text-foreground antialiased;
@@ -99,35 +96,20 @@
     display: none;
   }
 
-  /* App-height aware full-viewport class. Use instead of `min-h-dvh` for
-     containers that should track the visible viewport (URL bar + keyboard). */
-  .h-app {
-    height: var(--app-height, 100dvh);
-  }
-  .min-h-app {
-    min-height: var(--app-height, 100dvh);
-  }
-
-  /* Safe-area helpers. `pt-safe-N` / `pb-safe-N` combine a base spacing with the
-     viewport inset so headers/footers sit clear of the status bar and home
-     indicator. `pb-tabbar` and `h-tab-content` are sized to clear the 5rem
-     bottom nav inside the `_tabs` layout. */
-  .pt-safe {
-    padding-top: env(safe-area-inset-top);
-  }
+  /* Bottom nav clearance + iOS home-indicator inset. Top safe-area is intentionally
+     not applied to the tabs layout — the page background extends through the status
+     bar area instead of pushing content down. Standalone (non-tab) page headers can
+     opt into top inset via `pt-safe-2` / `pt-safe-3`. */
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
+  }
+  .pb-tabbar {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom));
   }
   .pt-safe-2 {
     padding-top: calc(0.5rem + env(safe-area-inset-top));
   }
   .pt-safe-3 {
     padding-top: calc(0.75rem + env(safe-area-inset-top));
-  }
-  .pb-tabbar {
-    padding-bottom: calc(5rem + env(safe-area-inset-bottom));
-  }
-  .h-tab-content {
-    height: calc(var(--app-height, 100dvh) - 5rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   }
 }
