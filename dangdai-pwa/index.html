@@ -3,7 +3,33 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
+    />
+    <script>
+      // Track the visible viewport so layouts can pin content above the soft keyboard
+      // on mobile Safari (which never shrinks the layout viewport when the keyboard
+      // opens). `--app-height` falls back to 100dvh for non-visualViewport browsers.
+      (function () {
+        var root = document.documentElement;
+        root.style.setProperty('--app-height', '100dvh');
+        var vv = window.visualViewport;
+        if (!vv) return;
+        var raf = 0;
+        function apply() {
+          raf = 0;
+          root.style.setProperty('--app-height', vv.height + 'px');
+        }
+        function schedule() {
+          if (raf) return;
+          raf = window.requestAnimationFrame(apply);
+        }
+        vv.addEventListener('resize', schedule);
+        vv.addEventListener('scroll', schedule);
+        apply();
+      })();
+    </script>
     <meta name="theme-color" content="#0891B2" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />

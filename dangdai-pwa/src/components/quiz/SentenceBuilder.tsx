@@ -11,6 +11,13 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core'
+import {
+  SortableContext,
+  arrayMove,
+  rectSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { CheckCircle2, XCircle } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -142,6 +149,69 @@ function DraggableTile({
   )
 }
 
+interface SortableTileProps {
+  tileId: string
+  word: string
+  state: TileState
+  onTap: (tileId: string) => void
+  disabled: boolean
+  ariaLabel: string
+  ariaHint: string
+  testId: string
+}
+
+function SortableTile({
+  tileId,
+  word,
+  state,
+  onTap,
+  disabled,
+  ariaLabel,
+  ariaHint,
+  testId,
+}: SortableTileProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: tileId, disabled })
+
+  const fontSizeClass = getTileFontSize(word)
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+  }
+
+  return (
+    <button
+      ref={setNodeRef}
+      type="button"
+      style={style}
+      onClick={() => {
+        if (!disabled) onTap(tileId)
+      }}
+      disabled={disabled}
+      aria-label={ariaLabel}
+      aria-description={ariaHint}
+      data-testid={testId}
+      {...attributes}
+      {...listeners}
+      className={cn(
+        'rounded-lg border-2 px-3 py-2 min-h-12 min-w-12 transition-colors select-none cursor-pointer touch-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        TILE_STATE_CLASSES[state],
+        isDragging && 'opacity-50',
+        !disabled && 'active:scale-95',
+      )}
+    >
+      <span className={cn('font-medium', fontSizeClass)}>{word}</span>
+    </button>
+  )
+}
+
 interface DropZoneProps {
   id: string
   children: React.ReactNode
@@ -179,6 +249,7 @@ export function SentenceBuilder({
   const placedTileIds = useQuizStore((s) => s.placedTileIds)
   const placeTile = useQuizStore((s) => s.placeTile)
   const removeTile = useQuizStore((s) => s.removeTile)
+  const setPlacedTileIds = useQuizStore((s) => s.setPlacedTileIds)
 
   const { validate } = useAnswerValidation()
 
@@ -237,6 +308,27 @@ export function SentenceBuilder({
     const tileId = String(active.id)
     const overId = String(over.id)
     const isPlaced = placedTileSet.has(tileId)
+    const overIsPlaced = placedTileSet.has(overId)
+
+    if (isPlaced && overIsPlaced && tileId !== overId) {
+      const fromIndex = placedTileIds.indexOf(tileId)
+      const toIndex = placedTileIds.indexOf(overId)
+      if (fromIndex !== -1 && toIndex !== -1) {
+        setPlacedTileIds(arrayMove(placedTileIds, fromIndex, toIndex))
+      }
+      return
+    }
+
+    if (!isPlaced && overIsPlaced) {
+      const insertAt = placedTileIds.indexOf(overId)
+      if (insertAt !== -1) {
+        const next = [...placedTileIds]
+        next.splice(insertAt, 0, tileId)
+        setPlacedTileIds(next)
+      }
+      return
+    }
+
     if (overId === ANSWER_AREA_ID && !isPlaced) {
       placeTile(tileId)
     } else if (overId === WORD_BANK_ID && isPlaced) {
@@ -305,19 +397,21 @@ export function SentenceBuilder({
                     Tap or drag words below to place them here
                   </span>
                 ) : (
-                  placedTileIds.map((tileId) => (
-                    <DraggableTile
-                      key={`placed-${tileId}`}
-                      tileId={tileId}
-                      word={tileWord(tileId)}
-                      state="placed"
-                      onTap={handlePlacedTap}
-                      disabled={!interactive}
-                      ariaLabel={tileWord(tileId)}
-                      ariaHint="Tap to return to word bank, or drag"
-                      testId={`placed-tile-${tileId}`}
-                    />
-                  ))
+                  <SortableContext items={placedTileIds} strategy={rectSortingStrategy}>
+                    {placedTileIds.map((tileId) => (
+                      <SortableTile
+                        key={`placed-${tileId}`}
+                        tileId={tileId}
+                        word={tileWord(tileId)}
+                        state="placed"
+                        onTap={handlePlacedTap}
+                        disabled={!interactive}
+                        ariaLabel={tileWord(tileId)}
+                        ariaHint="Tap to return to word bank, or drag to reorder"
+                        testId={`placed-tile-${tileId}`}
+                      />
+                    ))}
+                  </SortableContext>
                 )}
               </DropZone>
             </div>

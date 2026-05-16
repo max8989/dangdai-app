@@ -26,8 +26,8 @@ function TabsLayout() {
   const { pathname } = useLocation();
 
   return (
-    <div className="min-h-dvh mx-auto flex max-w-md flex-col bg-background">
-      <main className="flex-1 pt-safe pb-tabbar">
+    <div className="h-app mx-auto flex max-w-md flex-col overflow-hidden bg-background">
+      <main className="min-h-0 flex-1 overflow-y-auto pt-safe pb-tabbar">
         <Outlet />
       </main>
 
