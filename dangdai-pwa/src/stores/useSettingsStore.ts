@@ -10,6 +10,7 @@
  */
 
 import { create } from 'zustand'
+import { persist, createJSONStorage } from 'zustand/middleware'
 
 /**
  * Settings state interface
@@ -48,14 +49,22 @@ interface SettingsState {
  * }
  * ```
  */
-export const useSettingsStore = create<SettingsState>((set) => ({
-  // Default state
-  theme: 'system',
-  language: 'en',
-  soundEnabled: true,
+export const useSettingsStore = create<SettingsState>()(
+  persist(
+    (set) => ({
+      // Default state
+      theme: 'system',
+      language: 'en',
+      soundEnabled: true,
 
-  // Actions
-  setTheme: (theme) => set({ theme }),
-  setLanguage: (language) => set({ language }),
-  toggleSound: () => set((state) => ({ soundEnabled: !state.soundEnabled })),
-}))
+      // Actions
+      setTheme: (theme) => set({ theme }),
+      setLanguage: (language) => set({ language }),
+      toggleSound: () => set((state) => ({ soundEnabled: !state.soundEnabled })),
+    }),
+    {
+      name: 'dangdai-settings',
+      storage: createJSONStorage(() => localStorage),
+    },
+  ),
+)

@@ -1,14 +1,74 @@
-# dangdai-pwa Handoff (Phase 5 onward)
+# dangdai-pwa Handoff (Phase 6 onward)
 
 You are picking up the migration of `dangdai-mobile/` (React Native + Expo + Tamagui) into `dangdai-pwa/` (Vite + React + shadcn/ui + Tailwind v4 + TanStack Router).
 
-**Phases 1 (auth), 2 (books + chapter navigation), 3 (quiz flow without DnD), and 4 (sentence construction with `@dnd-kit`) are complete and live-tested.** Your next job is **Phase 5: Generate / Chat / Settings + real audio for `useSound`**. After that, finish with Phase 6 polish.
+**Phases 1 (auth), 2 (books + chapter navigation), 3 (quiz flow without DnD), 4 (sentence construction with `@dnd-kit`), and 5 (Generate / Chat / Settings + real audio + theme application) are complete and live-tested.** Your next job is **Phase 6 polish: PWA icons, Lighthouse audit, dark-mode visual pass, and any deferred cleanup.**
 
 The Supabase project and FastAPI backend are unchanged — same data, same endpoints. Only the client is being rebuilt.
 
 ---
 
-## 0. What just got done (Phase 4)
+## 0. What just got done (Phase 5)
+
+### Real audio in `useSound`
+`src/hooks/useSound.ts` is no longer a stub. The HTMLAudioElement port mirrors the mobile `expo-av` impl:
+- Module-level `soundCache: Map<SoundName, HTMLAudioElement>` so we don't reallocate per render.
+- `preloadSounds()` lazily creates an `Audio()` for each of `correct`, `incorrect`, `celebration` and calls `.load()`.
+- `playSound(name)` reads `useSettingsStore.getState().soundEnabled` at call time (matches mobile pattern, avoids stale closures), rewinds via `audio.currentTime = 0`, then `play()`. Failures (notably `NotAllowedError` autoplay before first user gesture) are warn-logged and swallowed — quiz must never crash on sound failure.
+- `unloadSounds()` clears the cache on quiz unmount.
+- `useSound()` hook returns `{ playSound, preloadSounds, unloadSounds, soundEnabled }`. The `SoundEffect` type alias from the Phase 3 stub is preserved for back-compat, aliased to the new `SoundName` (`'correct' | 'incorrect' | 'celebration'`).
+
+MP3 assets copied verbatim from `dangdai-mobile/assets/sounds/` into `dangdai-pwa/public/sounds/`. Vite-plugin-pwa picks them up automatically — they're in the precache manifest now.
+
+### Generate tab — `_authed/_tabs/generate.tsx`
+Full multi-chapter quiz builder. `BookChapterPicker` for start/end (book chips + chapter chips), numeric question count input (5–50, default 10), exercise-type chips (vocabulary, grammar, fill-in-blank, matching, dialogue_completion, sentence_construction, reading_comprehension), a range summary card. On submit:
+- Calls `api.generateMultiChapterQuiz(...)`.
+- Builds a `QuizResponse` payload, picking `exercise_type` as the single selected type or `'mixed'`.
+- `useQuizStore.startQuiz(...)` then `navigate({ to: '/quiz/play' })`.
+- Errors surface via `sonner` toast (mobile uses `Alert.alert`, port to web is `toast.error`).
+
+### Chat tab — `_authed/_tabs/chat.tsx`
+Textbook RAG Q&A. Stateless: each request includes the current book/lesson/contentType filters. Filter bar at the top (book chips → lesson chips appear after a book is picked → content type Both/Textbook/Workbook). Auto-scrolling message list with user (right) and assistant (left) bubbles; assistant bubbles render a "Sources" section with formatted citations. Enter submits, Shift+Enter not implemented (single-line `<Input>`, not `<Textarea>` — switch if multiline becomes important). Loading row shows a spinner while `api.askChat(...)` is in flight; toast on failure.
+
+### Full Settings tab — `_authed/_tabs/settings.tsx`
+Replaced the Phase 1 stub. Shows account email, a 3-button theme group (Light / Dark / System) wired to `useSettingsStore.setTheme`, and a Sound effects toggle (shadcn `Switch`) wired to `toggleSound` — flipping it on plays a `correct` ding via `setTimeout(0)` so the user immediately hears it's working (the store update has to commit first, since `playSound` reads `getState()` at call time). Sign out triggers a `window.confirm` then `signOut()` + `navigate({ to: '/login' })`.
+
+### Theme application + persistence
+`src/routes/__root.tsx` now calls a `useThemeSync()` hook that toggles `.dark` on `<html>` based on `useSettingsStore.theme`, with a `matchMedia('(prefers-color-scheme: dark)')` listener for the `'system'` choice. The Tailwind v4 setup already has `@custom-variant dark (&:is(.dark *))` in `src/index.css`, so flipping the class is enough.
+
+`src/stores/useSettingsStore.ts` now uses Zustand `persist` middleware with `localStorage` (key `dangdai-settings`). Mobile doesn't persist settings (RN reload is rare), but on web losing theme/sound on refresh would be a bad UX, so we deliberately diverge from mobile here.
+
+### Tab bar — `_authed/_tabs.tsx`
+Now 5 tabs: Home / Books / Generate / Chat / Settings, matching the mobile `(tabs)/_layout.tsx`. Icons: `Home`, `BookOpen`, `Sparkles`, `MessageSquare`, `Settings` from `lucide-react`. Active state still by exact-match for `/`, prefix-match for the rest.
+
+### shadcn additions in Phase 5
+`switch` (only one — installed for the sound toggle).
+
+### Verified end-to-end in Chrome DevTools
+- `/` → 5-tab nav visible, Generate / Chat / Settings all reachable
+- Generate (`/generate`): "From" defaults to Book 2 Ch 11, "To" defaults to Book 3 Ch 3, range summary reads "8 chapters" — all chips, count input, type toggles work
+- Chat (`/chat`): book chip selection reveals lesson chips for that book; content type chips toggle; empty state renders
+- Settings (`/settings`): clicking Dark adds `.dark` to `<html>` and writes `{"state":{"theme":"dark",...}}` to `localStorage[dangdai-settings]`. Switching back to System removes it. Sound toggle persists.
+- `/sounds/correct.mp3` serves 200 OK (`audio/mpeg`, 1062 bytes); `new Audio('/sounds/correct.mp3').play()` resolves successfully (after first user gesture).
+- Seeded a 1-question vocabulary quiz in `dangdai-quiz-store`, navigated to `/quiz/play`, picked the correct answer — FeedbackOverlay shows "Correct! +10 pts" + explanation + citation, no console errors. `playSound('correct')` runs through the new code path with no errors.
+- `npm run build` is green (main chunk still 588 KB, gzipped 171 KB — sound MP3s add ~3.7 KB to precache total).
+
+### Phase 5 gotchas worth remembering
+
+1. **Browser autoplay policy.** `playSound()` will reject (`NotAllowedError`) if called before any user gesture in the page. Once the user has clicked anything, subsequent plays succeed. The implementation warn-logs and swallows; don't change that without thinking — the alternative is an unhandled promise rejection in production. The Settings sound-on toggle relies on the click being the gesture that unlocks audio, so the immediate ding works.
+2. **`playSound` reads from `getState()`, not via subscription.** Same pattern as mobile. Keeps the call site closure-free, and the immediate-on-toggle ding works because `setTimeout(0)` defers the read until after the store commit. Don't rewrite this to take `soundEnabled` as a prop.
+3. **Audio elements are NOT attached to the DOM.** `soundCache` holds them as JS objects only. `document.querySelectorAll('audio').length === 0` is expected. Don't be confused into thinking sound isn't preloaded.
+4. **`useSettingsStore` is now persisted; mobile is not.** This is a deliberate divergence — if you ever sync mobile<->web settings, write the migration on the mobile side, not by removing persistence here.
+5. **Theme `.dark` is toggled on `<html>` (`document.documentElement`), not `<body>`.** Tailwind v4's `@custom-variant dark (&:is(.dark *))` matches anywhere in the ancestor chain — `<html>` is the standard choice and avoids fighting with shadcn's body styles.
+6. **Mobile `useSettingsStore` is NOT persisted.** If you compare, don't be alarmed.
+7. **Chat input is single-line `<Input>`, not `<Textarea>`.** Mobile uses Tamagui `<Input>` too. If you add multiline support, swap to a shadcn `<Textarea>` (not installed yet) and handle Enter / Shift+Enter explicitly.
+8. **`api.askChat` and `api.generateMultiChapterQuiz` are unchanged from Phase 3.** They were already in the API client; Phase 5 just wired UIs to them.
+9. **No `pre`/`post` quiz weakness data wiring.** Same as Phase 3/4. Mobile doesn't wire it either — `CompletionScreen` accepts the props but mobile's `play.tsx` never passes them. Considered out of scope (would invent functionality not in the source app). If you ever wire it, you'll need a new hook to query `question_results` aggregated by `vocabulary_item` / `grammar_pattern` for the current chapter, run pre-quiz in `_authed/quiz/loading.tsx` and post-quiz in `_authed/quiz/play.tsx`'s `handleNext` final branch.
+10. **Generate uses `sonner` toast for errors, not `window.alert`.** Mobile uses `Alert.alert`. Toast is more web-native and matches the rest of the PWA.
+
+---
+
+## 0a. What just got done (Phase 4)
 
 ### Dependencies added
 `npm install @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities` — see `package.json`. `@dnd-kit/sortable` is installed but currently unused; Phase 5 / 6 can drop it if no other feature needs it. `@dnd-kit/utilities` is also a transitive dep but installed explicitly so future features can import `CSS` / `transform` helpers without churn.
@@ -52,7 +112,7 @@ Seeded `dangdai-quiz-store` localStorage with a 2-question `sentence_constructio
 
 ---
 
-## 0a. What just got done (Phase 3)
+## 0b. What just got done (Phase 3)
 
 ### shadcn components added
 `progress`, `dialog`, `alert-dialog`, `radio-group`. The `radio-group` import is queued for future use — Phase 3 itself doesn't render radio inputs (multiple-choice is buttons), but it's available.
@@ -228,10 +288,10 @@ Pick (1) for the home placeholder you'll replace anyway; consider (2) when build
 - Path alias: `@/* → src/*`
 
 ### shadcn components added so far
-`button`, `input`, `label`, `card`, `sonner` (Phase 1), `skeleton`, `scroll-area`, `separator`, `avatar`, `tabs` (Phase 2), `progress`, `dialog`, `alert-dialog`, `radio-group` (Phase 3). No shadcn additions in Phase 4 — `@dnd-kit` is not a shadcn component.
+`button`, `input`, `label`, `card`, `sonner` (Phase 1), `skeleton`, `scroll-area`, `separator`, `avatar`, `tabs` (Phase 2), `progress`, `dialog`, `alert-dialog`, `radio-group` (Phase 3). No shadcn additions in Phase 4. Phase 5 added `switch`.
 
 ### Non-shadcn deps added in Phase 4
-`@dnd-kit/core`, `@dnd-kit/sortable` (unused — see Phase 4 gotcha 7), `@dnd-kit/utilities`.
+`@dnd-kit/core`, `@dnd-kit/sortable` (unused — see Phase 4 gotcha 7), `@dnd-kit/utilities`. No new deps in Phase 5.
 
 ### Files that already exist (don't redo)
 
@@ -266,9 +326,14 @@ Pick (1) for the home placeholder you'll replace anyway; consider (2) when build
 | `src/components/chapter/*` | ✅ Phase 2 (BookCard + skeleton, ChapterListItem + skeleton, VocabularyItem, GrammarPointCard, DialogueBubble) |
 | `src/components/quiz/*` | ✅ Phase 3 (QuizQuestionCard, AnswerOptionGrid, QuizProgress, PointsCounter, FeedbackOverlay, FillInBlankSentence, WordBankSelector, DialogueCard, ReadingPassageCard, TextInputAnswer, ExerciseTypeProgressList, CompletionScreen, ExitConfirmationModal, PausedQuizBanner) |
 | `src/hooks/{useQuizGeneration,useQuizPersistence,useAnswerValidation,useQuestionTimer,usePausedQuiz,usePauseQuiz,usePremadeExercises,usePremadeExercise,useExerciseTypeProgress,useUserStats}.ts` | ✅ Phase 3 |
-| `src/hooks/useSound.ts` | ⚠️ Phase 3 (no-op stub; Phase 5 must wire `HTMLAudioElement`) |
+| `src/hooks/useSound.ts` | ✅ Phase 5 (real `HTMLAudioElement` impl) |
 | `src/routes/_authed/quiz/{$chapterId,loading,ai-loading,play,premade}.tsx` | ✅ Phase 3 (play.tsx extended with `SentenceBuilder` integration in Phase 4) |
 | `src/components/quiz/SentenceBuilder.tsx` | ✅ Phase 4 (`@dnd-kit/core` + tap-to-place + drag-and-drop) |
+| `src/routes/_authed/_tabs/{generate,chat,settings}.tsx` | ✅ Phase 5 (Generate, Chat, full Settings — settings replaces Phase 1 stub) |
+| `src/routes/_authed/_tabs.tsx` | ✅ Phase 5 (5 tabs now: Home / Books / Generate / Chat / Settings) |
+| `src/routes/__root.tsx` | ✅ Phase 5 (added `useThemeSync` hook to apply `.dark` on `<html>`) |
+| `src/stores/useSettingsStore.ts` | ✅ Phase 5 (added `persist` middleware → `localStorage[dangdai-settings]`) |
+| `public/sounds/{correct,incorrect,celebration}.mp3` | ✅ Phase 5 (copied verbatim from `dangdai-mobile/assets/sounds/`) |
 
 ### Env
 `.env.local` is populated; `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_API_URL=http://localhost:8000`. Test account: **test@test.com / maxime11**.
@@ -387,13 +452,17 @@ If you add another DnD feature later, follow the SentenceBuilder pattern: `Point
 
 ## 6. Remaining phases at a glance
 
-After Phase 4, continue with the original plan:
-
-### Phase 5 — Generate, Chat, Settings
-Port `generate.tsx`, `chat.tsx`, `settings.tsx`. `useSound` needs a web rewrite (mobile uses `expo-av` → use `HTMLAudioElement`). Also a good moment to wire `pre`/`post` quiz weakness data into `CompletionScreen` (still carried forward from Phase 3).
+Phase 5 is done; Phase 6 is next.
 
 ### Phase 6 — Polish
-Dark mode (`useResolvedColorScheme` web version + Tailwind `dark:`), PWA icons (`pwa-192x192.png`, `pwa-512x512.png`, `pwa-maskable-512x512.png`, `apple-touch-icon.png`, `favicon.svg`), Lighthouse audit. Apple Sign-in only if user confirms scope. Optional: drop `@dnd-kit/sortable` if nothing else uses it (Phase 4 gotcha 7).
+- **Dark-mode visual pass.** Phase 5 wired theme application (`.dark` class + `matchMedia` listener for system) and the Settings selector. Now walk every screen in Dark and fix any contrast / token-mismatch issues. Most components use semantic tokens (`bg-card`, `text-muted-foreground`, `border`) so they should adapt automatically — watch for places that hardcoded `text-blue-500` etc. (the book cover colors in `BookCard.tsx` are intentional, those stay).
+- **PWA icons.** `pwa-192x192.png`, `pwa-512x512.png`, `pwa-maskable-512x512.png`, `apple-touch-icon.png`, `favicon.svg`. Currently `public/` has only `favicon.svg`, `logo.png`, `maixin-chinese-logo.svg`, and the new `sounds/` dir. Generate the icons from `logo.png` or the SVG.
+- **Lighthouse audit.** Mobile PWA category. Should be installable + green performance after icons.
+- **Apple Sign-in** only if user confirms scope. Skip otherwise.
+- **Optional:** drop `@dnd-kit/sortable` if nothing else uses it (Phase 4 gotcha 7); split the play chunk if Lighthouse flags it.
+
+### Carry-overs (still unwired, intentionally)
+- `pre`/`post` quiz weakness data in `CompletionScreen` — Phase 5 left this unwired because mobile doesn't wire it either. See Phase 5 gotcha 9 for the wiring sketch if it ever becomes needed.
 
 ---
 

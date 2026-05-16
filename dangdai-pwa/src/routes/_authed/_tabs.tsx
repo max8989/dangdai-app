@@ -1,5 +1,5 @@
 import { Link, Outlet, createFileRoute, useLocation } from '@tanstack/react-router';
-import { BookOpen, Home, Settings } from 'lucide-react';
+import { BookOpen, Home, MessageSquare, Settings, Sparkles } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -9,7 +9,7 @@ export const Route = createFileRoute('/_authed/_tabs')({
 });
 
 interface TabDef {
-  to: '/' | '/books' | '/settings';
+  to: '/' | '/books' | '/generate' | '/chat' | '/settings';
   label: string;
   Icon: LucideIcon;
 }
@@ -17,6 +17,8 @@ interface TabDef {
 const TABS: TabDef[] = [
   { to: '/', label: 'Home', Icon: Home },
   { to: '/books', label: 'Books', Icon: BookOpen },
+  { to: '/generate', label: 'Generate', Icon: Sparkles },
+  { to: '/chat', label: 'Chat', Icon: MessageSquare },
   { to: '/settings', label: 'Settings', Icon: Settings },
 ];
 

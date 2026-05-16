@@ -24,6 +24,8 @@ import { Route as AuthedQuizAiLoadingRouteImport } from './routes/_authed/quiz/a
 import { Route as AuthedQuizChapterIdRouteImport } from './routes/_authed/quiz/$chapterId'
 import { Route as AuthedChapterBookIdRouteImport } from './routes/_authed/chapter/$bookId'
 import { Route as AuthedTabsSettingsRouteImport } from './routes/_authed/_tabs/settings'
+import { Route as AuthedTabsGenerateRouteImport } from './routes/_authed/_tabs/generate'
+import { Route as AuthedTabsChatRouteImport } from './routes/_authed/_tabs/chat'
 import { Route as AuthedTabsBooksRouteImport } from './routes/_authed/_tabs/books'
 import { Route as AuthedChapterChapterIdVocabularyRouteImport } from './routes/_authed/chapter/$chapterId/vocabulary'
 import { Route as AuthedChapterChapterIdGrammarRouteImport } from './routes/_authed/chapter/$chapterId/grammar'
@@ -101,6 +103,16 @@ const AuthedTabsSettingsRoute = AuthedTabsSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AuthedTabsRoute,
 } as any)
+const AuthedTabsGenerateRoute = AuthedTabsGenerateRouteImport.update({
+  id: '/generate',
+  path: '/generate',
+  getParentRoute: () => AuthedTabsRoute,
+} as any)
+const AuthedTabsChatRoute = AuthedTabsChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
+  getParentRoute: () => AuthedTabsRoute,
+} as any)
 const AuthedTabsBooksRoute = AuthedTabsBooksRouteImport.update({
   id: '/books',
   path: '/books',
@@ -132,6 +144,8 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof AuthResetPasswordRoute
   '/signup': typeof AuthSignupRoute
   '/books': typeof AuthedTabsBooksRoute
+  '/chat': typeof AuthedTabsChatRoute
+  '/generate': typeof AuthedTabsGenerateRoute
   '/settings': typeof AuthedTabsSettingsRoute
   '/chapter/$bookId': typeof AuthedChapterBookIdRoute
   '/quiz/$chapterId': typeof AuthedQuizChapterIdRoute
@@ -150,6 +164,8 @@ export interface FileRoutesByTo {
   '/reset-password': typeof AuthResetPasswordRoute
   '/signup': typeof AuthSignupRoute
   '/books': typeof AuthedTabsBooksRoute
+  '/chat': typeof AuthedTabsChatRoute
+  '/generate': typeof AuthedTabsGenerateRoute
   '/settings': typeof AuthedTabsSettingsRoute
   '/chapter/$bookId': typeof AuthedChapterBookIdRoute
   '/quiz/$chapterId': typeof AuthedQuizChapterIdRoute
@@ -171,6 +187,8 @@ export interface FileRoutesById {
   '/_auth/signup': typeof AuthSignupRoute
   '/_authed/_tabs': typeof AuthedTabsRouteWithChildren
   '/_authed/_tabs/books': typeof AuthedTabsBooksRoute
+  '/_authed/_tabs/chat': typeof AuthedTabsChatRoute
+  '/_authed/_tabs/generate': typeof AuthedTabsGenerateRoute
   '/_authed/_tabs/settings': typeof AuthedTabsSettingsRoute
   '/_authed/chapter/$bookId': typeof AuthedChapterBookIdRoute
   '/_authed/quiz/$chapterId': typeof AuthedQuizChapterIdRoute
@@ -192,6 +210,8 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/books'
+    | '/chat'
+    | '/generate'
     | '/settings'
     | '/chapter/$bookId'
     | '/quiz/$chapterId'
@@ -210,6 +230,8 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/books'
+    | '/chat'
+    | '/generate'
     | '/settings'
     | '/chapter/$bookId'
     | '/quiz/$chapterId'
@@ -230,6 +252,8 @@ export interface FileRouteTypes {
     | '/_auth/signup'
     | '/_authed/_tabs'
     | '/_authed/_tabs/books'
+    | '/_authed/_tabs/chat'
+    | '/_authed/_tabs/generate'
     | '/_authed/_tabs/settings'
     | '/_authed/chapter/$bookId'
     | '/_authed/quiz/$chapterId'
@@ -355,6 +379,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedTabsSettingsRouteImport
       parentRoute: typeof AuthedTabsRoute
     }
+    '/_authed/_tabs/generate': {
+      id: '/_authed/_tabs/generate'
+      path: '/generate'
+      fullPath: '/generate'
+      preLoaderRoute: typeof AuthedTabsGenerateRouteImport
+      parentRoute: typeof AuthedTabsRoute
+    }
+    '/_authed/_tabs/chat': {
+      id: '/_authed/_tabs/chat'
+      path: '/chat'
+      fullPath: '/chat'
+      preLoaderRoute: typeof AuthedTabsChatRouteImport
+      parentRoute: typeof AuthedTabsRoute
+    }
     '/_authed/_tabs/books': {
       id: '/_authed/_tabs/books'
       path: '/books'
@@ -404,12 +442,16 @@ const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
 interface AuthedTabsRouteChildren {
   AuthedTabsBooksRoute: typeof AuthedTabsBooksRoute
+  AuthedTabsChatRoute: typeof AuthedTabsChatRoute
+  AuthedTabsGenerateRoute: typeof AuthedTabsGenerateRoute
   AuthedTabsSettingsRoute: typeof AuthedTabsSettingsRoute
   AuthedTabsIndexRoute: typeof AuthedTabsIndexRoute
 }
 
 const AuthedTabsRouteChildren: AuthedTabsRouteChildren = {
   AuthedTabsBooksRoute: AuthedTabsBooksRoute,
+  AuthedTabsChatRoute: AuthedTabsChatRoute,
+  AuthedTabsGenerateRoute: AuthedTabsGenerateRoute,
   AuthedTabsSettingsRoute: AuthedTabsSettingsRoute,
   AuthedTabsIndexRoute: AuthedTabsIndexRoute,
 }
