@@ -62,7 +62,10 @@ function DialoguesPage() {
         </main>
       ) : (
         <>
-          <div className="sticky top-12 z-20 flex items-center justify-center gap-2 border-b bg-background/95 px-4 py-2 backdrop-blur">
+          <div
+            className="sticky z-20 flex items-center justify-center gap-2 border-b bg-background/95 px-4 py-2 backdrop-blur"
+            style={{ top: 'calc(3rem + env(safe-area-inset-top))' }}
+          >
             <ToggleButton active={showPinyin} onClick={() => setShowPinyin((s) => !s)}>
               Pinyin
             </ToggleButton>

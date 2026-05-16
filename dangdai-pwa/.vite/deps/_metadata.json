@@ -2,7 +2,111 @@
   "hash": "5da87300",
   "configHash": "87dd9877",
   "lockfileHash": "37623f3d",
-  "browserHash": "10beeb88",
-  "optimized": {},
-  "chunks": {}
+  "browserHash": "6c0aa266",
+  "optimized": {
+    "@tanstack/react-query-devtools": {
+      "src": "../../node_modules/@tanstack/react-query-devtools/build/modern/index.js",
+      "file": "@tanstack_react-query-devtools.js",
+      "fileHash": "e170cb86",
+      "needsInterop": false
+    },
+    "@tanstack/react-query": {
+      "src": "../../node_modules/@tanstack/react-query/build/modern/index.js",
+      "file": "@tanstack_react-query.js",
+      "fileHash": "f0faad3d",
+      "needsInterop": false
+    },
+    "@tanstack/react-router-devtools": {
+      "src": "../../node_modules/@tanstack/react-router-devtools/dist/esm/index.js",
+      "file": "@tanstack_react-router-devtools.js",
+      "fileHash": "d16c1a83",
+      "needsInterop": false
+    },
+    "@tanstack/react-router": {
+      "src": "../../node_modules/@tanstack/react-router/dist/esm/index.dev.js",
+      "file": "@tanstack_react-router.js",
+      "fileHash": "f147b146",
+      "needsInterop": false
+    },
+    "lucide-react": {
+      "src": "../../node_modules/lucide-react/dist/esm/lucide-react.mjs",
+      "file": "lucide-react.js",
+      "fileHash": "c35acb42",
+      "needsInterop": false
+    },
+    "react-dom/client": {
+      "src": "../../node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "9eeea7f7",
+      "needsInterop": true
+    },
+    "react": {
+      "src": "../../node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "c8d37a0b",
+      "needsInterop": true
+    },
+    "react/jsx-dev-runtime": {
+      "src": "../../node_modules/react/jsx-dev-runtime.js",
+      "file": "react_jsx-dev-runtime.js",
+      "fileHash": "f23b9d40",
+      "needsInterop": true
+    },
+    "sonner": {
+      "src": "../../node_modules/sonner/dist/index.mjs",
+      "file": "sonner.js",
+      "fileHash": "a9908691",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "BaseTanStackRouterDevtoolsPanel-SWyE65Is-Q9cE5Wsr": {
+      "file": "BaseTanStackRouterDevtoolsPanel-SWyE65Is-Q9cE5Wsr.js",
+      "isDynamicEntry": true
+    },
+    "FloatingTanStackRouterDevtools-CnpwH7La-DFgcpCoK": {
+      "file": "FloatingTanStackRouterDevtools-CnpwH7La-DFgcpCoK.js",
+      "isDynamicEntry": true
+    },
+    "Q7GRFEEB-RPgN5ihJ": {
+      "file": "Q7GRFEEB-RPgN5ihJ.js",
+      "isDynamicEntry": false
+    },
+    "S7NCRHOU-BjS7-nZ0": {
+      "file": "S7NCRHOU-BjS7-nZ0.js",
+      "isDynamicEntry": false
+    },
+    "VKXKX7EQ-BsEOS6zO": {
+      "file": "VKXKX7EQ-BsEOS6zO.js",
+      "isDynamicEntry": true
+    },
+    "ZUJJ2RGI-CXEk2KCg": {
+      "file": "ZUJJ2RGI-CXEk2KCg.js",
+      "isDynamicEntry": true
+    },
+    "context-DmSxegOg-CnJo_s3e": {
+      "file": "context-DmSxegOg-CnJo_s3e.js",
+      "isDynamicEntry": false
+    },
+    "index.dev-WDfXHCuU": {
+      "file": "index.dev-WDfXHCuU.js",
+      "isDynamicEntry": false
+    },
+    "jsx-runtime-De3RprTE": {
+      "file": "jsx-runtime-De3RprTE.js",
+      "isDynamicEntry": false
+    },
+    "modern-DUgF7EUx": {
+      "file": "modern-DUgF7EUx.js",
+      "isDynamicEntry": false
+    },
+    "react-B35R_oEX": {
+      "file": "react-B35R_oEX.js",
+      "isDynamicEntry": false
+    },
+    "react-dom-CYDThRfy": {
+      "file": "react-dom-CYDThRfy.js",
+      "isDynamicEntry": false
+    }
+  }
 }

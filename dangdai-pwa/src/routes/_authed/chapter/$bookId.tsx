@@ -36,7 +36,10 @@ function ChapterListPage() {
 
   return (
     <div className="mx-auto flex max-w-md flex-col bg-background">
-      <header className="sticky top-0 z-30 flex items-center gap-2 border-b bg-background/95 px-2 py-2 backdrop-blur">
+      <header
+        className="sticky top-0 z-30 flex items-center gap-2 border-b bg-background/95 px-2 py-2 backdrop-blur"
+        style={{ paddingTop: 'calc(0.5rem + env(safe-area-inset-top))' }}
+      >
         <Button asChild variant="ghost" size="icon" aria-label="Back to books">
           <Link to="/books">
             <ChevronLeft className="size-5" />
