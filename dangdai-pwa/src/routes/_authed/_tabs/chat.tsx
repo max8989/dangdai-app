@@ -36,7 +36,7 @@ interface ChatMessage {
 const SUGGESTIONS = [
   'What grammar is in Book 1 Lesson 3?',
   'How do I introduce myself?',
-  'Show me workbook listening exercises.',
+  'Explain when to use 了 vs 過.',
 ]
 
 function makeId(): string {
