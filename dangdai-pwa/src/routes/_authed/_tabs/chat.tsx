@@ -15,6 +15,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { BOOKS } from '@/constants/books'
 import { api, ChatError, type ChatHistoryTurn, type ChatSource } from '@/lib/api'
+import { useChatStore, type ChatMessage } from '@/stores/useChatStore'
 
 // Matches the server-side cap; sending more is wasted bandwidth.
 const HISTORY_MAX_TURNS = 8
@@ -23,15 +24,6 @@ import { cn } from '@/lib/utils'
 export const Route = createFileRoute('/_authed/_tabs/chat')({
   component: ChatPage,
 })
-
-type ContentTypeFilter = 'textbook' | 'workbook' | null
-
-interface ChatMessage {
-  id: string
-  role: 'user' | 'assistant'
-  text: string
-  sources?: ChatSource[]
-}
 
 const SUGGESTIONS = [
   'What grammar is in Book 1 Lesson 3?',
@@ -175,13 +167,22 @@ function ChatPageHeader({
 }
 
 function ChatPage() {
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [input, setInput] = useState('')
+  const messages = useChatStore((s) => s.messages)
+  const input = useChatStore((s) => s.input)
+  const bookFilter = useChatStore((s) => s.bookFilter)
+  const lessonFilter = useChatStore((s) => s.lessonFilter)
+  const contentType = useChatStore((s) => s.contentType)
+  const filtersOpen = useChatStore((s) => s.filtersOpen)
+  const setInput = useChatStore((s) => s.setInput)
+  const setBookFilter = useChatStore((s) => s.setBookFilter)
+  const setLessonFilter = useChatStore((s) => s.setLessonFilter)
+  const setContentType = useChatStore((s) => s.setContentType)
+  const toggleFilters = useChatStore((s) => s.toggleFilters)
+  const appendMessage = useChatStore((s) => s.appendMessage)
+  const clearMessages = useChatStore((s) => s.clearMessages)
+  const clearScope = useChatStore((s) => s.clearScope)
+
   const [submitting, setSubmitting] = useState(false)
-  const [bookFilter, setBookFilter] = useState<number | null>(null)
-  const [lessonFilter, setLessonFilter] = useState<number | null>(null)
-  const [contentType, setContentType] = useState<ContentTypeFilter>(null)
-  const [filtersOpen, setFiltersOpen] = useState(false)
 
   const scrollRef = useRef<HTMLDivElement | null>(null)
 
@@ -195,21 +196,12 @@ function ChatPage() {
 
   const lessonCount = chapterCountFor(bookFilter)
 
-  const onSelectBook = useCallback((id: number | null) => {
-    setBookFilter(id)
-    setLessonFilter(null)
-  }, [])
-
-  const onClearScope = useCallback(() => {
-    setBookFilter(null)
-    setLessonFilter(null)
-    setContentType(null)
-  }, [])
-
-  const onClearChat = useCallback(() => {
-    setMessages([])
-    setInput('')
-  }, [])
+  const onSelectBook = useCallback(
+    (id: number | null) => {
+      setBookFilter(id)
+    },
+    [setBookFilter],
+  )
 
   const hasActiveScope =
     bookFilter !== null || lessonFilter !== null || contentType !== null
@@ -237,7 +229,7 @@ function ChatPage() {
       const history: ChatHistoryTurn[] = messages
         .slice(-HISTORY_MAX_TURNS)
         .map((m) => ({ role: m.role, content: m.text }))
-      setMessages((prev) => [...prev, userMsg])
+      appendMessage(userMsg)
       setInput('')
       setSubmitting(true)
 
@@ -249,15 +241,12 @@ function ChatPage() {
           contentType,
           history,
         })
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: makeId(),
-            role: 'assistant',
-            text: result.answer,
-            sources: result.sources,
-          },
-        ])
+        appendMessage({
+          id: makeId(),
+          role: 'assistant',
+          text: result.answer,
+          sources: result.sources,
+        })
       } catch (err) {
         const msg =
           err instanceof ChatError
@@ -268,7 +257,7 @@ function ChatPage() {
         setSubmitting(false)
       }
     },
-    [submitting, bookFilter, lessonFilter, contentType, messages],
+    [submitting, bookFilter, lessonFilter, contentType, messages, appendMessage, setInput],
   )
 
   const onSubmit = useCallback(() => {
@@ -289,9 +278,9 @@ function ChatPage() {
         hasActiveScope={hasActiveScope}
         filtersOpen={filtersOpen}
         hasMessages={messages.length > 0}
-        onToggleFilters={() => setFiltersOpen((o) => !o)}
-        onClearScope={onClearScope}
-        onClearChat={onClearChat}
+        onToggleFilters={toggleFilters}
+        onClearScope={clearScope}
+        onClearChat={clearMessages}
       />
 
       {/* Collapsible filter panel */}

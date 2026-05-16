@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useGenerateStore, type GenerationMode } from '@/stores/useGenerateStore'
 import {
   ArrowRight,
   BookOpen,
@@ -59,7 +60,6 @@ const EXERCISE_TYPE_ICONS: Record<ExerciseType, LucideIcon> = {
 
 const MIN_QUESTIONS = 5
 const MAX_QUESTIONS = 50
-const DEFAULT_QUESTIONS = 10
 
 function chapterIdFor(bookId: number, chapterNumber: number): number {
   return bookId * 100 + chapterNumber
@@ -227,8 +227,6 @@ function MultiChapterPicker({
   )
 }
 
-type GenerationMode = 'range' | 'custom'
-
 function GeneratePage() {
   const navigate = useNavigate()
   const startQuiz = useQuizStore((s) => s.startQuiz)
@@ -236,26 +234,35 @@ function GeneratePage() {
   // re-emitting question texts the user has just seen.
   const previousQuizPayload = useQuizStore((s) => s.quizPayload)
 
-  const [mode, setMode] = useState<GenerationMode>('range')
+  const mode = useGenerateStore((s) => s.mode)
+  const setMode = useGenerateStore((s) => s.setMode)
 
-  // Range-mode state (existing)
-  const [startBook, setStartBook] = useState(2)
-  const [startChapter, setStartChapter] = useState(11)
-  const [endBook, setEndBook] = useState(3)
-  const [endChapter, setEndChapter] = useState(3)
+  const startBook = useGenerateStore((s) => s.startBook)
+  const startChapter = useGenerateStore((s) => s.startChapter)
+  const endBook = useGenerateStore((s) => s.endBook)
+  const endChapter = useGenerateStore((s) => s.endChapter)
+  const setStartBook = useGenerateStore((s) => s.setStartBook)
+  const setStartChapter = useGenerateStore((s) => s.setStartChapter)
+  const setEndBook = useGenerateStore((s) => s.setEndBook)
+  const setEndChapter = useGenerateStore((s) => s.setEndChapter)
 
-  // Custom-mode state — Set of composite chapter IDs
-  const [customSelectedIds, setCustomSelectedIds] = useState<Set<number>>(
-    () => new Set<number>([201, 207, 305]),
+  const customSelectedIdsArr = useGenerateStore((s) => s.customSelectedIds)
+  const customSelectedIds = useMemo(
+    () => new Set(customSelectedIdsArr),
+    [customSelectedIdsArr],
   )
+  const toggleCustomChapterStore = useGenerateStore((s) => s.toggleCustomChapter)
+  const addCustomChapters = useGenerateStore((s) => s.addCustomChapters)
+  const removeCustomChapters = useGenerateStore((s) => s.removeCustomChapters)
 
-  const [questionCount, setQuestionCount] = useState(DEFAULT_QUESTIONS)
-  const [selectedTypes, setSelectedTypes] = useState<ExerciseType[]>([
-    'vocabulary',
-    'grammar',
-  ])
+  const questionCount = useGenerateStore((s) => s.questionCount)
+  const setQuestionCount = useGenerateStore((s) => s.setQuestionCount)
+  const selectedTypes = useGenerateStore((s) => s.selectedTypes)
+  const toggleSelectedType = useGenerateStore((s) => s.toggleSelectedType)
+  const typesExpanded = useGenerateStore((s) => s.typesExpanded)
+  const setTypesExpanded = useGenerateStore((s) => s.setTypesExpanded)
+
   const [submitting, setSubmitting] = useState(false)
-  const [typesExpanded, setTypesExpanded] = useState(false)
 
   const startId = chapterIdFor(startBook, startChapter)
   const endId = chapterIdFor(endBook, endChapter)
@@ -277,52 +284,43 @@ function GeneratePage() {
   const selectionValid = mode === 'range' ? rangeValid : customValid
   const canSubmit = selectionValid && typesValid && countValid && !submitting
 
-  const toggleType = useCallback((type: ExerciseType) => {
-    setSelectedTypes((prev) =>
-      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type],
-    )
-  }, [])
+  const toggleType = toggleSelectedType
 
   const decrementCount = useCallback(() => {
-    setQuestionCount((c) => Math.max(MIN_QUESTIONS, c - 1))
-  }, [])
+    setQuestionCount(Math.max(MIN_QUESTIONS, questionCount - 1))
+  }, [questionCount, setQuestionCount])
 
   const incrementCount = useCallback(() => {
-    setQuestionCount((c) => Math.min(MAX_QUESTIONS, c + 1))
-  }, [])
+    setQuestionCount(Math.min(MAX_QUESTIONS, questionCount + 1))
+  }, [questionCount, setQuestionCount])
 
-  const toggleCustomChapter = useCallback((id: number) => {
-    setCustomSelectedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }, [])
+  const toggleCustomChapter = toggleCustomChapterStore
 
-  const selectAllInBook = useCallback((bookId: number) => {
-    const book = BOOKS.find((b) => b.id === bookId)
-    if (!book) return
-    setCustomSelectedIds((prev) => {
-      const next = new Set(prev)
+  const selectAllInBook = useCallback(
+    (bookId: number) => {
+      const book = BOOKS.find((b) => b.id === bookId)
+      if (!book) return
+      const ids: number[] = []
       for (let n = 1; n <= book.chapterCount; n++) {
-        next.add(chapterIdFor(bookId, n))
+        ids.push(chapterIdFor(bookId, n))
       }
-      return next
-    })
-  }, [])
+      addCustomChapters(ids)
+    },
+    [addCustomChapters],
+  )
 
-  const clearBook = useCallback((bookId: number) => {
-    const book = BOOKS.find((b) => b.id === bookId)
-    if (!book) return
-    setCustomSelectedIds((prev) => {
-      const next = new Set(prev)
+  const clearBook = useCallback(
+    (bookId: number) => {
+      const book = BOOKS.find((b) => b.id === bookId)
+      if (!book) return
+      const ids: number[] = []
       for (let n = 1; n <= book.chapterCount; n++) {
-        next.delete(chapterIdFor(bookId, n))
+        ids.push(chapterIdFor(bookId, n))
       }
-      return next
-    })
-  }, [])
+      removeCustomChapters(ids)
+    },
+    [removeCustomChapters],
+  )
 
   const onSubmit = useCallback(async () => {
     if (!canSubmit) return
@@ -608,7 +606,7 @@ function GeneratePage() {
       <div className="rounded-2xl border bg-card p-4 shadow-sm">
         <button
           type="button"
-          onClick={() => setTypesExpanded((v) => !v)}
+          onClick={() => setTypesExpanded(!typesExpanded)}
           data-testid="exercise-types-toggle"
           aria-expanded={typesExpanded}
           className="flex w-full items-center justify-between focus-visible:outline-none"

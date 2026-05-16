@@ -11,3 +11,5 @@
 export { useSettingsStore } from './useSettingsStore'
 export { useQuizStore } from './useQuizStore'
 export { useUserStore } from './useUserStore'
+export { useChatStore } from './useChatStore'
+export { useGenerateStore } from './useGenerateStore'
