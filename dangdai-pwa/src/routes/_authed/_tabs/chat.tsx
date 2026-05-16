@@ -413,7 +413,7 @@ function ChatPage() {
             placeholder="Ask a question…"
             disabled={submitting}
             data-testid="chat-input"
-            className="flex-1 bg-transparent py-1.5 text-sm outline-none placeholder:text-muted-foreground disabled:opacity-50"
+            className="flex-1 bg-transparent py-1.5 text-base outline-none placeholder:text-muted-foreground disabled:opacity-50 md:text-sm"
           />
           <Button
             onClick={onSubmit}
