@@ -3,6 +3,7 @@ import { CheckCircle2, Loader2, Pause, Play, Sparkles, Trash2, XCircle } from 'l
 
 import { Button } from '@/components/ui/button';
 import { LearningSummaryCard } from '@/components/LearningSummaryCard';
+import { MaixinLogo } from '@/components/MaixinLogo';
 import { getChapter } from '@/constants/chapters';
 import { useAllPausedQuizzes } from '@/hooks/usePausedQuiz';
 import { usePauseQuiz } from '@/hooks/usePauseQuiz';
@@ -219,6 +220,10 @@ function HomePage() {
 
   return (
     <section className="flex flex-col gap-6 p-4 pt-6">
+      <header className="flex justify-center">
+        <MaixinLogo width={120} />
+      </header>
+
       <LearningSummaryCard />
 
       {readyJobs.length > 0 && (
