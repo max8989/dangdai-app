@@ -9,7 +9,6 @@ import {
   Minus,
   PenLine,
   Plus,
-  Shuffle,
   Sparkles,
   Trophy,
 } from 'lucide-react'
@@ -51,15 +50,6 @@ interface ExerciseTypeCardConfig {
 }
 
 const EXERCISE_TYPE_CARDS: ExerciseTypeCardConfig[] = [
-  {
-    type: 'mixed',
-    label: 'Mixed',
-    subtitle: 'AI picks exercises based on your weak areas',
-    Icon: Shuffle,
-    iconBg: 'bg-blue-100 dark:bg-blue-900',
-    iconColor: 'text-blue-700 dark:text-blue-200',
-    testID: 'mixed-quiz-button',
-  },
   {
     type: 'vocabulary',
     label: 'Vocabulary Quiz',

@@ -395,18 +395,9 @@ function PlayPage() {
   )
 
   const handleSentenceConstructionAnswer = useCallback(
-    (isCorrect: boolean) => {
+    (isCorrect: boolean, userSentence: string) => {
       if (!currentQuestion) return
       const timeSpentMs = timer.stopTimer()
-
-      const placedTileIds = useQuizStore.getState().placedTileIds
-      const scrambled = currentQuestion.scrambled_words ?? []
-      const userSentence = placedTileIds
-        .map((id) => {
-          const index = parseInt(id.replace('tile-', ''), 10)
-          return scrambled[index] ?? ''
-        })
-        .join('')
 
       setAnswer(currentQuestionIndex, userSentence)
       if (isCorrect) addScore(POINTS_PER_CORRECT)

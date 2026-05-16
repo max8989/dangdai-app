@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import {
   DndContext,
   DragOverlay,
@@ -33,7 +33,7 @@ export interface SentenceBuilderProps {
   correctAnswer: string
   explanation: string
   sourceCitation: string
-  onAnswer: (isCorrect: boolean) => void
+  onAnswer: (isCorrect: boolean, userSentence: string) => void
   disabled?: boolean
   acceptableAnswerVariants?: string[]
 }
@@ -47,6 +47,26 @@ function getTileFontSize(word: string): string {
   if (word.length <= 2) return 'text-2xl'
   if (word.length <= 4) return 'text-xl'
   return 'text-base'
+}
+
+function shuffleWords(words: string[], avoid?: string[]): string[] {
+  if (words.length <= 1) return [...words]
+  const shouldAvoid =
+    avoid !== undefined && avoid.length === words.length
+  const matchesAvoid = (arr: string[]): boolean =>
+    shouldAvoid ? arr.every((w, i) => w === avoid![i]) : false
+
+  let result = [...words]
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const arr = [...words]
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[arr[i], arr[j]] = [arr[j], arr[i]]
+    }
+    result = arr
+    if (!matchesAvoid(result)) return result
+  }
+  return result
 }
 
 function computeTileFeedback(
@@ -85,13 +105,13 @@ function TileButton({
   return (
     <div
       className={cn(
-        'rounded-lg border-2 px-3 py-2 min-h-12 min-w-12 inline-flex items-center justify-center transition-colors select-none',
+        'rounded-lg border-2 px-3 py-2 min-h-12 min-w-12 inline-flex items-center justify-center transition-colors select-none whitespace-nowrap',
         TILE_STATE_CLASSES[state],
         isDragging && 'opacity-50',
         className,
       )}
     >
-      <span className={cn('font-medium', fontSizeClass)}>{word}</span>
+      <span className={cn('font-medium whitespace-nowrap', fontSizeClass)}>{word}</span>
     </div>
   )
 }
@@ -265,14 +285,19 @@ export function SentenceBuilder({
     useSensor(KeyboardSensor),
   )
 
-  const allTileIds = scrambledWords.map((_, i) => `tile-${i}`)
+  const displayWords = useMemo(
+    () => shuffleWords(scrambledWords, correctOrder),
+    [scrambledWords, correctOrder],
+  )
+
+  const allTileIds = displayWords.map((_, i) => `tile-${i}`)
   const placedTileSet = new Set(placedTileIds)
   const availableTileIds = allTileIds.filter((id) => !placedTileSet.has(id))
-  const allTilesPlaced = placedTileIds.length === scrambledWords.length
+  const allTilesPlaced = placedTileIds.length === displayWords.length
 
   const tileWord = (tileId: string): string => {
     const index = parseInt(tileId.replace('tile-', ''), 10)
-    return scrambledWords[index] ?? ''
+    return displayWords[index] ?? ''
   }
 
   const placedWords = placedTileIds.map(tileWord)
@@ -360,7 +385,7 @@ export function SentenceBuilder({
     } else {
       setTileFeedback(computeTileFeedback(placedWords, correctOrder))
     }
-    onAnswer(result.isCorrect)
+    onAnswer(result.isCorrect, constructedSentence)
   }
 
   const activeWord = activeTileId !== null ? tileWord(activeTileId) : ''
