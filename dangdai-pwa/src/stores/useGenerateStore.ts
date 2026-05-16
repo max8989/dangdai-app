@@ -19,6 +19,10 @@ interface GenerateState {
   selectedTypes: ExerciseType[]
   typesExpanded: boolean
 
+  /** Id of the job kicked off from this page (if any). */
+  activeJobId: string | null
+
+  setActiveJobId: (id: string | null) => void
   setMode: (mode: GenerationMode) => void
   setRange: (startBook: number, startChapter: number, endBook: number, endChapter: number) => void
   setStartBook: (n: number) => void
@@ -53,6 +57,9 @@ export const useGenerateStore = create<GenerateState>()(
       selectedTypes: ['vocabulary', 'grammar'],
       typesExpanded: false,
 
+      activeJobId: null,
+
+      setActiveJobId: (id) => set({ activeJobId: id }),
       setMode: (mode) => set({ mode }),
       setRange: (startBook, startChapter, endBook, endChapter) =>
         set({ startBook, startChapter, endBook, endChapter }),

@@ -1,10 +1,12 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useGenerateStore, type GenerationMode } from '@/stores/useGenerateStore'
 import {
   ArrowRight,
+  BellRing,
   BookOpen,
   BookOpenCheck,
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
   Languages,
@@ -15,6 +17,7 @@ import {
   PencilLine,
   Plus,
   Sparkles,
+  XCircle,
   type LucideIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -24,14 +27,16 @@ import { Slider } from '@/components/ui/slider'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { BOOKS } from '@/constants/books'
 import { CHAPTERS, getChapter } from '@/constants/chapters'
-import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import {
+  requestNotificationPermission,
+  startGenerationJob,
+} from '@/lib/generationJobs'
+import { useGenerationJobsStore } from '@/stores/useGenerationJobsStore'
 import { useQuizStore } from '@/stores/useQuizStore'
 import {
   EXERCISE_TYPE_LABELS,
-  QuizGenerationError,
   type ExerciseType,
-  type QuizResponse,
 } from '@/types/quiz'
 
 export const Route = createFileRoute('/_authed/_tabs/generate')({
@@ -262,7 +267,14 @@ function GeneratePage() {
   const typesExpanded = useGenerateStore((s) => s.typesExpanded)
   const setTypesExpanded = useGenerateStore((s) => s.setTypesExpanded)
 
-  const [submitting, setSubmitting] = useState(false)
+  const activeJobId = useGenerateStore((s) => s.activeJobId)
+  const setActiveJobId = useGenerateStore((s) => s.setActiveJobId)
+  const activeJob = useGenerationJobsStore((s) =>
+    activeJobId ? s.jobs[activeJobId] : undefined,
+  )
+  const removeJob = useGenerationJobsStore((s) => s.removeJob)
+
+  const submitting = activeJob?.status === 'generating'
 
   const startId = chapterIdFor(startBook, startChapter)
   const endId = chapterIdFor(endBook, endChapter)
@@ -322,90 +334,44 @@ function GeneratePage() {
     [removeCustomChapters],
   )
 
-  const onSubmit = useCallback(async () => {
+  const onSubmit = useCallback(() => {
     if (!canSubmit) return
-    setSubmitting(true)
-    try {
-      const exerciseType: ExerciseType =
-        selectedTypes.length === 1 ? selectedTypes[0] : 'mixed'
 
-      if (mode === 'custom') {
-        // If the previous quiz covered any of the chapters we're about to
-        // regenerate, hand the backend the question texts the user just saw
-        // so it skips obvious repeats.
-        const prevChapterId = previousQuizPayload?.chapter_id
-        const previousQuizOverlaps =
-          prevChapterId != null && customSelectedIds.has(prevChapterId)
-        const avoidQuestionTexts: string[] = previousQuizOverlaps
-          ? (previousQuizPayload?.questions ?? [])
-              .map((q) => q.question_text)
-              .filter((t): t is string => Boolean(t))
-          : []
+    void requestNotificationPermission()
 
-        const result = await api.generateCustomQuiz({
+    let jobId: string
+    if (mode === 'custom') {
+      const prevChapterId = previousQuizPayload?.chapter_id
+      const previousQuizOverlaps =
+        prevChapterId != null && customSelectedIds.has(prevChapterId)
+      const avoidQuestionTexts: string[] = previousQuizOverlaps
+        ? (previousQuizPayload?.questions ?? [])
+            .map((q) => q.question_text)
+            .filter((t): t is string => Boolean(t))
+        : []
+
+      jobId = startGenerationJob({
+        params: {
+          source: 'custom',
           chapterIds: customChapterIds,
           questionCount,
           exerciseTypes: selectedTypes,
           avoidQuestionTexts: avoidQuestionTexts.slice(0, 50),
-        })
-
-        const firstId = result.chapter_ids[0] ?? customChapterIds[0]
-        const lastId = result.chapter_ids[result.chapter_ids.length - 1] ?? firstId
-
-        const quizPayload: QuizResponse = {
-          quiz_id: result.quiz_id,
-          chapter_id: firstId,
-          book_id: Math.floor(firstId / 100),
-          exercise_type: exerciseType,
-          question_count: result.question_count,
-          questions: result.questions,
-        }
-
-        startQuiz(
-          result.quiz_id,
-          quizPayload,
-          firstId,
-          Math.floor(firstId / 100),
-          exerciseType,
-          lastId,
-        )
-      } else {
-        const result = await api.generateMultiChapterQuiz({
+        },
+      })
+    } else {
+      jobId = startGenerationJob({
+        params: {
+          source: 'multi',
           chapterIdStart: startId,
           chapterIdEnd: endId,
           questionCount,
           exerciseTypes: selectedTypes,
-        })
-
-        const quizPayload: QuizResponse = {
-          quiz_id: result.quiz_id,
-          chapter_id: result.chapter_id_start,
-          book_id: Math.floor(result.chapter_id_start / 100),
-          exercise_type: exerciseType,
-          question_count: result.question_count,
-          questions: result.questions,
-        }
-
-        startQuiz(
-          result.quiz_id,
-          quizPayload,
-          result.chapter_id_start,
-          Math.floor(result.chapter_id_start / 100),
-          exerciseType,
-          result.chapter_id_end,
-        )
-      }
-
-      await navigate({ to: '/quiz/play' })
-    } catch (err) {
-      const msg =
-        err instanceof QuizGenerationError
-          ? err.message
-          : 'Could not generate quiz. Please try again.'
-      toast.error('Generation failed', { description: msg })
-    } finally {
-      setSubmitting(false)
+        },
+      })
     }
+
+    setActiveJobId(jobId)
   }, [
     canSubmit,
     mode,
@@ -416,9 +382,42 @@ function GeneratePage() {
     endId,
     questionCount,
     selectedTypes,
-    startQuiz,
-    navigate,
+    setActiveJobId,
   ])
+
+  const onStartReady = useCallback(() => {
+    if (!activeJob || activeJob.status !== 'ready' || !activeJob.result) return
+    startQuiz(
+      activeJob.result.quiz_id,
+      activeJob.result,
+      activeJob.chapterId ?? activeJob.result.chapter_id,
+      activeJob.bookId ?? activeJob.result.book_id,
+      activeJob.exerciseType ?? activeJob.result.exercise_type,
+      activeJob.chapterIdEnd ?? null,
+    )
+    removeJob(activeJob.id)
+    setActiveJobId(null)
+    void navigate({ to: '/quiz/play' })
+  }, [activeJob, startQuiz, removeJob, setActiveJobId, navigate])
+
+  const onDismissActiveJob = useCallback(() => {
+    if (activeJob) removeJob(activeJob.id)
+    setActiveJobId(null)
+  }, [activeJob, removeJob, setActiveJobId])
+
+  const onLeaveToHome = useCallback(() => {
+    toast('Generating in background', {
+      description: "You'll see it on the home screen and we'll notify you.",
+    })
+    void navigate({ to: '/' })
+  }, [navigate])
+
+  const onRetryFromError = useCallback(() => {
+    if (activeJob) removeJob(activeJob.id)
+    setActiveJobId(null)
+    // Re-submit with current form values
+    onSubmit()
+  }, [activeJob, removeJob, setActiveJobId, onSubmit])
 
   return (
     <section className="flex flex-col gap-3 p-4 pt-5 pb-24" data-testid="generate-screen">
@@ -658,21 +657,154 @@ function GeneratePage() {
         )}
       </div>
 
-      {/* Generate button */}
-      <Button
-        size="lg"
-        onClick={onSubmit}
-        disabled={!canSubmit}
-        className="mt-1 h-12 gap-2 rounded-xl text-base font-semibold shadow-sm"
-        data-testid="generate-submit"
-      >
-        {submitting ? (
-          <Loader2 className="size-5 animate-spin" />
-        ) : (
+      {/* Active job status panel */}
+      {activeJob ? (
+        <JobStatusPanel
+          status={activeJob.status}
+          label={activeJob.label}
+          subtitle={activeJob.subtitle}
+          error={activeJob.error}
+          onStart={onStartReady}
+          onDismiss={onDismissActiveJob}
+          onLeave={onLeaveToHome}
+          onRetry={onRetryFromError}
+        />
+      ) : (
+        <Button
+          size="lg"
+          onClick={onSubmit}
+          disabled={!canSubmit}
+          className="mt-1 h-12 gap-2 rounded-xl text-base font-semibold shadow-sm"
+          data-testid="generate-submit"
+        >
           <Sparkles className="size-5" />
-        )}
-        {submitting ? 'Generating…' : 'Generate Quiz'}
-      </Button>
+          Generate Quiz
+        </Button>
+      )}
     </section>
+  )
+}
+
+interface JobStatusPanelProps {
+  status: 'generating' | 'ready' | 'error'
+  label: string
+  subtitle?: string
+  error?: string
+  onStart: () => void
+  onDismiss: () => void
+  onLeave: () => void
+  onRetry: () => void
+}
+
+function JobStatusPanel({
+  status,
+  label,
+  subtitle,
+  error,
+  onStart,
+  onDismiss,
+  onLeave,
+  onRetry,
+}: JobStatusPanelProps) {
+  if (status === 'generating') {
+    return (
+      <div
+        className="flex flex-col gap-3 rounded-2xl border border-primary/30 bg-primary/5 p-4 shadow-sm"
+        data-testid="generate-status-generating"
+      >
+        <div className="flex items-start gap-3">
+          <Loader2 className="mt-0.5 size-5 shrink-0 animate-spin text-primary" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold">Generating exercise…</p>
+            <p className="truncate text-xs text-muted-foreground">
+              {label}
+              {subtitle ? ` · ${subtitle}` : ''}
+            </p>
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Leave this screen if you want — we'll notify you when it's ready and
+          you can start it from the home screen.
+        </p>
+        <Button
+          variant="outline"
+          onClick={onLeave}
+          className="h-10 gap-2 rounded-xl"
+          data-testid="generate-leave"
+        >
+          <BellRing className="size-4" />
+          Leave (notify me when ready)
+        </Button>
+      </div>
+    )
+  }
+
+  if (status === 'ready') {
+    return (
+      <div
+        className="flex flex-col gap-3 rounded-2xl border border-green-300 bg-green-50 p-4 shadow-sm dark:border-green-700 dark:bg-green-950"
+        data-testid="generate-status-ready"
+      >
+        <div className="flex items-start gap-3">
+          <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-green-600 dark:text-green-300" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-green-900 dark:text-green-100">
+              Ready to start
+            </p>
+            <p className="truncate text-xs text-green-800 dark:text-green-200">
+              {label}
+              {subtitle ? ` · ${subtitle}` : ''}
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            onClick={onStart}
+            className="h-11 flex-1 gap-2 rounded-xl text-base font-semibold"
+            data-testid="generate-start-ready"
+          >
+            <Sparkles className="size-5" />
+            Start
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={onDismiss}
+            className="h-11 rounded-xl"
+            data-testid="generate-dismiss-ready"
+            aria-label="Discard generated exercise"
+          >
+            <XCircle className="size-5" />
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  // error
+  return (
+    <div
+      className="flex flex-col gap-3 rounded-2xl border border-destructive/40 bg-destructive/10 p-4"
+      data-testid="generate-status-error"
+    >
+      <div className="flex items-start gap-3">
+        <XCircle className="mt-0.5 size-5 shrink-0 text-destructive" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-destructive">
+            Generation failed
+          </p>
+          <p className="text-xs text-destructive/90">
+            {error ?? 'Could not generate exercise. Please try again.'}
+          </p>
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <Button onClick={onRetry} className="h-10 flex-1 rounded-xl">
+          Retry
+        </Button>
+        <Button variant="ghost" onClick={onDismiss} className="h-10 rounded-xl">
+          Dismiss
+        </Button>
+      </div>
+    </div>
   )
 }
