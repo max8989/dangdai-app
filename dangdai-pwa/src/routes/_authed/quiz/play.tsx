@@ -675,7 +675,10 @@ function PlayPage() {
         className="mx-auto flex min-h-dvh max-w-md flex-col bg-background"
         data-testid="quiz-play-screen"
       >
-        <header className="flex items-center justify-between px-4 pt-3 pb-2">
+        <header
+          className="flex items-center justify-between px-4 pb-2"
+          style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top))' }}
+        >
           <Button
             variant="ghost"
             size="sm"

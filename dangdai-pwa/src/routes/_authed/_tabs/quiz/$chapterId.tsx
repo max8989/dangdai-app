@@ -21,7 +21,7 @@ import { BOOKS } from '@/constants/books'
 import type { ExerciseType } from '@/types/quiz'
 import { cn } from '@/lib/utils'
 
-export const Route = createFileRoute('/_authed/quiz/$chapterId')({
+export const Route = createFileRoute('/_authed/_tabs/quiz/$chapterId')({
   component: ChapterDetailPage,
 })
 
@@ -131,7 +131,7 @@ function ChapterDetailPage() {
 
   if (!valid || !chapter) {
     return (
-      <div className="mx-auto flex max-w-md flex-col items-center justify-center min-h-dvh bg-background p-4">
+      <div className="flex flex-col items-center justify-center p-4">
         <p data-testid="chapter-not-found">Chapter not found</p>
       </div>
     )
@@ -161,11 +161,8 @@ function ChapterDetailPage() {
   }
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-md flex-col bg-background">
-      <header
-        className="sticky top-0 z-30 flex items-center gap-2 border-b bg-background/95 px-2 py-2 backdrop-blur"
-        style={{ paddingTop: 'calc(0.5rem + env(safe-area-inset-top))' }}
-      >
+    <div className="flex flex-col">
+      <header className="flex items-center gap-2 border-b bg-background px-2 py-2">
         <Button asChild variant="ghost" size="icon" aria-label="Back to chapters">
           <Link to="/chapter/$bookId" params={{ bookId: String(chapter.bookId) }}>
             <ChevronLeft className="size-5" />
@@ -174,7 +171,7 @@ function ChapterDetailPage() {
         <h1 className="flex-1 text-base font-semibold">Chapter {chapter.chapterNumber}</h1>
       </header>
 
-      <main className="flex-1 p-4">
+      <main className="p-4">
         {pausedQuizzesForChapter.map((pq) => (
           <PausedQuizBanner
             key={`${pq.chapter_id}-${pq.exercise_type}`}

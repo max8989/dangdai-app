@@ -8,7 +8,7 @@ import { BOOKS } from '@/constants/books';
 import { useChapterProgress } from '@/hooks/useChapterProgress';
 import { useChapters } from '@/hooks/useChapters';
 
-export const Route = createFileRoute('/_authed/chapter/$bookId')({
+export const Route = createFileRoute('/_authed/_tabs/chapter/$bookId')({
   component: ChapterListPage,
 });
 
@@ -35,11 +35,8 @@ function ChapterListPage() {
   };
 
   return (
-    <div className="mx-auto flex max-w-md flex-col bg-background">
-      <header
-        className="sticky top-0 z-30 flex items-center gap-2 border-b bg-background/95 px-2 py-2 backdrop-blur"
-        style={{ paddingTop: 'calc(0.5rem + env(safe-area-inset-top))' }}
-      >
+    <div className="flex flex-col">
+      <header className="flex items-center gap-2 border-b bg-background px-2 py-2">
         <Button asChild variant="ghost" size="icon" aria-label="Back to books">
           <Link to="/books">
             <ChevronLeft className="size-5" />
