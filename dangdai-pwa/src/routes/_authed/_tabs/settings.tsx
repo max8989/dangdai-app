@@ -14,6 +14,7 @@ import type { LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
+import { InstallAppCard } from '@/components/InstallAppCard'
 import { useAuth } from '@/hooks/useAuth'
 import { cn } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/useSettingsStore'
@@ -127,6 +128,9 @@ function SettingsPage() {
           aria-label="Toggle sound effects"
         />
       </div>
+
+      {/* Install as PWA */}
+      <InstallAppCard />
 
       {/* Spacer */}
       <div className="flex-1" />
