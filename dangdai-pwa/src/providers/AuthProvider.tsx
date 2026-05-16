@@ -27,6 +27,7 @@ interface AuthContextType {
   isPasswordRecovery: boolean;
   signIn: (email: string, password: string) => Promise<boolean>;
   signUp: (email: string, password: string) => Promise<boolean>;
+  signInWithApple: () => Promise<boolean>;
   signOut: () => Promise<boolean>;
   resetPassword: (email: string) => Promise<boolean>;
   updatePassword: (newPassword: string) => Promise<boolean>;
@@ -147,6 +148,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
+  const signInWithApple = useCallback(async (): Promise<boolean> => {
+    setError(null);
+    try {
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: 'apple',
+        options: {
+          redirectTo: `${window.location.origin}/`,
+        },
+      });
+
+      if (oauthError) {
+        setError({ message: 'Unable to sign in with Apple. Please try again.', field: 'general' });
+        return false;
+      }
+      return true;
+    } catch {
+      setError({ message: 'An unexpected error occurred. Please try again.', field: 'general' });
+      return false;
+    }
+  }, []);
+
   const resetPassword = useCallback(async (email: string): Promise<boolean> => {
     setError(null);
     try {
@@ -234,6 +256,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isPasswordRecovery,
       signIn,
       signUp,
+      signInWithApple,
       signOut,
       resetPassword,
       updatePassword,
@@ -246,6 +269,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isPasswordRecovery,
       signIn,
       signUp,
+      signInWithApple,
       signOut,
       resetPassword,
       updatePassword,
