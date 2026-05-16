@@ -134,12 +134,15 @@ function SummaryBody({
   data,
   onRegenerate,
   isPending,
+  expanded,
+  onToggle,
 }: {
   data: CachedLearningSummary
   onRegenerate: () => void
   isPending: boolean
+  expanded: boolean
+  onToggle: () => void
 }) {
-  const [expanded, setExpanded] = useState(false)
   const { summary } = data
 
   return (
@@ -149,7 +152,7 @@ function SummaryBody({
     >
       <button
         type="button"
-        onClick={() => setExpanded((v) => !v)}
+        onClick={onToggle}
         className="w-full flex items-start justify-between gap-3 text-left"
         aria-expanded={expanded}
         aria-controls="learning-summary-details"
@@ -241,6 +244,13 @@ function SummaryBody({
 export function LearningSummaryCard() {
   const { data, isLoading } = useLearningSummary()
   const generate = useGenerateLearningSummary()
+  const [expanded, setExpanded] = useState(false)
+
+  const runGenerate = () => {
+    generate.mutate(undefined, {
+      onSuccess: () => setExpanded(true),
+    })
+  }
 
   if (isLoading) {
     return (
@@ -255,18 +265,17 @@ export function LearningSummaryCard() {
 
   if (!data) {
     return (
-      <EmptyState
-        onGenerate={() => generate.mutate()}
-        isPending={generate.isPending}
-      />
+      <EmptyState onGenerate={runGenerate} isPending={generate.isPending} />
     )
   }
 
   return (
     <SummaryBody
       data={data}
-      onRegenerate={() => generate.mutate()}
+      onRegenerate={runGenerate}
       isPending={generate.isPending}
+      expanded={expanded}
+      onToggle={() => setExpanded((v) => !v)}
     />
   )
 }
