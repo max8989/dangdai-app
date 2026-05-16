@@ -39,13 +39,29 @@ grammar_pattern metadata.
 Produce a structured JSON learning summary the home screen will display. The
 summary must:
 
-- Be specific. Cite real chapters, real grammar patterns, and real vocabulary
-  the student has actually been quizzed on. Never invent topics not in the
-  data.
+- LEAD WITH THE SKILL OR TOPIC, NOT THE CHAPTER. Strengths, weaknesses, focus
+  areas, and recommendation labels must describe WHAT the student is good at
+  or struggling with — specific vocabulary words (e.g. "把", "比較"), grammar
+  patterns (e.g. "把 sentences", "從…到… time expressions"), or exercise
+  skills (e.g. "reading comprehension", "sentence construction", "filling in
+  blanks"). The chapter is supporting context, not the headline. Prefer
+  "Sentence construction with 把" over "Sentence construction in Book 3
+  Chapter 1". Mention the chapter only if it adds useful context, and append
+  it at the end (e.g. "把 sentences (Book 3 Chapter 1)").
+- Use vocabulary_item and grammar_pattern fields from the data whenever they
+  are present. When they are null (common for reading_comprehension and
+  matching), name the underlying skill instead — never just cite the
+  chapter.
+- Be specific. Cite real grammar patterns and real vocabulary the student has
+  actually been quizzed on. Never invent topics that are not in the data.
 - ALWAYS refer to chapters in user-visible strings as "Book X Chapter Y" —
   NEVER use the raw composite chapter_id (e.g. "211"). Translate every
-  chapter_id before mentioning it. For example, chapter_id 211 must be
-  written as "Book 2 Chapter 11", chapter_id 101 as "Book 1 Chapter 1".
+  chapter_id before mentioning it.
+- ALWAYS humanize exercise_type strings in user-visible text: vocabulary,
+  grammar, "fill-in-the-blank", matching, "dialogue completion", "sentence
+  construction", "reading comprehension", "mixed practice". Never write the
+  raw snake_case form (e.g. "fill_in_blank") in any bullet, headline, or
+  label.
 - Be short. Each bullet ≤ 12 words. Headline ≤ 18 words. Plain English (no
   emoji, no markdown).
 - Be encouraging but honest. If the student is consistently strong at
@@ -55,7 +71,9 @@ summary must:
   practice target with: a short label, an exercise_type the student should
   practice, the chapter_ids it should draw from, and a question_count.
   Recommendations should target the user's actual weak spots in the data.
-  Labels are also user-visible and must use the "Book X Chapter Y" form.
+  Labels are user-visible and must describe the practice itself — e.g.
+  "Drill 把 sentence construction", "Reading comprehension practice",
+  "Review 比較 vocabulary". The label must NOT be just a chapter reference.
 
 Allowed exercise_type values:
 vocabulary, grammar, fill_in_blank, matching, dialogue_completion,
@@ -134,6 +152,13 @@ _CHAPTER_ID_RE = re.compile(
     re.IGNORECASE,
 )
 
+_EXERCISE_TYPE_LABELS: dict[str, str] = {
+    "fill_in_blank": "fill-in-the-blank",
+    "dialogue_completion": "dialogue completion",
+    "sentence_construction": "sentence construction",
+    "reading_comprehension": "reading comprehension",
+}
+
 
 def _humanize_chapter_ids(value: str) -> str:
     """Rewrite raw composite chapter IDs (e.g. "Chapter 211") to "Book 2 Chapter 11".
@@ -154,17 +179,30 @@ def _humanize_chapter_ids(value: str) -> str:
     return _CHAPTER_ID_RE.sub(_sub, value)
 
 
+def _humanize_exercise_types(value: str) -> str:
+    """Replace raw snake_case exercise-type strings with human-readable forms."""
+    out = value
+    for raw, human in _EXERCISE_TYPE_LABELS.items():
+        out = re.sub(rf"\b{raw}\b", human, out, flags=re.IGNORECASE)
+    return out
+
+
+def _humanize_string(value: str) -> str:
+    """Compose all defensive humanizers for user-visible strings."""
+    return _humanize_exercise_types(_humanize_chapter_ids(value))
+
+
 def _humanize_payload(payload: dict[str, Any]) -> dict[str, Any]:
     """Walk the LLM payload and humanize every user-facing string field."""
     for key in ("headline",):
         v = payload.get(key)
         if isinstance(v, str):
-            payload[key] = _humanize_chapter_ids(v)
+            payload[key] = _humanize_string(v)
     for key in ("strengths", "weaknesses", "focus_areas"):
         items = payload.get(key)
         if isinstance(items, list):
             payload[key] = [
-                _humanize_chapter_ids(it) if isinstance(it, str) else it
+                _humanize_string(it) if isinstance(it, str) else it
                 for it in items
             ]
     recs = payload.get("recommendations")
@@ -173,7 +211,7 @@ def _humanize_payload(payload: dict[str, Any]) -> dict[str, Any]:
             if isinstance(rec, dict):
                 label = rec.get("label")
                 if isinstance(label, str):
-                    rec["label"] = _humanize_chapter_ids(label)
+                    rec["label"] = _humanize_string(label)
     return payload
 
 
