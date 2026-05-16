@@ -19,6 +19,7 @@ interface ChatState {
   lessonFilter: number | null
   contentType: ContentTypeFilter
   filtersOpen: boolean
+  submitting: boolean
 
   setInput: (input: string) => void
   setBookFilter: (id: number | null) => void
@@ -26,6 +27,7 @@ interface ChatState {
   setContentType: (ct: ContentTypeFilter) => void
   setFiltersOpen: (open: boolean) => void
   toggleFilters: () => void
+  setSubmitting: (v: boolean) => void
 
   appendMessage: (msg: ChatMessage) => void
   clearMessages: () => void
@@ -41,6 +43,7 @@ export const useChatStore = create<ChatState>()(
       lessonFilter: null,
       contentType: null,
       filtersOpen: false,
+      submitting: false,
 
       setInput: (input) => set({ input }),
       setBookFilter: (id) => set({ bookFilter: id, lessonFilter: null }),
@@ -48,9 +51,10 @@ export const useChatStore = create<ChatState>()(
       setContentType: (ct) => set({ contentType: ct }),
       setFiltersOpen: (open) => set({ filtersOpen: open }),
       toggleFilters: () => set((s) => ({ filtersOpen: !s.filtersOpen })),
+      setSubmitting: (v) => set({ submitting: v }),
 
       appendMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
-      clearMessages: () => set({ messages: [], input: '' }),
+      clearMessages: () => set({ messages: [], input: '', submitting: false }),
       clearScope: () =>
         set({ bookFilter: null, lessonFilter: null, contentType: null }),
     }),

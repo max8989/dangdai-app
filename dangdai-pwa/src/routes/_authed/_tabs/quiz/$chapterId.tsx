@@ -3,7 +3,6 @@ import {
   BookOpen,
   ChevronLeft,
   FileText,
-  Link2,
   MessageSquare,
   MessagesSquare,
   PenLine,
@@ -71,15 +70,6 @@ const EXERCISE_TYPE_CARDS: ExerciseTypeCardConfig[] = [
     iconBg: 'bg-orange-100 dark:bg-orange-900',
     iconColor: 'text-orange-700 dark:text-orange-200',
     testID: 'fill-in-blank-quiz-button',
-  },
-  {
-    type: 'matching',
-    label: 'Matching',
-    subtitle: 'Connect characters with pinyin or meanings',
-    Icon: Link2,
-    iconBg: 'bg-emerald-100 dark:bg-emerald-900',
-    iconColor: 'text-emerald-700 dark:text-emerald-200',
-    testID: 'matching-quiz-button',
   },
   {
     type: 'dialogue_completion',

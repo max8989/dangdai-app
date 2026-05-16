@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import {
   ChevronDown,
@@ -181,8 +181,8 @@ function ChatPage() {
   const appendMessage = useChatStore((s) => s.appendMessage)
   const clearMessages = useChatStore((s) => s.clearMessages)
   const clearScope = useChatStore((s) => s.clearScope)
-
-  const [submitting, setSubmitting] = useState(false)
+  const submitting = useChatStore((s) => s.submitting)
+  const setSubmitting = useChatStore((s) => s.setSubmitting)
 
   const scrollRef = useRef<HTMLDivElement | null>(null)
 
@@ -272,7 +272,7 @@ function ChatPage() {
   }
 
   return (
-    <section className="flex h-tab-content flex-col">
+    <section className="flex h-full min-h-0 flex-col">
       <ChatPageHeader
         scopeLabel={scopeLabel}
         hasActiveScope={hasActiveScope}

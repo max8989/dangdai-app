@@ -18,7 +18,6 @@ const EXERCISE_TYPE_ORDER: ExerciseType[] = [
   'vocabulary',
   'grammar',
   'fill_in_blank',
-  'matching',
   'dialogue_completion',
   'sentence_construction',
   'reading_comprehension',
