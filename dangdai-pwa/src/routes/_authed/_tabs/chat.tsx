@@ -13,7 +13,10 @@ import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { BOOKS } from '@/constants/books'
-import { api, ChatError, type ChatSource } from '@/lib/api'
+import { api, ChatError, type ChatHistoryTurn, type ChatSource } from '@/lib/api'
+
+// Matches the server-side cap; sending more is wasted bandwidth.
+const HISTORY_MAX_TURNS = 8
 import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/_authed/_tabs/chat')({
@@ -210,6 +213,9 @@ function ChatPage() {
       if (!trimmed || submitting) return
 
       const userMsg: ChatMessage = { id: makeId(), role: 'user', text: trimmed }
+      const history: ChatHistoryTurn[] = messages
+        .slice(-HISTORY_MAX_TURNS)
+        .map((m) => ({ role: m.role, content: m.text }))
       setMessages((prev) => [...prev, userMsg])
       setInput('')
       setSubmitting(true)
@@ -220,6 +226,7 @@ function ChatPage() {
           book: bookFilter,
           lesson: lessonFilter,
           contentType,
+          history,
         })
         setMessages((prev) => [
           ...prev,
@@ -240,7 +247,7 @@ function ChatPage() {
         setSubmitting(false)
       }
     },
-    [submitting, bookFilter, lessonFilter, contentType],
+    [submitting, bookFilter, lessonFilter, contentType, messages],
   )
 
   const onSubmit = useCallback(() => {

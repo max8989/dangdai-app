@@ -24,7 +24,11 @@ import { Stack } from 'expo-router'
 import { Send, BookOpen, Sparkles } from '@tamagui/lucide-icons'
 
 import { BOOKS } from '../../constants/books'
-import { api, ChatError, type ChatSource } from '../../lib/api'
+import { api, ChatError, type ChatHistoryTurn, type ChatSource } from '../../lib/api'
+
+// Max prior turns to send to the backend. Matches the server-side cap so we
+// don't waste bandwidth on history the server will drop anyway.
+const HISTORY_MAX_TURNS = 8
 
 type ContentTypeFilter = 'textbook' | 'workbook' | null
 
@@ -88,6 +92,9 @@ export default function ChatScreen() {
       role: 'user',
       text: trimmed,
     }
+    const history: ChatHistoryTurn[] = messages
+      .slice(-HISTORY_MAX_TURNS)
+      .map((m) => ({ role: m.role, content: m.text }))
     setMessages((prev) => [...prev, userMsg])
     setInput('')
     setSubmitting(true)
@@ -98,6 +105,7 @@ export default function ChatScreen() {
         book: bookFilter,
         lesson: lessonFilter,
         contentType,
+        history,
       })
       setMessages((prev) => [
         ...prev,
@@ -115,7 +123,7 @@ export default function ChatScreen() {
     } finally {
       setSubmitting(false)
     }
-  }, [input, submitting, bookFilter, lessonFilter, contentType])
+  }, [input, submitting, bookFilter, lessonFilter, contentType, messages])
 
   return (
     <>

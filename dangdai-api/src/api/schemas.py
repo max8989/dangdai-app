@@ -327,6 +327,15 @@ class ExerciseGenerateResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+class ChatTurn(BaseModel):
+    """A single past message in a chat conversation."""
+
+    role: Literal["user", "assistant"] = Field(
+        ..., description="Who produced this turn"
+    )
+    content: str = Field(..., min_length=1, max_length=8000)
+
+
 class ChatRequest(BaseModel):
     """Chat / RAG question request."""
 
@@ -342,6 +351,14 @@ class ChatRequest(BaseModel):
     )
     num_chunks: int = Field(
         5, ge=1, le=15, description="Number of chunks to retrieve"
+    )
+    history: list[ChatTurn] = Field(
+        default_factory=list,
+        max_length=20,
+        description=(
+            "Prior conversation turns (oldest first), excluding the current "
+            "query. The server keeps only the most recent few to bound tokens."
+        ),
     )
 
 

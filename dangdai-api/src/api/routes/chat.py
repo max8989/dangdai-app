@@ -44,11 +44,12 @@ async def chat(
         ChatResponse with the answer and source citations.
     """
     logger.info(
-        "[chat] user=%s book=%s lesson=%s content_type=%s query=%r",
+        "[chat] user=%s book=%s lesson=%s content_type=%s history_turns=%d query=%r",
         user_id,
         request_body.book,
         request_body.lesson,
         request_body.content_type,
+        len(request_body.history),
         request_body.query[:120],
     )
 
@@ -60,6 +61,7 @@ async def chat(
             lesson=request_body.lesson,
             content_type=request_body.content_type,
             num_chunks=request_body.num_chunks,
+            history=request_body.history,
         )
     except ValueError as exc:
         logger.error("[chat] ValueError user=%s: %s", user_id, exc)

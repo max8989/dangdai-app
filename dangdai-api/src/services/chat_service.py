@@ -13,9 +13,9 @@ import os
 import re
 from typing import Any
 
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
-from src.api.schemas import ChatResponse, ChatSource
+from src.api.schemas import ChatResponse, ChatSource, ChatTurn
 from src.repositories.vector_store import VectorStore
 from src.utils.llm_factory import get_llm
 
@@ -181,6 +181,10 @@ class ChatService:
         """
         self._vector_store = vector_store or VectorStore()
 
+    # How many prior turns to feed the LLM. Past this, context grows fast
+    # and old turns rarely affect the answer.
+    _HISTORY_MAX_TURNS = 8
+
     def ask(
         self,
         query: str,
@@ -189,6 +193,7 @@ class ChatService:
         content_type: str | None = None,
         exercise_type: str | None = None,
         num_chunks: int = 5,
+        history: list[ChatTurn] | None = None,
     ) -> ChatResponse:
         """Answer a question with retrieved-context RAG.
 
@@ -199,6 +204,8 @@ class ChatService:
             content_type: Optional 'textbook' or 'workbook' filter.
             exercise_type: Optional workbook exercise type filter.
             num_chunks: Number of chunks to retrieve.
+            history: Prior conversation turns (oldest first), excluding the
+                current query. Trimmed to the last ``_HISTORY_MAX_TURNS``.
 
         Returns:
             ChatResponse with the answer, source citations, and model name.
@@ -213,13 +220,22 @@ class ChatService:
                 book = parsed_book
             if lesson is None and parsed_lesson is not None:
                 lesson = parsed_lesson
-            if parsed_book is not None or parsed_lesson is not None:
-                logger.info(
-                    "Chat: parsed scope from query book=%s lesson=%s (query=%r)",
-                    book,
-                    lesson,
-                    query[:120],
-                )
+
+        # Sticky scope: if the current query has no Book/Lesson hint, walk
+        # back through history (newest first) and reuse the most recent
+        # explicit mention. Otherwise a follow-up like "give me an example"
+        # would retrieve from a random chapter.
+        if (book is None or lesson is None) and history:
+            for turn in reversed(history):
+                if turn.role != "user":
+                    continue
+                h_book, h_lesson = extract_book_lesson(turn.content)
+                if book is None and h_book is not None:
+                    book = h_book
+                if lesson is None and h_lesson is not None:
+                    lesson = h_lesson
+                if book is not None and lesson is not None:
+                    break
 
         query_embedding = _embed_query(query)
 
@@ -267,13 +283,18 @@ class ChatService:
             "synthesize it into a coherent answer"
         )
 
+        messages: list[BaseMessage] = [SystemMessage(content=SYSTEM_PROMPT)]
+        if history:
+            trimmed = history[-self._HISTORY_MAX_TURNS :]
+            for turn in trimmed:
+                if turn.role == "user":
+                    messages.append(HumanMessage(content=turn.content))
+                else:
+                    messages.append(AIMessage(content=turn.content))
+        messages.append(HumanMessage(content=user_prompt))
+
         llm = get_llm(temperature=0.7, max_tokens=1500)
-        result = llm.invoke(
-            [
-                SystemMessage(content=SYSTEM_PROMPT),
-                HumanMessage(content=user_prompt),
-            ]
-        )
+        result = llm.invoke(messages)
 
         answer_text = result.content if isinstance(result.content, str) else str(result.content)
 

@@ -358,6 +358,7 @@ export const api = {
           lesson: params.lesson ?? null,
           content_type: params.contentType ?? null,
           num_chunks: params.numChunks ?? 5,
+          history: params.history ?? [],
         }),
         signal: controller.signal,
       })
@@ -386,6 +387,12 @@ export const api = {
   },
 }
 
+/** One prior message turn sent with a chat request. */
+export interface ChatHistoryTurn {
+  role: 'user' | 'assistant'
+  content: string
+}
+
 /** Parameters for askChat(). */
 export interface ChatParams {
   query: string
@@ -393,6 +400,8 @@ export interface ChatParams {
   lesson?: number | null
   contentType?: 'textbook' | 'workbook' | null
   numChunks?: number
+  /** Prior turns (oldest first), excluding the current query. */
+  history?: ChatHistoryTurn[]
 }
 
 /** A single source citation returned with a chat answer. */
