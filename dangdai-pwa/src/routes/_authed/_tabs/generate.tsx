@@ -1,11 +1,24 @@
 import { useCallback, useMemo, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Loader2, Sparkles } from 'lucide-react'
+import {
+  ArrowRight,
+  BookOpen,
+  BookOpenCheck,
+  Languages,
+  Layers,
+  Loader2,
+  MessagesSquare,
+  Minus,
+  PencilLine,
+  Plus,
+  Shuffle,
+  Sparkles,
+  type LucideIcon,
+} from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { BOOKS } from '@/constants/books'
 import { CHAPTERS, getChapter } from '@/constants/chapters'
 import { api } from '@/lib/api'
@@ -32,6 +45,17 @@ const SELECTABLE_EXERCISE_TYPES: ExerciseType[] = [
   'reading_comprehension',
 ]
 
+const EXERCISE_TYPE_ICONS: Record<ExerciseType, LucideIcon> = {
+  vocabulary: Languages,
+  grammar: BookOpen,
+  fill_in_blank: PencilLine,
+  matching: Shuffle,
+  dialogue_completion: MessagesSquare,
+  sentence_construction: Layers,
+  reading_comprehension: BookOpenCheck,
+  mixed: Sparkles,
+}
+
 const MIN_QUESTIONS = 5
 const MAX_QUESTIONS = 50
 const DEFAULT_QUESTIONS = 10
@@ -45,24 +69,26 @@ function chapterLabel(bookId: number, chapterNumber: number): string {
   return ch ? `Ch ${chapterNumber}: ${ch.titleEnglish}` : `Ch ${chapterNumber}`
 }
 
-interface ChipButtonProps {
+interface PillButtonProps {
   active: boolean
   onClick: () => void
   children: React.ReactNode
   testId?: string
+  size?: 'sm' | 'md'
 }
 
-function ChipButton({ active, onClick, children, testId }: ChipButtonProps) {
+function PillButton({ active, onClick, children, testId, size = 'md' }: PillButtonProps) {
   return (
     <button
       type="button"
       onClick={onClick}
       data-testid={testId}
       className={cn(
-        'rounded-full border px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'rounded-full border font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        size === 'sm' ? 'px-2.5 py-1 text-xs' : 'px-3 py-1.5 text-sm',
         active
-          ? 'border-primary bg-primary text-primary-foreground'
-          : 'border-border bg-background text-foreground hover:bg-muted',
+          ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+          : 'border-border bg-background text-foreground hover:bg-muted hover:border-muted-foreground/30',
       )}
     >
       {children}
@@ -70,53 +96,71 @@ function ChipButton({ active, onClick, children, testId }: ChipButtonProps) {
   )
 }
 
+interface ChapterChipProps {
+  active: boolean
+  onClick: () => void
+  number: number
+  testId?: string
+}
+
+function ChapterChip({ active, onClick, number, testId }: ChapterChipProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      data-testid={testId}
+      className={cn(
+        'flex size-9 items-center justify-center rounded-lg border text-sm font-medium tabular-nums transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        active
+          ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+          : 'border-border bg-background text-foreground hover:bg-muted hover:border-muted-foreground/30',
+      )}
+    >
+      {number}
+    </button>
+  )
+}
+
 interface BookChapterPickerProps {
-  label: string
   bookId: number
   chapterNumber: number
   onChange: (bookId: number, chapterNumber: number) => void
+  slug: string
 }
 
-function BookChapterPicker({ label, bookId, chapterNumber, onChange }: BookChapterPickerProps) {
+function BookChapterPicker({ bookId, chapterNumber, onChange, slug }: BookChapterPickerProps) {
   const book = BOOKS.find((b) => b.id === bookId)
   const chapterCount = book?.chapterCount ?? 1
-  const slug = label.toLowerCase()
 
   return (
-    <div className="rounded-xl border bg-card p-4 shadow-sm">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {label}
-      </p>
-
-      <p className="mt-3 text-xs text-muted-foreground">Book</p>
-      <div className="mt-1 flex flex-wrap gap-2">
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-1.5">
         {BOOKS.map((b) => (
-          <ChipButton
+          <PillButton
             key={b.id}
             active={b.id === bookId}
             onClick={() => onChange(b.id, 1)}
             testId={`${slug}-book-${b.id}`}
+            size="sm"
           >
             {b.title}
-          </ChipButton>
+          </PillButton>
         ))}
       </div>
 
-      <p className="mt-3 text-xs text-muted-foreground">Chapter</p>
-      <div className="mt-1 flex flex-wrap gap-2">
+      <div className="grid grid-cols-8 gap-1.5">
         {Array.from({ length: chapterCount }, (_, i) => i + 1).map((n) => (
-          <ChipButton
+          <ChapterChip
             key={n}
             active={n === chapterNumber}
             onClick={() => onChange(bookId, n)}
+            number={n}
             testId={`${slug}-chapter-${n}`}
-          >
-            {String(n)}
-          </ChipButton>
+          />
         ))}
       </div>
 
-      <p className="mt-3 text-sm text-foreground">{chapterLabel(bookId, chapterNumber)}</p>
+      <p className="text-xs text-muted-foreground">{chapterLabel(bookId, chapterNumber)}</p>
     </div>
   )
 }
@@ -129,7 +173,7 @@ function GeneratePage() {
   const [startChapter, setStartChapter] = useState(11)
   const [endBook, setEndBook] = useState(3)
   const [endChapter, setEndChapter] = useState(3)
-  const [questionCountText, setQuestionCountText] = useState(String(DEFAULT_QUESTIONS))
+  const [questionCount, setQuestionCount] = useState(DEFAULT_QUESTIONS)
   const [selectedTypes, setSelectedTypes] = useState<ExerciseType[]>([
     'vocabulary',
     'grammar',
@@ -144,12 +188,7 @@ function GeneratePage() {
     [startId, endId],
   )
 
-  const parsedCount = parseInt(questionCountText, 10)
-  const countValid =
-    Number.isFinite(parsedCount) &&
-    parsedCount >= MIN_QUESTIONS &&
-    parsedCount <= MAX_QUESTIONS
-
+  const countValid = questionCount >= MIN_QUESTIONS && questionCount <= MAX_QUESTIONS
   const rangeValid = startId <= endId && chaptersInRange.length > 0
   const typesValid = selectedTypes.length > 0
   const canSubmit = rangeValid && typesValid && countValid && !submitting
@@ -160,6 +199,14 @@ function GeneratePage() {
     )
   }, [])
 
+  const decrementCount = useCallback(() => {
+    setQuestionCount((c) => Math.max(MIN_QUESTIONS, c - 1))
+  }, [])
+
+  const incrementCount = useCallback(() => {
+    setQuestionCount((c) => Math.min(MAX_QUESTIONS, c + 1))
+  }, [])
+
   const onSubmit = useCallback(async () => {
     if (!canSubmit) return
     setSubmitting(true)
@@ -167,7 +214,7 @@ function GeneratePage() {
       const result = await api.generateMultiChapterQuiz({
         chapterIdStart: startId,
         chapterIdEnd: endId,
-        questionCount: parsedCount,
+        questionCount,
         exerciseTypes: selectedTypes,
       })
 
@@ -202,107 +249,172 @@ function GeneratePage() {
     } finally {
       setSubmitting(false)
     }
-  }, [canSubmit, startId, endId, parsedCount, selectedTypes, startQuiz, navigate])
+  }, [canSubmit, startId, endId, questionCount, selectedTypes, startQuiz, navigate])
 
   return (
-    <section className="flex flex-col gap-4 p-4 pt-6" data-testid="generate-screen">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-3xl font-bold tracking-tight">Multi-Chapter Quiz</h1>
-        <p className="text-sm text-muted-foreground">
-          Pick a chapter range, the number of questions, and which exercise types to mix.
-        </p>
+    <section className="flex flex-col gap-3 p-4 pt-5 pb-24" data-testid="generate-screen">
+      {/* Compact header */}
+      <header className="flex items-center gap-3">
+        <div className="rounded-xl bg-primary/10 p-2.5">
+          <Sparkles className="size-5 text-primary" />
+        </div>
+        <div>
+          <h1 className="text-xl font-semibold leading-tight tracking-tight">Generate Quiz</h1>
+          <p className="text-xs text-muted-foreground">Mix chapters and exercise types</p>
+        </div>
+      </header>
+
+      {/* Range card */}
+      <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+        <div className="flex items-center justify-between gap-2 border-b bg-muted/40 px-4 py-2.5">
+          <div className="flex min-w-0 items-center gap-2 text-sm">
+            <span className="font-semibold tabular-nums">
+              B{startBook}·{startChapter}
+            </span>
+            <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" />
+            <span className="font-semibold tabular-nums">
+              B{endBook}·{endChapter}
+            </span>
+          </div>
+          <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary tabular-nums">
+            {chaptersInRange.length} {chaptersInRange.length === 1 ? 'ch' : 'chs'}
+          </span>
+        </div>
+
+        <Tabs defaultValue="from" className="p-3">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="from">From</TabsTrigger>
+            <TabsTrigger value="to">To</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="from" className="mt-3">
+            <BookChapterPicker
+              bookId={startBook}
+              chapterNumber={startChapter}
+              slug="from"
+              onChange={(b, c) => {
+                setStartBook(b)
+                setStartChapter(c)
+                if (b * 100 + c > endBook * 100 + endChapter) {
+                  setEndBook(b)
+                  setEndChapter(c)
+                }
+              }}
+            />
+          </TabsContent>
+
+          <TabsContent value="to" className="mt-3">
+            <BookChapterPicker
+              bookId={endBook}
+              chapterNumber={endChapter}
+              slug="to"
+              onChange={(b, c) => {
+                setEndBook(b)
+                setEndChapter(c)
+              }}
+            />
+          </TabsContent>
+        </Tabs>
       </div>
-
-      <BookChapterPicker
-        label="From"
-        bookId={startBook}
-        chapterNumber={startChapter}
-        onChange={(b, c) => {
-          setStartBook(b)
-          setStartChapter(c)
-          if (b * 100 + c > endBook * 100 + endChapter) {
-            setEndBook(b)
-            setEndChapter(c)
-          }
-        }}
-      />
-
-      <BookChapterPicker
-        label="To"
-        bookId={endBook}
-        chapterNumber={endChapter}
-        onChange={(b, c) => {
-          setEndBook(b)
-          setEndChapter(c)
-        }}
-      />
 
       {!rangeValid && (
         <p
-          className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+          className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive"
           data-testid="range-error"
         >
           Invalid range — start must come before or equal to end.
         </p>
       )}
 
-      <div className="rounded-xl border bg-card p-4 shadow-sm">
-        <Label htmlFor="question-count" className="text-sm font-semibold">
-          Number of questions
-        </Label>
-        <Input
-          id="question-count"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          value={questionCountText}
-          onChange={(e) => setQuestionCountText(e.target.value)}
-          placeholder={`${MIN_QUESTIONS}–${MAX_QUESTIONS}`}
-          className="mt-2"
-          data-testid="question-count-input"
-        />
-        {!countValid && (
-          <p className="mt-2 text-xs text-destructive">
-            Pick a number between {MIN_QUESTIONS} and {MAX_QUESTIONS}.
+      {/* Question count stepper */}
+      <div className="flex items-center justify-between rounded-2xl border bg-card px-4 py-3 shadow-sm">
+        <div>
+          <p className="text-sm font-semibold">Questions</p>
+          <p className="text-[11px] text-muted-foreground">
+            {MIN_QUESTIONS}–{MAX_QUESTIONS} per quiz
           </p>
-        )}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            size="icon"
+            variant="outline"
+            onClick={decrementCount}
+            disabled={questionCount <= MIN_QUESTIONS}
+            className="size-8 rounded-full"
+            aria-label="Decrease questions"
+          >
+            <Minus className="size-3.5" />
+          </Button>
+          <span
+            className="w-9 text-center text-xl font-bold tabular-nums"
+            data-testid="question-count-input"
+          >
+            {questionCount}
+          </span>
+          <Button
+            type="button"
+            size="icon"
+            variant="outline"
+            onClick={incrementCount}
+            disabled={questionCount >= MAX_QUESTIONS}
+            className="size-8 rounded-full"
+            aria-label="Increase questions"
+          >
+            <Plus className="size-3.5" />
+          </Button>
+        </div>
       </div>
 
-      <div className="rounded-xl border bg-card p-4 shadow-sm">
-        <p className="text-sm font-semibold">Exercise types</p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {SELECTABLE_EXERCISE_TYPES.map((type) => (
-            <ChipButton
-              key={type}
-              active={selectedTypes.includes(type)}
-              onClick={() => toggleType(type)}
-              testId={`type-${type}`}
-            >
-              {EXERCISE_TYPE_LABELS[type]}
-            </ChipButton>
-          ))}
+      {/* Exercise types grid */}
+      <div className="rounded-2xl border bg-card p-4 shadow-sm">
+        <div className="mb-2.5 flex items-center justify-between">
+          <p className="text-sm font-semibold">Exercise types</p>
+          <span className="text-[11px] text-muted-foreground">
+            {selectedTypes.length} selected
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {SELECTABLE_EXERCISE_TYPES.map((type) => {
+            const Icon = EXERCISE_TYPE_ICONS[type]
+            const active = selectedTypes.includes(type)
+            return (
+              <button
+                key={type}
+                type="button"
+                onClick={() => toggleType(type)}
+                data-testid={`type-${type}`}
+                className={cn(
+                  'flex items-center gap-2 rounded-xl border p-2.5 text-left text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  active
+                    ? 'border-primary bg-primary/10 text-foreground shadow-sm'
+                    : 'border-border bg-background text-foreground hover:bg-muted hover:border-muted-foreground/30',
+                )}
+              >
+                <span
+                  className={cn(
+                    'flex size-7 shrink-0 items-center justify-center rounded-lg transition-colors',
+                    active ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
+                  )}
+                >
+                  <Icon className="size-3.5" />
+                </span>
+                <span className="truncate text-xs">{EXERCISE_TYPE_LABELS[type]}</span>
+              </button>
+            )
+          })}
         </div>
         {!typesValid && (
           <p className="mt-2 text-xs text-destructive">Pick at least one exercise type.</p>
         )}
       </div>
 
-      <div className="rounded-xl border bg-muted/40 p-4">
-        <p className="text-sm text-foreground">
-          Range covers {chaptersInRange.length}{' '}
-          {chaptersInRange.length === 1 ? 'chapter' : 'chapters'}.
-        </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {chaptersInRange.length > 0
-            ? `${chapterLabel(startBook, startChapter)} → ${chapterLabel(endBook, endChapter)}`
-            : 'No valid chapters in range.'}
-        </p>
-      </div>
-
+      {/* Generate button */}
       <Button
         size="lg"
         onClick={onSubmit}
         disabled={!canSubmit}
-        className="gap-2"
+        className="mt-1 h-12 gap-2 rounded-xl text-base font-semibold shadow-sm"
         data-testid="generate-submit"
       >
         {submitting ? (

@@ -1,11 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { BookOpen, Loader2, Send, Sparkles } from 'lucide-react'
+import {
+  ChevronDown,
+  Loader2,
+  MessageSquare,
+  Send,
+  SlidersHorizontal,
+  Sparkles,
+  X,
+} from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Separator } from '@/components/ui/separator'
 import { BOOKS } from '@/constants/books'
 import { api, ChatError, type ChatSource } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -22,6 +28,12 @@ interface ChatMessage {
   text: string
   sources?: ChatSource[]
 }
+
+const SUGGESTIONS = [
+  'What grammar is in Book 1 Lesson 3?',
+  'How do I introduce myself?',
+  'Show me workbook listening exercises.',
+]
 
 function makeId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -42,28 +54,104 @@ function sourceLabel(s: ChatSource): string {
   return `${ct} · Book ${book} · Lesson ${lesson} · ${section}${ex}${sim}`
 }
 
-interface ChipButtonProps {
+interface PillButtonProps {
   active: boolean
   onClick: () => void
   children: React.ReactNode
   testId?: string
+  className?: string
 }
 
-function ChipButton({ active, onClick, children, testId }: ChipButtonProps) {
+function PillButton({ active, onClick, children, testId, className }: PillButtonProps) {
   return (
     <button
       type="button"
       onClick={onClick}
       data-testid={testId}
       className={cn(
-        'rounded-full border px-3 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'shrink-0 snap-start rounded-full border px-2.5 py-1 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         active
-          ? 'border-primary bg-primary text-primary-foreground'
-          : 'border-border bg-background text-foreground hover:bg-muted',
+          ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+          : 'border-border bg-background text-foreground hover:bg-muted hover:border-muted-foreground/30',
+        className,
       )}
     >
       {children}
     </button>
+  )
+}
+
+interface PillStripProps {
+  label: string
+  children: React.ReactNode
+}
+
+function PillStrip({ label, children }: PillStripProps) {
+  return (
+    <div>
+      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <div className="relative">
+        <div className="no-scrollbar flex snap-x snap-mandatory gap-1.5 overflow-x-auto py-0.5 pl-px pr-6">
+          {children}
+        </div>
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-card/80 to-transparent" />
+      </div>
+    </div>
+  )
+}
+
+interface ChatPageHeaderProps {
+  scopeLabel: string
+  hasActiveScope: boolean
+  filtersOpen: boolean
+  onToggleFilters: () => void
+  onClearScope: () => void
+}
+
+function ChatPageHeader({
+  scopeLabel,
+  hasActiveScope,
+  filtersOpen,
+  onToggleFilters,
+  onClearScope,
+}: ChatPageHeaderProps) {
+  return (
+    <div className="flex items-center gap-2 border-b bg-card/40 px-3 py-2.5">
+      <button
+        type="button"
+        onClick={onToggleFilters}
+        className={cn(
+          'flex flex-1 min-w-0 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          filtersOpen
+            ? 'border-primary bg-primary/10 text-foreground'
+            : 'border-border bg-background text-foreground hover:bg-muted',
+        )}
+        data-testid="chat-filter-toggle"
+        aria-expanded={filtersOpen}
+      >
+        <SlidersHorizontal className="size-3.5 shrink-0 text-muted-foreground" />
+        <span className="truncate">{scopeLabel}</span>
+        <ChevronDown
+          className={cn(
+            'size-3.5 shrink-0 text-muted-foreground transition-transform',
+            filtersOpen && 'rotate-180',
+          )}
+        />
+      </button>
+      {hasActiveScope && (
+        <button
+          type="button"
+          onClick={onClearScope}
+          className="flex size-7 shrink-0 items-center justify-center rounded-full border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="Clear scope"
+          data-testid="chat-clear-scope"
+        >
+          <X className="size-3.5" />
+        </button>
+      )}
+    </div>
   )
 }
 
@@ -74,6 +162,7 @@ function ChatPage() {
   const [bookFilter, setBookFilter] = useState<number | null>(null)
   const [lessonFilter, setLessonFilter] = useState<number | null>(null)
   const [contentType, setContentType] = useState<ContentTypeFilter>(null)
+  const [filtersOpen, setFiltersOpen] = useState(false)
 
   const scrollRef = useRef<HTMLDivElement | null>(null)
 
@@ -92,146 +181,187 @@ function ChatPage() {
     setLessonFilter(null)
   }, [])
 
-  const onSubmit = useCallback(async () => {
-    const trimmed = input.trim()
-    if (!trimmed || submitting) return
+  const onClearScope = useCallback(() => {
+    setBookFilter(null)
+    setLessonFilter(null)
+    setContentType(null)
+  }, [])
 
-    const userMsg: ChatMessage = { id: makeId(), role: 'user', text: trimmed }
-    setMessages((prev) => [...prev, userMsg])
-    setInput('')
-    setSubmitting(true)
+  const hasActiveScope =
+    bookFilter !== null || lessonFilter !== null || contentType !== null
 
-    try {
-      const result = await api.askChat({
-        query: trimmed,
-        book: bookFilter,
-        lesson: lessonFilter,
-        contentType,
-      })
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: makeId(),
-          role: 'assistant',
-          text: result.answer,
-          sources: result.sources,
-        },
-      ])
-    } catch (err) {
-      const msg =
-        err instanceof ChatError
-          ? err.message
-          : "Couldn't get an answer. Please try again."
-      toast.error('Chat error', { description: msg })
-    } finally {
-      setSubmitting(false)
+  const scopeLabel = useMemo(() => {
+    if (!hasActiveScope) return 'All books · textbook + workbook'
+    const parts: string[] = []
+    if (bookFilter !== null) {
+      parts.push(`Book ${bookFilter}${lessonFilter !== null ? ` · L${lessonFilter}` : ''}`)
+    } else {
+      parts.push('All books')
     }
-  }, [input, submitting, bookFilter, lessonFilter, contentType])
+    if (contentType !== null) {
+      parts.push(contentType === 'textbook' ? 'Textbook' : 'Workbook')
+    }
+    return parts.join(' · ')
+  }, [hasActiveScope, bookFilter, lessonFilter, contentType])
+
+  const submitWith = useCallback(
+    async (text: string) => {
+      const trimmed = text.trim()
+      if (!trimmed || submitting) return
+
+      const userMsg: ChatMessage = { id: makeId(), role: 'user', text: trimmed }
+      setMessages((prev) => [...prev, userMsg])
+      setInput('')
+      setSubmitting(true)
+
+      try {
+        const result = await api.askChat({
+          query: trimmed,
+          book: bookFilter,
+          lesson: lessonFilter,
+          contentType,
+        })
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: makeId(),
+            role: 'assistant',
+            text: result.answer,
+            sources: result.sources,
+          },
+        ])
+      } catch (err) {
+        const msg =
+          err instanceof ChatError
+            ? err.message
+            : "Couldn't get an answer. Please try again."
+        toast.error('Chat error', { description: msg })
+      } finally {
+        setSubmitting(false)
+      }
+    },
+    [submitting, bookFilter, lessonFilter, contentType],
+  )
+
+  const onSubmit = useCallback(() => {
+    void submitWith(input)
+  }, [submitWith, input])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      void onSubmit()
+      onSubmit()
     }
   }
 
   return (
     <section className="flex h-[calc(100dvh-5rem)] flex-col">
-      {/* Filter bar */}
-      <div className="flex flex-col gap-2 border-b bg-card/50 p-3">
-        <div className="flex items-center gap-2">
-          <BookOpen className="size-4 text-muted-foreground" />
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Scope
-          </p>
-        </div>
+      <ChatPageHeader
+        scopeLabel={scopeLabel}
+        hasActiveScope={hasActiveScope}
+        filtersOpen={filtersOpen}
+        onToggleFilters={() => setFiltersOpen((o) => !o)}
+        onClearScope={onClearScope}
+      />
 
-        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Book</p>
-        <div className="flex flex-wrap gap-2">
-          <ChipButton
-            active={bookFilter === null}
-            onClick={() => onSelectBook(null)}
-            testId="chat-book-all"
-          >
-            All
-          </ChipButton>
-          {BOOKS.map((b) => (
-            <ChipButton
-              key={b.id}
-              active={bookFilter === b.id}
-              onClick={() => onSelectBook(b.id)}
-              testId={`chat-book-${b.id}`}
+      {/* Collapsible filter panel */}
+      {filtersOpen && (
+        <div className="flex flex-col gap-2.5 border-b bg-card/30 px-3 py-3">
+          <PillStrip label="Book">
+            <PillButton
+              active={bookFilter === null}
+              onClick={() => onSelectBook(null)}
+              testId="chat-book-all"
             >
-              {b.title}
-            </ChipButton>
-          ))}
-        </div>
+              All
+            </PillButton>
+            {BOOKS.map((b) => (
+              <PillButton
+                key={b.id}
+                active={bookFilter === b.id}
+                onClick={() => onSelectBook(b.id)}
+                testId={`chat-book-${b.id}`}
+              >
+                {b.title}
+              </PillButton>
+            ))}
+          </PillStrip>
 
-        {bookFilter !== null && lessonCount > 0 && (
-          <>
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-              Lesson
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <ChipButton
+          {bookFilter !== null && lessonCount > 0 && (
+            <PillStrip label="Lesson">
+              <PillButton
                 active={lessonFilter === null}
                 onClick={() => setLessonFilter(null)}
                 testId="chat-lesson-all"
               >
                 All
-              </ChipButton>
+              </PillButton>
               {Array.from({ length: lessonCount }, (_, i) => i + 1).map((n) => (
-                <ChipButton
+                <PillButton
                   key={n}
                   active={lessonFilter === n}
                   onClick={() => setLessonFilter(n)}
                   testId={`chat-lesson-${n}`}
+                  className="min-w-8 justify-center tabular-nums"
                 >
-                  {String(n)}
-                </ChipButton>
+                  {n}
+                </PillButton>
               ))}
-            </div>
-          </>
-        )}
+            </PillStrip>
+          )}
 
-        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Content</p>
-        <div className="flex flex-wrap gap-2">
-          <ChipButton
-            active={contentType === null}
-            onClick={() => setContentType(null)}
-            testId="chat-content-all"
-          >
-            Both
-          </ChipButton>
-          <ChipButton
-            active={contentType === 'textbook'}
-            onClick={() => setContentType('textbook')}
-            testId="chat-content-textbook"
-          >
-            Textbook
-          </ChipButton>
-          <ChipButton
-            active={contentType === 'workbook'}
-            onClick={() => setContentType('workbook')}
-            testId="chat-content-workbook"
-          >
-            Workbook
-          </ChipButton>
+          <PillStrip label="Content">
+            <PillButton
+              active={contentType === null}
+              onClick={() => setContentType(null)}
+              testId="chat-content-all"
+            >
+              Both
+            </PillButton>
+            <PillButton
+              active={contentType === 'textbook'}
+              onClick={() => setContentType('textbook')}
+              testId="chat-content-textbook"
+            >
+              Textbook
+            </PillButton>
+            <PillButton
+              active={contentType === 'workbook'}
+              onClick={() => setContentType('workbook')}
+              testId="chat-content-workbook"
+            >
+              Workbook
+            </PillButton>
+          </PillStrip>
         </div>
-      </div>
+      )}
 
       {/* Message list */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-3">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-4">
         <div className="flex flex-col gap-3">
-          {messages.length === 0 && (
-            <div className="rounded-xl border bg-muted/40 p-4">
-              <div className="flex flex-col items-center gap-2 text-center">
+          {messages.length === 0 && !submitting && (
+            <div className="flex flex-col items-center gap-4 pt-6 text-center">
+              <div className="rounded-2xl bg-primary/10 p-3">
                 <Sparkles className="size-6 text-primary" />
-                <h2 className="text-lg font-semibold">Ask anything about the textbook</h2>
-                <p className="text-xs text-muted-foreground">
-                  Try “What grammar is in Book 1 Lesson 3?”, “How do I introduce
-                  myself?”, or “Show me workbook listening exercises.”
+              </div>
+              <div className="max-w-sm">
+                <h2 className="text-base font-semibold">Ask anything about the textbook</h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Get answers grounded in the Dangdai textbook and workbook content.
                 </p>
+              </div>
+              <div className="flex w-full flex-col gap-2">
+                {SUGGESTIONS.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => void submitWith(s)}
+                    className="rounded-xl border bg-card px-3 py-2.5 text-left text-xs text-foreground shadow-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    data-testid="chat-suggestion"
+                  >
+                    {s}
+                  </button>
+                ))}
               </div>
             </div>
           )}
@@ -242,10 +372,10 @@ function ChatPage() {
 
           {submitting && (
             <div
-              className="flex items-center gap-2 px-2 py-3 text-sm text-muted-foreground"
+              className="flex items-center gap-2 px-2 py-2 text-xs text-muted-foreground"
               data-testid="chat-loading"
             >
-              <Loader2 className="size-4 animate-spin" />
+              <Loader2 className="size-3.5 animate-spin" />
               Searching the textbook…
             </div>
           )}
@@ -253,23 +383,28 @@ function ChatPage() {
       </div>
 
       {/* Input bar */}
-      <div className="flex items-center gap-2 border-t bg-background p-3">
-        <Input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Ask a question…"
-          disabled={submitting}
-          data-testid="chat-input"
-        />
-        <Button
-          onClick={() => void onSubmit()}
-          disabled={submitting || input.trim().length === 0}
-          size="icon"
-          data-testid="chat-send"
-        >
-          <Send className="size-4" />
-        </Button>
+      <div className="border-t bg-background px-3 py-3">
+        <div className="flex items-end gap-2 rounded-2xl border bg-card pl-3 pr-1.5 py-1.5 shadow-sm focus-within:border-primary focus-within:ring-2 focus-within:ring-ring/30 transition-colors">
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask a question…"
+            disabled={submitting}
+            data-testid="chat-input"
+            className="flex-1 bg-transparent py-1.5 text-sm outline-none placeholder:text-muted-foreground disabled:opacity-50"
+          />
+          <Button
+            onClick={onSubmit}
+            disabled={submitting || input.trim().length === 0}
+            size="icon"
+            className="size-9 shrink-0 rounded-xl"
+            data-testid="chat-send"
+            aria-label="Send"
+          >
+            <Send className="size-4" />
+          </Button>
+        </div>
       </div>
     </section>
   )
@@ -283,33 +418,38 @@ function MessageBubble({ message }: MessageBubbleProps) {
   const isUser = message.role === 'user'
   return (
     <div
-      className={cn('flex w-full', isUser ? 'justify-end' : 'justify-start')}
+      className={cn('flex w-full gap-2', isUser ? 'justify-end' : 'justify-start')}
       data-testid={`chat-msg-${message.role}`}
     >
+      {!isUser && (
+        <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <MessageSquare className="size-3.5" />
+        </div>
+      )}
       <div
         className={cn(
-          'max-w-[92%] rounded-2xl border p-3 text-sm shadow-sm',
+          'max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm',
           isUser
-            ? 'border-primary/30 bg-primary/10 text-foreground'
-            : 'border-border bg-card text-foreground',
+            ? 'rounded-br-sm bg-primary text-primary-foreground'
+            : 'rounded-bl-sm border bg-card text-foreground',
         )}
       >
-        <p className="whitespace-pre-wrap">{message.text}</p>
+        <p className="whitespace-pre-wrap leading-relaxed">{message.text}</p>
 
         {!isUser && message.sources && message.sources.length > 0 && (
-          <div className="mt-2">
-            <Separator className="my-2" />
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Sources
-            </p>
-            <ul className="mt-1 space-y-0.5">
+          <details className="mt-2 group">
+            <summary className="flex cursor-pointer list-none items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground">
+              <ChevronDown className="size-3 transition-transform group-open:rotate-180" />
+              {message.sources.length} {message.sources.length === 1 ? 'source' : 'sources'}
+            </summary>
+            <ul className="mt-1.5 space-y-0.5 border-l-2 border-border pl-2">
               {message.sources.map((s, i) => (
                 <li key={i} className="text-[11px] text-muted-foreground">
-                  • {sourceLabel(s)}
+                  {sourceLabel(s)}
                 </li>
               ))}
             </ul>
-          </div>
+          </details>
         )}
       </div>
     </div>
