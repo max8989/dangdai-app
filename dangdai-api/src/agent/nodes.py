@@ -491,6 +491,33 @@ async def generate_quiz(state: QuizGenerationState) -> dict[str, Any]:
             "- question_text MUST be in English — NEVER in Chinese\n"
         )
 
+    # Diversity controls (set by the custom quiz path). Append a nonce so the
+    # LLM produces structurally different questions across calls with the same
+    # chapter+type, and an explicit avoid-list so it does not repeat texts the
+    # client has already seen.
+    diversity_seed = state.get("diversity_seed")
+    avoid_texts = state.get("avoid_question_texts") or []
+    if diversity_seed is not None or avoid_texts:
+        diversity_block_parts: list[str] = ["\n\n## Diversity Requirements"]
+        if diversity_seed is not None:
+            diversity_block_parts.append(
+                f"Diversity seed: {diversity_seed}. Treat this as a salt for "
+                "your question selection — different seeds must produce "
+                "noticeably different vocabulary picks, sentence patterns, "
+                "and example contexts. Do NOT default to the most obvious "
+                "items in the chapter; pick less common but still curriculum-"
+                "valid ones when possible."
+            )
+        if avoid_texts:
+            avoid_sample = avoid_texts[:25]
+            avoid_list = "\n".join(f"- {t}" for t in avoid_sample)
+            diversity_block_parts.append(
+                "Do NOT produce questions whose question_text matches or "
+                "closely paraphrases any of the following recently-seen "
+                f"questions:\n{avoid_list}"
+            )
+        prompt_text += "\n".join(diversity_block_parts)
+
     # Check for client disconnection before the expensive LLM call
     request = state.get("request")
     if request and await request.is_disconnected():
@@ -499,8 +526,13 @@ async def generate_quiz(state: QuizGenerationState) -> dict[str, Any]:
 
     # Story 4.17: free-text types emit acceptable_answer_variants + semantic_rubric
     # inline, which makes output significantly larger. 16384 gives headroom for 12
-    # questions with variants without truncation.
-    llm = get_llm(max_tokens=16384)
+    # questions with variants without truncation. Custom-quiz path passes a
+    # higher temperature via state to boost variety across runs.
+    custom_temperature = state.get("generation_temperature")
+    if custom_temperature is not None:
+        llm = get_llm(temperature=float(custom_temperature), max_tokens=16384)
+    else:
+        llm = get_llm(max_tokens=16384)
     messages = [
         SystemMessage(content=SYSTEM_PROMPT),
         HumanMessage(content=prompt_text),
@@ -1348,8 +1380,18 @@ def _get_output_schema_hint(exercise_type: str) -> str:
     type_fields: dict[str, str] = {
         "vocabulary": ', "character": "...", "pinyin": "...", "meaning": "...", '
         '"question_subtype": "char_to_meaning", "options": ["a", "b", "c", "d"]}',
-        "grammar": ', "sentence": "...", "options": ["a", "b", "c", "d"], '
-        '"grammar_point": "...", "grammar_pattern": "..."}',
+        # Grammar: concrete worked example (Pattern A) — makes the
+        # correct_answer ∈ options contract impossible to misread.
+        # Replace the placeholder values when generating, keep the shape.
+        "grammar": (
+            ', "question_text": "Fill in the blank: 她早上______去游泳。", '
+            '"correct_answer": "常", '
+            '"options": ["也", "都", "常", "很"], '
+            '"sentence": "她早上常去游泳。", '
+            '"grammar_point": "The Word Order of Adverbs", '
+            '"grammar_pattern": "常 + VP", '
+            '"explanation": "..."}'
+        ),
         "fill_in_blank": ', "sentence_with_blanks": "I ___ Chinese", '
         '"word_bank": ["study", "eat", "read"], "blank_positions": [1]}',
         "matching": ', "left_items": ["A", "B"], "right_items": ["1", "2"], '

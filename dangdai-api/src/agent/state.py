@@ -57,3 +57,11 @@ class QuizGenerationState(TypedDict, total=False):
 
     # Final output (set on successful validation)
     quiz_payload: dict[str, Any]
+
+    # Diversity controls (set by the custom quiz path; optional otherwise).
+    # When present, generate_quiz injects them into the Tier 2 prompt so the
+    # LLM produces noticeably different questions across runs and avoids
+    # repeating texts the client has already seen.
+    diversity_seed: int
+    avoid_question_texts: list[str]
+    generation_temperature: float

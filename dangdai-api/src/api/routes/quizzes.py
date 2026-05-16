@@ -12,6 +12,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from src.api.dependencies import get_current_user
 from src.api.schemas import (
+    QuizGenerateCustomRequest,
+    QuizGenerateCustomResponse,
     QuizGenerateMultiRequest,
     QuizGenerateMultiResponse,
     QuizGenerateRequest,
@@ -217,4 +219,90 @@ async def generate_multi_chapter_quiz(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error during multi-chapter quiz generation",
+        )
+
+
+@router.post(
+    "/generate-custom",
+    response_model=QuizGenerateCustomResponse,
+    status_code=status.HTTP_200_OK,
+    responses={
+        401: {"description": "Invalid or missing JWT"},
+        400: {"description": "Invalid chapter_ids, exercise_types or count"},
+        404: {"description": "No content available for any selected chapter"},
+        504: {"description": "Generation exceeded time limit"},
+    },
+)
+async def generate_custom_quiz(
+    request_body: QuizGenerateCustomRequest,
+    http_request: Request,
+    user_id: str = Depends(get_current_user),
+) -> QuizGenerateCustomResponse:
+    """Generate a quiz from an explicit list of chapter IDs.
+
+    Differs from `/generate-multi` (range-based) in three ways:
+    - Accepts any explicit, possibly non-contiguous list of chapter_ids.
+    - Injects a per-call diversity seed and uses a higher LLM temperature so
+      repeated requests with the same inputs produce different quizzes.
+    - Never caches output to `premade_exercises` — every call generates fresh
+      content.
+    """
+    logger.info(
+        "generate_custom_quiz called: user=%s chapter_ids=%s types=%s "
+        "count=%d seed=%s",
+        user_id,
+        request_body.chapter_ids,
+        [t.value for t in request_body.exercise_types],
+        request_body.question_count,
+        request_body.seed,
+    )
+
+    try:
+        response = await _quiz_service.generate_custom_quiz(
+            request_body, user_id, http_request
+        )
+        logger.info(
+            "Custom quiz generated: quiz_id=%s questions=%d chapters=%d seed=%d",
+            response.quiz_id,
+            response.question_count,
+            len(response.chapter_ids),
+            response.seed,
+        )
+        return response
+
+    except TimeoutError as e:
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail=str(e),
+        )
+
+    except ValueError as e:
+        error_msg = str(e)
+        logger.error(
+            "Custom quiz ValueError for user=%s chapters=%s: %s",
+            user_id,
+            request_body.chapter_ids,
+            error_msg,
+        )
+        if "no questions" in error_msg.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=error_msg,
+            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_msg,
+        )
+
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        logger.exception(
+            "Custom quiz UNEXPECTED ERROR for user=%s chapters=%s",
+            user_id,
+            request_body.chapter_ids,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error during custom quiz generation",
         )

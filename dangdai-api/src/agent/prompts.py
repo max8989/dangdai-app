@@ -100,18 +100,55 @@ Question JSON fields:
 """
 
 GRAMMAR_INSTRUCTIONS = """\
-Generate grammar quiz questions. For each question:
-- Focus on a grammar point from the chapter
-- Present a sentence that tests understanding of the grammar structure
-- Provide 4 multiple-choice options for completing or correcting the sentence
-- Identify the specific grammar point being tested
-- USE ONLY TRADITIONAL CHINESE CHARACTERS (繁體字) in all Chinese sentences
+Generate grammar quiz questions. Each question is a 4-option multiple choice.
+
+ABSOLUTE OUTPUT CONTRACT — your output is auto-rejected unless ALL hold:
+1. "options" is an array of EXACTLY 4 distinct strings.
+2. "correct_answer" is a VERBATIM string match for one of those 4 options
+   (same Unicode characters, no trailing punctuation differences, no extra
+   spaces). Do NOT put the full sentence in correct_answer when the options
+   are single words, and vice versa.
+3. All 4 options are at the SAME granularity (all single particles, OR all
+   short phrases, OR all full sentences — never mixed).
+4. Distractors are plausible (real Chinese, drawn from chapter vocabulary or
+   common confusions) — never gibberish or English.
+5. The full sentence context the user needs to answer goes in
+   "question_text" (which is the only field rendered to the student besides
+   options). Put the blank inline using a long underscore "______" when
+   appropriate.
+6. USE ONLY Traditional Chinese characters (繁體字) in any Chinese content.
+
+Pick ONE of these two patterns per question (do not mix them within a
+question):
+
+PATTERN A — Blank inside the sentence, options are short fillers:
+    question_text: "Fill in the blank: 她早上______去游泳。"
+    options:       ["也", "都", "常", "很"]
+    correct_answer: "常"
+    grammar_point: "The Word Order of Adverbs"
+    grammar_pattern: "常 + VP"
+
+PATTERN B — Pick the well-formed sentence:
+    question_text: "Which sentence correctly places the adverb 常?"
+    options: [
+      "她常早上去游泳。",
+      "她早上常去游泳。",
+      "她去常早上游泳。",
+      "她早上去常游泳。"
+    ]
+    correct_answer: "她早上常去游泳。"
+    grammar_point: "The Word Order of Adverbs"
+    grammar_pattern: "常 + VP"
 
 Question JSON fields:
 - question_id, exercise_type ("grammar"), question_text, correct_answer
-- sentence (the full sentence context in Traditional Chinese), options (array of 4 strings)
-- grammar_point (the grammar structure being tested)
-- explanation, source_citation
+- sentence (the full target sentence in Traditional Chinese, no blanks —
+  used for citations/review, NOT shown to the student)
+- options (array of EXACTLY 4 strings, same granularity, distinct)
+- grammar_point (English title of the grammar point being tested)
+- grammar_pattern (the structural pattern, e.g., "常 + VP")
+- explanation (1-2 sentences in English explaining why the answer is correct)
+- source_citation
 """
 
 FILL_IN_BLANK_INSTRUCTIONS = """\

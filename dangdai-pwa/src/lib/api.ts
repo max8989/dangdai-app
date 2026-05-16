@@ -15,6 +15,8 @@ import type {
   ExerciseType,
   MultiChapterQuizParams,
   MultiChapterQuizResponse,
+  CustomQuizParams,
+  CustomQuizResponse,
 } from '../types/quiz'
 
 const apiUrl = import.meta.env.VITE_API_URL
@@ -312,6 +314,77 @@ export const api = {
 
       const result = (await response.json()) as MultiChapterQuizResponse
       return result
+    } catch (error) {
+      clearTimeout(timeoutId)
+
+      if (error instanceof QuizGenerationError) throw error
+
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new QuizGenerationError(
+          'timeout',
+          'Generation is taking too long. Please try again.',
+        )
+      }
+
+      throw new QuizGenerationError('network', 'Check your connection and try again.')
+    }
+  },
+
+  /**
+   * Generate a quiz from an explicit list of chapter IDs (any order, non-contiguous).
+   *
+   * Calls POST /api/quizzes/generate-custom. Unlike generate-multi (range),
+   * this endpoint:
+   * - Accepts any list of chapter_ids spanning any books.
+   * - Uses a per-call diversity seed and higher LLM temperature so repeated
+   *   requests with the same inputs produce noticeably different quizzes.
+   * - Optionally accepts `avoidQuestionTexts` to skip recently-seen questions.
+   * - Never caches output — every call is fresh.
+   */
+  async generateCustomQuiz(params: CustomQuizParams): Promise<CustomQuizResponse> {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    if (!session?.access_token) {
+      throw new QuizGenerationError('auth', 'Not authenticated. Please sign in.')
+    }
+
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), MULTI_CHAPTER_TIMEOUT_MS)
+
+    try {
+      const body: Record<string, unknown> = {
+        chapter_ids: params.chapterIds,
+        question_count: params.questionCount,
+        exercise_types: params.exerciseTypes,
+      }
+      if (params.seed != null) body.seed = params.seed
+      if (params.avoidQuestionTexts && params.avoidQuestionTexts.length > 0) {
+        body.avoid_question_texts = params.avoidQuestionTexts
+      }
+      if (params.temperature != null) body.temperature = params.temperature
+
+      const response = await fetch(`${API_BASE_URL}/api/quizzes/generate-custom`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      })
+
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        const label =
+          params.exerciseTypes.length === 1
+            ? (EXERCISE_TYPE_LABELS[params.exerciseTypes[0]] ?? params.exerciseTypes[0])
+            : 'mixed'
+        throw categorizeHttpError(response.status, label)
+      }
+
+      return (await response.json()) as CustomQuizResponse
     } catch (error) {
       clearTimeout(timeoutId)
 

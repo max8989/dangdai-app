@@ -1053,7 +1053,6 @@ class TestMultiChapterQuizService:
         # chapters x 1 type = 2 combos -> 3 each.
         async def fake_ainvoke(graph_input):
             etype = graph_input["exercise_type"]
-            cid = graph_input["chapter_id"]
             return {
                 "quiz_payload": {
                     "questions": [self._make_question(etype, i) for i in range(5)]
@@ -1159,3 +1158,227 @@ class TestMultiChapterQuizService:
                 await QuizService().generate_multi_chapter_quiz(
                     request, user_id="u1", http_request=None
                 )
+
+
+class TestCustomQuizService:
+    """End-to-end tests for QuizService.generate_custom_quiz with
+    graph.ainvoke mocked."""
+
+    def _make_question(self, etype: str, tag: str) -> dict:
+        """Build a minimal vocabulary-shaped question that passes
+        the discriminated union validation."""
+        return {
+            "exercise_type": "vocabulary",
+            "question_text": f"q-{etype}-{tag}",
+            "correct_answer": "A",
+            "explanation": "because",
+            "source_citation": "src",
+            "options": ["A", "B", "C", "D"],
+            "character": "你",
+            "pinyin": "nǐ",
+            "meaning": "you",
+            "question_subtype": "char_to_pinyin",
+        }
+
+    @pytest.mark.asyncio
+    async def test_explicit_chapter_list_is_used(self):
+        from src.api.schemas import ExerciseType, QuizGenerateCustomRequest
+        from src.services.quiz_service import QuizService
+
+        seen_chapter_ids: list[int] = []
+
+        async def fake_ainvoke(graph_input):
+            seen_chapter_ids.append(graph_input["chapter_id"])
+            return {
+                "quiz_payload": {
+                    "questions": [
+                        self._make_question(
+                            graph_input["exercise_type"],
+                            f"{graph_input['chapter_id']}-{i}",
+                        )
+                        for i in range(4)
+                    ]
+                }
+            }
+
+        request = QuizGenerateCustomRequest(
+            chapter_ids=[101, 207, 305],
+            question_count=9,
+            exercise_types=[ExerciseType.VOCABULARY],
+            seed=42,
+        )
+
+        with patch(
+            "src.services.quiz_service.graph.ainvoke",
+            side_effect=fake_ainvoke,
+        ):
+            response = await QuizService().generate_custom_quiz(
+                request, user_id="u1", http_request=None
+            )
+
+        assert sorted(seen_chapter_ids) == [101, 207, 305]
+        assert response.chapter_ids == [101, 207, 305]
+        assert response.question_count == 9
+        assert response.seed == 42
+        # Re-IDed sequentially
+        assert [q.question_id for q in response.questions] == [
+            f"q{i + 1}" for i in range(9)
+        ]
+
+    @pytest.mark.asyncio
+    async def test_invalid_chapter_ids_are_filtered(self):
+        from src.api.schemas import ExerciseType, QuizGenerateCustomRequest
+        from src.services.quiz_service import QuizService
+
+        async def fake_ainvoke(graph_input):
+            return {
+                "quiz_payload": {
+                    "questions": [self._make_question("vocabulary", "x")]
+                }
+            }
+
+        # 999 and 250 (book 2 only has 15 lessons) are invalid; 101 valid
+        request = QuizGenerateCustomRequest(
+            chapter_ids=[999, 250, 101],
+            question_count=5,
+            exercise_types=[ExerciseType.VOCABULARY],
+        )
+
+        with patch(
+            "src.services.quiz_service.graph.ainvoke",
+            side_effect=fake_ainvoke,
+        ):
+            response = await QuizService().generate_custom_quiz(
+                request, user_id="u1", http_request=None
+            )
+
+        assert response.chapter_ids == [101]
+
+    @pytest.mark.asyncio
+    async def test_all_invalid_chapter_ids_raises(self):
+        from src.api.schemas import ExerciseType, QuizGenerateCustomRequest
+        from src.services.quiz_service import QuizService
+
+        request = QuizGenerateCustomRequest(
+            chapter_ids=[999, 888],
+            question_count=5,
+            exercise_types=[ExerciseType.VOCABULARY],
+        )
+        with pytest.raises(ValueError, match="No valid chapter_ids"):
+            await QuizService().generate_custom_quiz(
+                request, user_id="u1", http_request=None
+            )
+
+    @pytest.mark.asyncio
+    async def test_diversity_seed_is_threaded_into_graph(self):
+        from src.api.schemas import ExerciseType, QuizGenerateCustomRequest
+        from src.services.quiz_service import QuizService
+
+        diversity_seeds: list[int] = []
+        avoid_lists: list[list[str]] = []
+        temps: list[float] = []
+
+        async def fake_ainvoke(graph_input):
+            diversity_seeds.append(graph_input.get("diversity_seed"))
+            avoid_lists.append(graph_input.get("avoid_question_texts"))
+            temps.append(graph_input.get("generation_temperature"))
+            return {
+                "quiz_payload": {
+                    "questions": [
+                        self._make_question("vocabulary", "a"),
+                        self._make_question("vocabulary", "b"),
+                    ]
+                }
+            }
+
+        request = QuizGenerateCustomRequest(
+            chapter_ids=[101, 102],
+            question_count=6,
+            exercise_types=[ExerciseType.VOCABULARY],
+            seed=7,
+            avoid_question_texts=["prev-1", "prev-2"],
+            temperature=1.0,
+        )
+
+        with patch(
+            "src.services.quiz_service.graph.ainvoke",
+            side_effect=fake_ainvoke,
+        ):
+            response = await QuizService().generate_custom_quiz(
+                request, user_id="u1", http_request=None
+            )
+
+        # All combos must carry the avoid list + temperature override.
+        assert all(a == ["prev-1", "prev-2"] for a in avoid_lists)
+        assert all(t == 1.0 for t in temps)
+        # Diversity seeds must be distinct per combo so two combos produce
+        # different LLM outputs even for the same chapter/type.
+        assert len(set(diversity_seeds)) == len(diversity_seeds)
+        assert response.seed == 7
+
+    @pytest.mark.asyncio
+    async def test_dedupe_against_avoid_list(self):
+        from src.api.schemas import ExerciseType, QuizGenerateCustomRequest
+        from src.services.quiz_service import QuizService
+
+        async def fake_ainvoke(graph_input):
+            # Combo returns one question that the client said to avoid + new
+            return {
+                "quiz_payload": {
+                    "questions": [
+                        {
+                            **self._make_question("vocabulary", "stale"),
+                            "question_text": "prev-1",
+                        },
+                        self._make_question("vocabulary", "fresh"),
+                    ]
+                }
+            }
+
+        request = QuizGenerateCustomRequest(
+            chapter_ids=[101, 102],
+            question_count=5,
+            exercise_types=[ExerciseType.VOCABULARY],
+            avoid_question_texts=["prev-1"],
+        )
+
+        with patch(
+            "src.services.quiz_service.graph.ainvoke",
+            side_effect=fake_ainvoke,
+        ):
+            response = await QuizService().generate_custom_quiz(
+                request, user_id="u1", http_request=None
+            )
+
+        # None of the returned questions should match the avoid list.
+        for q in response.questions:
+            assert q.question_text != "prev-1"
+
+    @pytest.mark.asyncio
+    async def test_random_seed_when_not_provided(self):
+        from src.api.schemas import ExerciseType, QuizGenerateCustomRequest
+        from src.services.quiz_service import QuizService
+
+        async def fake_ainvoke(_):
+            return {
+                "quiz_payload": {
+                    "questions": [self._make_question("vocabulary", "x")]
+                }
+            }
+
+        request = QuizGenerateCustomRequest(
+            chapter_ids=[101],
+            question_count=5,
+            exercise_types=[ExerciseType.VOCABULARY],
+        )
+
+        with patch(
+            "src.services.quiz_service.graph.ainvoke",
+            side_effect=fake_ainvoke,
+        ):
+            response = await QuizService().generate_custom_quiz(
+                request, user_id="u1", http_request=None
+            )
+
+        # Seed was auto-generated and surfaced back to the caller.
+        assert response.seed > 0

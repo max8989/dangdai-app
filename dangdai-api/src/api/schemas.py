@@ -276,6 +276,83 @@ class QuizGenerateMultiResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Custom quiz generation (explicit chapter list, anti-repetition)
+# ---------------------------------------------------------------------------
+
+
+class QuizGenerateCustomRequest(BaseModel):
+    """Custom quiz generation request.
+
+    Generates a single quiz from an explicit list of chapter IDs and one or
+    more exercise types. Unlike `/generate` (single chapter) and
+    `/generate-multi` (contiguous range), this endpoint:
+
+    - Accepts any explicit list of chapter_ids (any books, non-contiguous).
+    - Pools vocabulary and grammar across the selected chapters so Tier 1
+      generators draw distractors from the full set.
+    - Injects a per-call diversity seed and uses a higher LLM temperature so
+      successive calls with the same inputs produce noticeably different
+      content.
+    - Optionally accepts question texts to avoid (anti-repetition).
+    - Never writes to `premade_exercises` — output is always fresh.
+    """
+
+    chapter_ids: list[int] = Field(
+        ...,
+        min_length=1,
+        max_length=30,
+        description=(
+            "Explicit list of composite chapter IDs (book_id * 100 + chapter). "
+            "Need not be contiguous. Each must be a valid lesson in books 1-4."
+        ),
+    )
+    question_count: int = Field(
+        ..., ge=5, le=50, description="Total number of questions to generate"
+    )
+    exercise_types: list[ExerciseType] = Field(
+        ..., min_length=1, description="One or more exercise types to sample from"
+    )
+    seed: int | None = Field(
+        default=None,
+        description=(
+            "Optional integer seed for reproducible randomness. When omitted "
+            "(the common case), a fresh seed is used per call so two calls "
+            "with the same inputs produce different quizzes."
+        ),
+    )
+    avoid_question_texts: list[str] = Field(
+        default_factory=list,
+        max_length=50,
+        description=(
+            "Optional list of question_text strings the client has seen "
+            "recently. Tier 2 LLM is instructed to avoid producing these."
+        ),
+    )
+    temperature: float = Field(
+        default=0.9,
+        ge=0.0,
+        le=1.5,
+        description=(
+            "LLM sampling temperature for Tier 2 generation. Higher = more "
+            "variety. Default 0.9 (vs 0.7 for single-chapter)."
+        ),
+    )
+
+
+class QuizGenerateCustomResponse(BaseModel):
+    """Custom quiz generation response."""
+
+    quiz_id: str = Field(..., description="Unique quiz identifier")
+    chapter_ids: list[int] = Field(
+        ..., description="Concrete list of chapter_ids actually covered"
+    )
+    exercise_types: list[str] = Field(..., description="Exercise types sampled")
+    question_count: int = Field(..., description="Number of questions returned")
+    seed: int = Field(..., description="Effective random seed used for this call")
+    questions: list[QuizQuestion] = Field(..., description="Generated quiz questions")
+
+
+# ---------------------------------------------------------------------------
 # Error response
 # ---------------------------------------------------------------------------
 
@@ -300,6 +377,16 @@ class ExerciseGenerateRequest(BaseModel):
     book_id: int = Field(..., ge=1, le=6, description="Book number (1-6)")
     exercise_type: ExerciseType = Field(
         ..., description="Exercise type to generate on-the-fly"
+    )
+    cache: bool = Field(
+        default=False,
+        description=(
+            "When true, upserts the generated content into `premade_exercises` "
+            "so the Premade path will serve it back on subsequent loads. "
+            "Defaults to false (since 2026-05) so on-the-fly generation does "
+            "not freeze one variant per (chapter, type) for every user. "
+            "Pass true only when explicitly seeding curriculum content."
+        ),
     )
 
 

@@ -21,6 +21,8 @@ from starlette.requests import Request
 
 from src.agent.graph import TIER_1_TYPES, graph
 from src.api.schemas import (
+    QuizGenerateCustomRequest,
+    QuizGenerateCustomResponse,
     QuizGenerateMultiRequest,
     QuizGenerateMultiResponse,
     QuizGenerateRequest,
@@ -431,6 +433,234 @@ class QuizService:
             response.question_count,
             failed,
             elapsed,
+        )
+        return response
+
+
+    async def generate_custom_quiz(
+        self,
+        request: QuizGenerateCustomRequest,
+        user_id: str,
+        http_request: Request | None = None,
+    ) -> QuizGenerateCustomResponse:
+        """Generate a quiz from an explicit list of chapter IDs.
+
+        Unlike `generate_multi_chapter_quiz` (range-based), this method takes a
+        free-form list of `chapter_ids` and pairs each chapter with each
+        requested exercise type. It then distributes the requested question
+        count across those combos as evenly as possible, calls the standard
+        graph in parallel with a per-combo diversity seed, dedupes the merged
+        question pool by question_text, and returns one shuffled quiz.
+
+        Diversity controls (the user-facing reason this endpoint exists):
+        - Each combo invocation gets a unique nonce passed via the graph state
+          so the Tier 2 prompt produces structurally different questions even
+          when the same (chapter, type) is requested twice.
+        - The caller may pass `avoid_question_texts` and the Tier 2 prompt
+          lists them as "do not repeat".
+        - Output is never written to `premade_exercises`.
+        """
+        import time
+
+        quiz_id = str(uuid.uuid4())
+
+        seed = (
+            request.seed
+            if request.seed is not None
+            else random.randrange(1, 2**31 - 1)
+        )
+        rng = random.Random(seed)
+
+        # Validate each chapter_id belongs to a known book/lesson.
+        valid_chapter_ids: list[int] = []
+        for cid in request.chapter_ids:
+            book = cid // 100
+            lesson = cid % 100
+            max_chapter = BOOK_CHAPTER_COUNTS.get(book)
+            if max_chapter is not None and 1 <= lesson <= max_chapter:
+                valid_chapter_ids.append(cid)
+
+        if not valid_chapter_ids:
+            raise ValueError(
+                "No valid chapter_ids in request "
+                f"(received {request.chapter_ids}). Each must be book*100+lesson "
+                f"with book in {sorted(BOOK_CHAPTER_COUNTS.keys())}."
+            )
+
+        # Dedupe + cap
+        valid_chapter_ids = list(dict.fromkeys(valid_chapter_ids))
+        if len(valid_chapter_ids) > MAX_RANGE_CHAPTERS:
+            raise ValueError(
+                f"Too many chapter_ids: {len(valid_chapter_ids)} > "
+                f"{MAX_RANGE_CHAPTERS}"
+            )
+
+        if http_request and await http_request.is_disconnected():
+            raise asyncio.CancelledError("Client disconnected")
+
+        exercise_types = [t.value for t in request.exercise_types]
+
+        # Build (chapter, type) combos. If there are more combos than
+        # questions, sample combos so we don't spawn one LLM call per
+        # combo just to discard most of the output.
+        combos = [
+            (cid, etype) for cid in valid_chapter_ids for etype in exercise_types
+        ]
+        if len(combos) > request.question_count:
+            sampled_combos = rng.sample(combos, request.question_count)
+        else:
+            sampled_combos = list(combos)
+        rng.shuffle(sampled_combos)
+
+        per_combo_counts = _distribute(request.question_count, len(sampled_combos))
+
+        logger.info(
+            "[QuizService] Custom quiz starting: quiz_id=%s chapters=%d types=%s "
+            "combos=%d count=%d seed=%d",
+            quiz_id,
+            len(valid_chapter_ids),
+            exercise_types,
+            len(sampled_combos),
+            request.question_count,
+            seed,
+        )
+
+        # Per-combo timeout scales with parallel fan-out, capped.
+        timeout = min(
+            MULTI_TIMEOUT_CAP_SECONDS,
+            max(TIER_2_TIMEOUT_SECONDS, 30 * len(sampled_combos)),
+        )
+
+        async def _run_one(cid: int, etype: str, nonce: int) -> dict[str, Any]:
+            graph_input: dict[str, Any] = {
+                "chapter_id": cid,
+                "book_id": cid // 100,
+                "exercise_type": etype,
+                "user_id": user_id,
+                # New: diversity nonce + avoid list consumed by generate_quiz
+                # node when present. Tier 1 generators currently ignore them.
+                "diversity_seed": nonce,
+                "avoid_question_texts": list(request.avoid_question_texts),
+                "generation_temperature": request.temperature,
+            }
+            if http_request is not None:
+                graph_input["request"] = http_request
+            return await graph.ainvoke(graph_input)  # type: ignore[arg-type]
+
+        start = time.perf_counter()
+        try:
+            results = await asyncio.wait_for(
+                asyncio.gather(
+                    *[
+                        _run_one(cid, etype, rng.randrange(1, 2**31 - 1))
+                        for (cid, etype) in sampled_combos
+                    ],
+                    return_exceptions=True,
+                ),
+                timeout=timeout,
+            )
+        except TimeoutError:
+            elapsed = time.perf_counter() - start
+            logger.error(
+                "[QuizService] Custom quiz TIMEOUT after %.1fs (limit=%ds) "
+                "quiz_id=%s",
+                elapsed,
+                timeout,
+                quiz_id,
+            )
+            raise TimeoutError(
+                f"Custom quiz generation exceeded {timeout}s time limit"
+            )
+
+        # Take per_combo_counts from each result, dedupe by question_text.
+        merged: list[Any] = []
+        seen_texts: set[str] = set(request.avoid_question_texts)
+        failed = 0
+        for (cid, etype), result, take in zip(
+            sampled_combos, results, per_combo_counts, strict=True
+        ):
+            if isinstance(result, BaseException):
+                failed += 1
+                logger.warning(
+                    "[QuizService] Custom combo failed (chapter=%d type=%s): %s",
+                    cid,
+                    etype,
+                    result,
+                )
+                continue
+            payload = result.get("quiz_payload") or {}
+            qs = list(payload.get("questions") or [])
+            if not qs:
+                continue
+            rng.shuffle(qs)
+            taken = 0
+            for q in qs:
+                if taken >= take:
+                    break
+                qt = q.get("question_text", "")
+                if qt and qt in seen_texts:
+                    continue
+                seen_texts.add(qt)
+                merged.append(q)
+                taken += 1
+
+        if not merged:
+            raise ValueError(
+                "Custom quiz generation failed: no questions produced "
+                f"({failed}/{len(sampled_combos)} combos errored)"
+            )
+
+        # Top up from leftovers if we're short due to dedupe drops.
+        if len(merged) < request.question_count:
+            leftover: list[Any] = []
+            for result in results:
+                if isinstance(result, BaseException):
+                    continue
+                payload = result.get("quiz_payload") or {}
+                for q in payload.get("questions") or []:
+                    qt = q.get("question_text", "")
+                    if qt and qt not in seen_texts:
+                        seen_texts.add(qt)
+                        leftover.append(q)
+            rng.shuffle(leftover)
+            need = request.question_count - len(merged)
+            merged.extend(leftover[:need])
+
+        rng.shuffle(merged)
+        merged = merged[: request.question_count]
+        for i, q in enumerate(merged):
+            q["question_id"] = f"q{i + 1}"
+
+        try:
+            response = QuizGenerateCustomResponse(
+                quiz_id=quiz_id,
+                chapter_ids=valid_chapter_ids,
+                exercise_types=exercise_types,
+                question_count=len(merged),
+                seed=seed,
+                questions=merged,
+            )
+        except ValidationError as e:
+            logger.error(
+                "[QuizService] Custom quiz schema validation FAILED "
+                "quiz_id=%s: %d errors",
+                quiz_id,
+                e.error_count(),
+            )
+            raise ValueError(
+                "Custom quiz produced invalid questions: "
+                f"{e.error_count()} validation errors"
+            ) from e
+
+        elapsed = time.perf_counter() - start
+        logger.info(
+            "[QuizService] Custom quiz ready: quiz_id=%s questions=%d "
+            "failed_combos=%d elapsed=%.1fs seed=%d",
+            quiz_id,
+            response.question_count,
+            failed,
+            elapsed,
+            seed,
         )
         return response
 

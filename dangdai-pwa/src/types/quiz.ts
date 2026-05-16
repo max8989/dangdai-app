@@ -70,6 +70,37 @@ export interface MultiChapterQuizResponse {
 }
 
 /**
+ * Parameters for the custom (explicit chapter list) quiz generation request.
+ *
+ * Unlike {@link MultiChapterQuizParams}, this accepts any list of chapter IDs
+ * (non-contiguous, any books) and uses a per-call diversity seed so successive
+ * calls with the same inputs produce noticeably different quizzes.
+ */
+export interface CustomQuizParams {
+  chapterIds: number[]
+  questionCount: number
+  exerciseTypes: ExerciseType[]
+  /** Optional reproducibility seed. Omit (or null) for a fresh random seed. */
+  seed?: number | null
+  /** Question texts the client has already seen — Tier 2 LLM will avoid them. */
+  avoidQuestionTexts?: string[]
+  /** LLM temperature. Defaults server-side to 0.9 for variety. */
+  temperature?: number
+}
+
+/**
+ * Response from POST /api/quizzes/generate-custom.
+ */
+export interface CustomQuizResponse {
+  quiz_id: string
+  chapter_ids: number[]
+  exercise_types: string[]
+  question_count: number
+  seed: number
+  questions: QuizQuestion[]
+}
+
+/**
  * A matched pair for matching exercises.
  * Story 4.5: Matching Exercise (Tap-to-Pair)
  */

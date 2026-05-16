@@ -186,19 +186,34 @@ async def generate_exercise(
     title = _exercise_title(request_body.exercise_type.value)
     instructions = _exercise_instructions(request_body.exercise_type.value)
 
-    try:
-        _content_repo.upsert_premade_exercise(
-            book_id=request_body.book_id,
-            lesson_id=lesson_id,
-            exercise_type=request_body.exercise_type.value,
-            title=title,
-            instructions=instructions,
-            content=content,
-        )
-    except Exception:
-        # Cache failure should not block the user — log and continue.
-        logger.exception(
-            "[exercises.generate] cache upsert failed user=%s chapter=%d type=%s",
+    # Cache write is opt-in (since 2026-05). Without this gate every successful
+    # generation upserted the result keyed by (book, lesson, exercise_type),
+    # which froze a single variant per (chapter, type) for the entire user
+    # base via the Premade path. Callers that genuinely want to seed cached
+    # content should pass `cache: true` explicitly.
+    if request_body.cache:
+        try:
+            _content_repo.upsert_premade_exercise(
+                book_id=request_body.book_id,
+                lesson_id=lesson_id,
+                exercise_type=request_body.exercise_type.value,
+                title=title,
+                instructions=instructions,
+                content=content,
+            )
+        except Exception:
+            # Cache failure should not block the user — log and continue.
+            logger.exception(
+                "[exercises.generate] cache upsert failed user=%s "
+                "chapter=%d type=%s",
+                user_id,
+                request_body.chapter_id,
+                request_body.exercise_type.value,
+            )
+    else:
+        logger.info(
+            "[exercises.generate] cache=false — skipping premade upsert "
+            "(user=%s chapter=%d type=%s)",
             user_id,
             request_body.chapter_id,
             request_body.exercise_type.value,
