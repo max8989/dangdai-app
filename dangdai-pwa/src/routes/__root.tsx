@@ -65,7 +65,12 @@ function RootComponent() {
   return (
     <>
       <Outlet />
-      <Toaster richColors position="top-center" />
+      <Toaster
+        richColors
+        position="top-center"
+        offset="calc(env(safe-area-inset-top) + 16px)"
+        mobileOffset="calc(env(safe-area-inset-top) + 12px)"
+      />
       <Suspense fallback={null}>
         <TanStackRouterDevtools position="bottom-right" />
       </Suspense>
