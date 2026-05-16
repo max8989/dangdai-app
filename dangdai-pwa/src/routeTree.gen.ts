@@ -17,6 +17,11 @@ import { Route as AuthResetPasswordRouteImport } from './routes/_auth/reset-pass
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
 import { Route as AuthForgotPasswordRouteImport } from './routes/_auth/forgot-password'
 import { Route as AuthedTabsIndexRouteImport } from './routes/_authed/_tabs/index'
+import { Route as AuthedQuizPremadeRouteImport } from './routes/_authed/quiz/premade'
+import { Route as AuthedQuizPlayRouteImport } from './routes/_authed/quiz/play'
+import { Route as AuthedQuizLoadingRouteImport } from './routes/_authed/quiz/loading'
+import { Route as AuthedQuizAiLoadingRouteImport } from './routes/_authed/quiz/ai-loading'
+import { Route as AuthedQuizChapterIdRouteImport } from './routes/_authed/quiz/$chapterId'
 import { Route as AuthedChapterBookIdRouteImport } from './routes/_authed/chapter/$bookId'
 import { Route as AuthedTabsSettingsRouteImport } from './routes/_authed/_tabs/settings'
 import { Route as AuthedTabsBooksRouteImport } from './routes/_authed/_tabs/books'
@@ -61,6 +66,31 @@ const AuthedTabsIndexRoute = AuthedTabsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthedTabsRoute,
 } as any)
+const AuthedQuizPremadeRoute = AuthedQuizPremadeRouteImport.update({
+  id: '/quiz/premade',
+  path: '/quiz/premade',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedQuizPlayRoute = AuthedQuizPlayRouteImport.update({
+  id: '/quiz/play',
+  path: '/quiz/play',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedQuizLoadingRoute = AuthedQuizLoadingRouteImport.update({
+  id: '/quiz/loading',
+  path: '/quiz/loading',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedQuizAiLoadingRoute = AuthedQuizAiLoadingRouteImport.update({
+  id: '/quiz/ai-loading',
+  path: '/quiz/ai-loading',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedQuizChapterIdRoute = AuthedQuizChapterIdRouteImport.update({
+  id: '/quiz/$chapterId',
+  path: '/quiz/$chapterId',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedChapterBookIdRoute = AuthedChapterBookIdRouteImport.update({
   id: '/chapter/$bookId',
   path: '/chapter/$bookId',
@@ -104,6 +134,11 @@ export interface FileRoutesByFullPath {
   '/books': typeof AuthedTabsBooksRoute
   '/settings': typeof AuthedTabsSettingsRoute
   '/chapter/$bookId': typeof AuthedChapterBookIdRoute
+  '/quiz/$chapterId': typeof AuthedQuizChapterIdRoute
+  '/quiz/ai-loading': typeof AuthedQuizAiLoadingRoute
+  '/quiz/loading': typeof AuthedQuizLoadingRoute
+  '/quiz/play': typeof AuthedQuizPlayRoute
+  '/quiz/premade': typeof AuthedQuizPremadeRoute
   '/chapter/$chapterId/dialogues': typeof AuthedChapterChapterIdDialoguesRoute
   '/chapter/$chapterId/grammar': typeof AuthedChapterChapterIdGrammarRoute
   '/chapter/$chapterId/vocabulary': typeof AuthedChapterChapterIdVocabularyRoute
@@ -117,6 +152,11 @@ export interface FileRoutesByTo {
   '/books': typeof AuthedTabsBooksRoute
   '/settings': typeof AuthedTabsSettingsRoute
   '/chapter/$bookId': typeof AuthedChapterBookIdRoute
+  '/quiz/$chapterId': typeof AuthedQuizChapterIdRoute
+  '/quiz/ai-loading': typeof AuthedQuizAiLoadingRoute
+  '/quiz/loading': typeof AuthedQuizLoadingRoute
+  '/quiz/play': typeof AuthedQuizPlayRoute
+  '/quiz/premade': typeof AuthedQuizPremadeRoute
   '/chapter/$chapterId/dialogues': typeof AuthedChapterChapterIdDialoguesRoute
   '/chapter/$chapterId/grammar': typeof AuthedChapterChapterIdGrammarRoute
   '/chapter/$chapterId/vocabulary': typeof AuthedChapterChapterIdVocabularyRoute
@@ -133,6 +173,11 @@ export interface FileRoutesById {
   '/_authed/_tabs/books': typeof AuthedTabsBooksRoute
   '/_authed/_tabs/settings': typeof AuthedTabsSettingsRoute
   '/_authed/chapter/$bookId': typeof AuthedChapterBookIdRoute
+  '/_authed/quiz/$chapterId': typeof AuthedQuizChapterIdRoute
+  '/_authed/quiz/ai-loading': typeof AuthedQuizAiLoadingRoute
+  '/_authed/quiz/loading': typeof AuthedQuizLoadingRoute
+  '/_authed/quiz/play': typeof AuthedQuizPlayRoute
+  '/_authed/quiz/premade': typeof AuthedQuizPremadeRoute
   '/_authed/_tabs/': typeof AuthedTabsIndexRoute
   '/_authed/chapter/$chapterId/dialogues': typeof AuthedChapterChapterIdDialoguesRoute
   '/_authed/chapter/$chapterId/grammar': typeof AuthedChapterChapterIdGrammarRoute
@@ -149,6 +194,11 @@ export interface FileRouteTypes {
     | '/books'
     | '/settings'
     | '/chapter/$bookId'
+    | '/quiz/$chapterId'
+    | '/quiz/ai-loading'
+    | '/quiz/loading'
+    | '/quiz/play'
+    | '/quiz/premade'
     | '/chapter/$chapterId/dialogues'
     | '/chapter/$chapterId/grammar'
     | '/chapter/$chapterId/vocabulary'
@@ -162,6 +212,11 @@ export interface FileRouteTypes {
     | '/books'
     | '/settings'
     | '/chapter/$bookId'
+    | '/quiz/$chapterId'
+    | '/quiz/ai-loading'
+    | '/quiz/loading'
+    | '/quiz/play'
+    | '/quiz/premade'
     | '/chapter/$chapterId/dialogues'
     | '/chapter/$chapterId/grammar'
     | '/chapter/$chapterId/vocabulary'
@@ -177,6 +232,11 @@ export interface FileRouteTypes {
     | '/_authed/_tabs/books'
     | '/_authed/_tabs/settings'
     | '/_authed/chapter/$bookId'
+    | '/_authed/quiz/$chapterId'
+    | '/_authed/quiz/ai-loading'
+    | '/_authed/quiz/loading'
+    | '/_authed/quiz/play'
+    | '/_authed/quiz/premade'
     | '/_authed/_tabs/'
     | '/_authed/chapter/$chapterId/dialogues'
     | '/_authed/chapter/$chapterId/grammar'
@@ -245,6 +305,41 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AuthedTabsIndexRouteImport
       parentRoute: typeof AuthedTabsRoute
+    }
+    '/_authed/quiz/premade': {
+      id: '/_authed/quiz/premade'
+      path: '/quiz/premade'
+      fullPath: '/quiz/premade'
+      preLoaderRoute: typeof AuthedQuizPremadeRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/quiz/play': {
+      id: '/_authed/quiz/play'
+      path: '/quiz/play'
+      fullPath: '/quiz/play'
+      preLoaderRoute: typeof AuthedQuizPlayRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/quiz/loading': {
+      id: '/_authed/quiz/loading'
+      path: '/quiz/loading'
+      fullPath: '/quiz/loading'
+      preLoaderRoute: typeof AuthedQuizLoadingRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/quiz/ai-loading': {
+      id: '/_authed/quiz/ai-loading'
+      path: '/quiz/ai-loading'
+      fullPath: '/quiz/ai-loading'
+      preLoaderRoute: typeof AuthedQuizAiLoadingRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/quiz/$chapterId': {
+      id: '/_authed/quiz/$chapterId'
+      path: '/quiz/$chapterId'
+      fullPath: '/quiz/$chapterId'
+      preLoaderRoute: typeof AuthedQuizChapterIdRouteImport
+      parentRoute: typeof AuthedRoute
     }
     '/_authed/chapter/$bookId': {
       id: '/_authed/chapter/$bookId'
@@ -326,6 +421,11 @@ const AuthedTabsRouteWithChildren = AuthedTabsRoute._addFileChildren(
 interface AuthedRouteChildren {
   AuthedTabsRoute: typeof AuthedTabsRouteWithChildren
   AuthedChapterBookIdRoute: typeof AuthedChapterBookIdRoute
+  AuthedQuizChapterIdRoute: typeof AuthedQuizChapterIdRoute
+  AuthedQuizAiLoadingRoute: typeof AuthedQuizAiLoadingRoute
+  AuthedQuizLoadingRoute: typeof AuthedQuizLoadingRoute
+  AuthedQuizPlayRoute: typeof AuthedQuizPlayRoute
+  AuthedQuizPremadeRoute: typeof AuthedQuizPremadeRoute
   AuthedChapterChapterIdDialoguesRoute: typeof AuthedChapterChapterIdDialoguesRoute
   AuthedChapterChapterIdGrammarRoute: typeof AuthedChapterChapterIdGrammarRoute
   AuthedChapterChapterIdVocabularyRoute: typeof AuthedChapterChapterIdVocabularyRoute
@@ -334,6 +434,11 @@ interface AuthedRouteChildren {
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedTabsRoute: AuthedTabsRouteWithChildren,
   AuthedChapterBookIdRoute: AuthedChapterBookIdRoute,
+  AuthedQuizChapterIdRoute: AuthedQuizChapterIdRoute,
+  AuthedQuizAiLoadingRoute: AuthedQuizAiLoadingRoute,
+  AuthedQuizLoadingRoute: AuthedQuizLoadingRoute,
+  AuthedQuizPlayRoute: AuthedQuizPlayRoute,
+  AuthedQuizPremadeRoute: AuthedQuizPremadeRoute,
   AuthedChapterChapterIdDialoguesRoute: AuthedChapterChapterIdDialoguesRoute,
   AuthedChapterChapterIdGrammarRoute: AuthedChapterChapterIdGrammarRoute,
   AuthedChapterChapterIdVocabularyRoute: AuthedChapterChapterIdVocabularyRoute,

@@ -1,10 +1,56 @@
-# dangdai-pwa Handoff (Phase 3 onward)
+# dangdai-pwa Handoff (Phase 4 onward)
 
 You are picking up the migration of `dangdai-mobile/` (React Native + Expo + Tamagui) into `dangdai-pwa/` (Vite + React + shadcn/ui + Tailwind v4 + TanStack Router).
 
-**Phases 1 (auth) and 2 (books + chapter navigation) are complete and live-tested.** Your next job is **Phase 3: quiz flow without DnD**. After that, continue through Phases 4–6 from the original plan (reproduced in §6 below).
+**Phases 1 (auth), 2 (books + chapter navigation), and 3 (quiz flow without DnD) are complete and live-tested.** Your next job is **Phase 4: sentence construction (DnD)**. After that, continue through Phases 5–6 from the original plan (reproduced in §6 below).
 
 The Supabase project and FastAPI backend are unchanged — same data, same endpoints. Only the client is being rebuilt.
+
+---
+
+## 0a. What just got done (Phase 3)
+
+### shadcn components added
+`progress`, `dialog`, `alert-dialog`, `radio-group`. The `radio-group` import is queued for future use — Phase 3 itself doesn't render radio inputs (multiple-choice is buttons), but it's available.
+
+### Hooks ported
+`useQuizGeneration`, `useQuizPersistence`, `useAnswerValidation`, `useQuestionTimer`, `usePausedQuiz` (+ `useAllPausedQuizzes`), `usePauseQuiz`, `usePremadeExercises`, `usePremadeExercise`, `useExerciseTypeProgress` (+ `useUpdateExerciseTypeProgress`), `useUserStats`. All logic verbatim from mobile, only imports adjusted to `@/` aliases. `useSound` is a **stub** (no-op `playSound`/`preloadSounds`/`unloadSounds`) — Phase 5 will replace with `HTMLAudioElement`. Don't import from `expo-av` anywhere.
+
+### Quiz components (rewritten with shadcn/Tailwind — none direct copies)
+`QuizQuestionCard`, `AnswerOptionGrid` (grid for short answers, list for >15 chars), `QuizProgress` (uses shadcn `Progress`), `PointsCounter` (raf count-up, no Reanimated), `FeedbackOverlay` (correct/incorrect colors via Tailwind, not `<Theme>`), `FillInBlankSentence`, `WordBankSelector` (horizontal scroll via `overflow-x-auto`), `DialogueCard` (chat bubbles via Tailwind, `useAnswerValidation` for hybrid validation), `ReadingPassageCard`, `TextInputAnswer`, `ExerciseTypeProgressList`, `CompletionScreen`, `ExitConfirmationModal` (shadcn `Dialog`), `PausedQuizBanner`. **Skipped per HANDOFF scope**: `MatchingExercise`, `SentenceBuilder` (Phase 4 will do SentenceBuilder with `@dnd-kit`).
+
+### Quiz routes added
+| Route | File |
+|---|---|
+| `/quiz/$chapterId` | `_authed/quiz/$chapterId.tsx` — exercise type selection landing (8 cards: Mixed + 7 types), shows `PausedQuizBanner` for any paused quiz, plus quick-links to `/chapter/$chapterId/{vocabulary,grammar,dialogues}` for content browsing |
+| `/quiz/loading` | `_authed/quiz/loading.tsx` — `useQuizGeneration` mutation, tip rotation, simulated progress bar, retry/back error states. `validateSearch` reads `chapterId`, `bookId`, `exerciseType`, `resumePaused` |
+| `/quiz/ai-loading` | `_authed/quiz/ai-loading.tsx` — alternative `api.generateExercise` flow with `AbortController` cancel-on-unmount, adapts via `premadeExerciseAdapter` |
+| `/quiz/play` | `_authed/quiz/play.tsx` — main quiz playback. Renders the active question by `exercise_type` (vocabulary/grammar MCQ, fill-in-blank, dialogue, reading comprehension, text input). For `matching` and `sentence_construction`, shows a "coming soon" card directing the user back. Hooks up `FeedbackOverlay` + Next button, `ExitConfirmationModal` for pause/cancel, `useQuizPersistence` writes |
+| `/quiz/premade` | `_authed/quiz/premade.tsx` — premade workbook exercises via `usePremadeExercise` + `adaptPremadeContent`. Mirrors play.tsx but skips AI-quiz extras. `validateSearch` reads `exerciseId`, `chapterId`, `bookId` |
+
+### Routing changes outside `quiz/`
+- `_authed/chapter/$bookId.tsx` — `handleChapterClick` now navigates to `/quiz/$chapterId` (the new exercise type selection screen), not directly to `/chapter/$chapterId/vocabulary`. The vocabulary/grammar/dialogues content screens are still reachable from the quick-links on the chapter detail page.
+
+### Verified end-to-end in Chrome DevTools
+- Sign in → `/books` → Book 1 → Chapter 1 → `/quiz/101` renders all 8 exercise cards + content quick-links
+- Clicking "Vocabulary Quiz" → `/quiz/loading?...` renders loading state, then transitions to error state when backend is unreachable (expected — no FastAPI running locally)
+- Seeded `dangdai-quiz-store` localStorage manually, navigated to `/quiz/play`: full quiz playback works
+  - Question 1: correct answer → "Correct!" feedback + +10 pts + explanation + citation, Next advances
+  - Question 2: incorrect answer → "Not quite" feedback + correct answer reveal, Next completes quiz
+  - CompletionScreen renders title, points counter, stats (1/2 correct, 50%, 0 min), per-exercise-type progress list (Vocabulary at 50%, others "New"), "You struggled with" section, Continue button
+  - Leave button opens `ExitConfirmationModal` with Pause / Cancel / Stay
+- No console errors or React warnings on the seeded play flow
+- `npm run build` is green (main chunk 587 KB, gzipped 170 KB — Phase 6 can split later)
+
+### Phase 3 gotchas worth remembering
+
+1. **`useSound` is a no-op stub.** Phase 5 must replace `src/hooks/useSound.ts` with an `HTMLAudioElement` impl. Until then, correct/incorrect feedback is silent. Don't be confused — the FeedbackOverlay still renders.
+2. **Search params, not path params, for quiz navigation.** `/quiz/loading`, `/quiz/ai-loading`, `/quiz/premade` use `validateSearch`. Path params (`chapterId`) live only on `/quiz/$chapterId`. When linking from `_authed/quiz/$chapterId.tsx` → `/quiz/loading`, pass values via `search:` not `params:`.
+3. **`window.history.back()` is the back-nav primitive.** Mobile uses `router.back()` from Expo Router. PWA uses `window.history.back()` directly (TanStack Router doesn't expose a router-level back). Pause/cancel/leave flows all use it. Works fine in Chrome but be aware it may behave differently in deep-link scenarios.
+4. **`matching` and `sentence_construction` show a "coming soon" card in play.tsx.** Phase 4 fills in sentence construction with `@dnd-kit`. Matching is permanently skipped per HANDOFF scope. The two types are still in the `ExerciseType` union and the exercise type cards still show them — clicking through generates a quiz that the play screen handles with the placeholder card.
+5. **No `pre`/`post` quiz weakness data is wired yet.** `CompletionScreen` accepts `preQuizWeaknesses`/`postQuizWeaknesses` props (per mobile) but `play.tsx` doesn't pass them, so the "Focus Areas Update" section never renders. Wire this in Phase 5 if needed alongside `useUserStats`.
+6. **`updateExerciseTypeProgress` fires on `CompletionScreen` mount.** Verified working via the test localStorage flow — the Vocabulary row went from "New" to 50% after one quiz. The mutation uses `useAuth` for the user id, so it depends on the authed session being present. If a user lands directly on `/quiz/play` without auth (unlikely — `_authed` guard prevents it), the mutation silently skips.
+7. **`ChapterListItem` clicks now land on `/quiz/$chapterId`, not vocabulary.** Phase 2 docs said vocabulary; that changed in Phase 3 to match the mobile chapter-detail flow. The new landing page has quick-links to vocabulary/grammar/dialogues at the top.
 
 ---
 
@@ -138,12 +184,7 @@ Pick (1) for the home placeholder you'll replace anyway; consider (2) when build
 - Path alias: `@/* → src/*`
 
 ### shadcn components added so far
-`button`, `input`, `label`, `card`, `sonner` (Phase 1), `skeleton`, `scroll-area`, `separator`, `avatar`, `tabs` (Phase 2).
-
-For Phase 3 add: `progress`, `dialog`, `alert-dialog`, `radio-group`
-```bash
-npx shadcn@latest add progress dialog alert-dialog radio-group
-```
+`button`, `input`, `label`, `card`, `sonner` (Phase 1), `skeleton`, `scroll-area`, `separator`, `avatar`, `tabs` (Phase 2), `progress`, `dialog`, `alert-dialog`, `radio-group` (Phase 3).
 
 ### Files that already exist (don't redo)
 
@@ -176,6 +217,10 @@ npx shadcn@latest add progress dialog alert-dialog radio-group
 | `src/routes/_authed/chapter/$chapterId/{vocabulary,grammar,dialogues}.tsx` | ✅ Phase 2 |
 | `src/hooks/{useBooks,useChapters,useChapterProgress,useVocabulary,useGrammarPoints,useDialogues,useSession}.ts` | ✅ Phase 2 |
 | `src/components/chapter/*` | ✅ Phase 2 (BookCard + skeleton, ChapterListItem + skeleton, VocabularyItem, GrammarPointCard, DialogueBubble) |
+| `src/components/quiz/*` | ✅ Phase 3 (QuizQuestionCard, AnswerOptionGrid, QuizProgress, PointsCounter, FeedbackOverlay, FillInBlankSentence, WordBankSelector, DialogueCard, ReadingPassageCard, TextInputAnswer, ExerciseTypeProgressList, CompletionScreen, ExitConfirmationModal, PausedQuizBanner) |
+| `src/hooks/{useQuizGeneration,useQuizPersistence,useAnswerValidation,useQuestionTimer,usePausedQuiz,usePauseQuiz,usePremadeExercises,usePremadeExercise,useExerciseTypeProgress,useUserStats}.ts` | ✅ Phase 3 |
+| `src/hooks/useSound.ts` | ⚠️ Phase 3 (no-op stub; Phase 5 must wire `HTMLAudioElement`) |
+| `src/routes/_authed/quiz/{$chapterId,loading,ai-loading,play,premade}.tsx` | ✅ Phase 3 |
 
 ### Env
 `.env.local` is populated; `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_API_URL=http://localhost:8000`. Test account: **test@test.com / maxime11**.
@@ -292,14 +337,7 @@ Only `sentence_construction` needs DnD in the active set. Use `@dnd-kit/core` + 
 
 ## 6. Remaining phases at a glance
 
-After Phase 2, continue with the original plan:
-
-### Phase 3 — Quiz flow without DnD
-shadcn: `progress dialog alert-dialog radio-group`
-Hooks: `useQuizGeneration`, `useQuizPersistence`, `useAnswerValidation`, `useQuestionTimer`
-Components: `QuizQuestionCard`, `AnswerOptionGrid`, `FillInBlankSentence`, `WordBankSelector`, `DialogueCard`, `ReadingPassageCard`, `TextInputAnswer`, `QuizProgress`, `PointsCounter`, `FeedbackOverlay`, `CompletionScreen`, `ExitConfirmationModal`, `PausedQuizBanner`. **Skip `MatchingExercise.tsx`.**
-Routes: `_authed/quiz/loading`, `ai-loading`, `premade`, `play`, `$chapterId`
-Wire `QuizResumeDialog` in `__root.tsx`.
+After Phase 3, continue with the original plan:
 
 ### Phase 4 — Sentence construction
 `npm install @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities` and build `SentenceBuilder.tsx` with two droppable zones (answer slot + word bank), `PointerSensor` + `KeyboardSensor`, `<DragOverlay>`. **Keep tap-to-place** as the primary interaction.

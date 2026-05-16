@@ -29,7 +29,7 @@ function ChapterListPage() {
 
   const handleChapterClick = (chapterId: number) => {
     void navigate({
-      to: '/chapter/$chapterId/vocabulary',
+      to: '/quiz/$chapterId',
       params: { chapterId: String(chapterId) },
     });
   };
