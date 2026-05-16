@@ -527,7 +527,7 @@ function PremadePage() {
       className="mx-auto flex min-h-dvh max-w-md flex-col bg-background"
       data-testid="premade-exercise-screen"
     >
-      <header className="flex items-center justify-between px-4 pt-3 pb-2">
+      <header className="flex items-center justify-between px-4 pb-2 pt-safe-3">
         <Button
           variant="ghost"
           size="sm"

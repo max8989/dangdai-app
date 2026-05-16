@@ -283,7 +283,7 @@ function ChatPage() {
   }
 
   return (
-    <section className="flex h-[calc(100dvh-5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] flex-col">
+    <section className="flex h-tab-content flex-col">
       <ChatPageHeader
         scopeLabel={scopeLabel}
         hasActiveScope={hasActiveScope}

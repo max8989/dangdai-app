@@ -95,4 +95,27 @@
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
+
+  /* Safe-area helpers. `pt-safe-N` / `pb-safe-N` combine a base spacing with the
+     viewport inset so headers/footers sit clear of the status bar and home
+     indicator. `pb-tabbar` and `h-tab-content` are sized to clear the 5rem
+     bottom nav inside the `_tabs` layout. */
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .pt-safe-2 {
+    padding-top: calc(0.5rem + env(safe-area-inset-top));
+  }
+  .pt-safe-3 {
+    padding-top: calc(0.75rem + env(safe-area-inset-top));
+  }
+  .pb-tabbar {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+  }
+  .h-tab-content {
+    height: calc(100dvh - 5rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  }
 }

@@ -121,7 +121,7 @@ function AILoadingPage() {
       className="mx-auto flex min-h-dvh max-w-md flex-col bg-background"
       data-testid="ai-loading-screen"
     >
-      <header className="flex items-center gap-2 px-2 py-2 border-b">
+      <header className="flex items-center gap-2 border-b px-2 pb-2 pt-safe-2">
         <Button variant="ghost" size="icon" onClick={handleCancel} data-testid="ai-loading-back">
           <ChevronLeft className="size-5" />
         </Button>

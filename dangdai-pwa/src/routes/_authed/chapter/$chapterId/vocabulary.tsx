@@ -75,10 +75,7 @@ export function ChapterSubheader({
   chapter?: string;
 }) {
   return (
-    <header
-      className="sticky top-0 z-30 flex items-center gap-2 border-b bg-background/95 px-2 py-2 backdrop-blur"
-      style={{ paddingTop: 'calc(0.5rem + env(safe-area-inset-top))' }}
-    >
+    <header className="sticky top-0 z-30 flex items-center gap-2 border-b bg-background/95 px-2 pb-2 pt-safe-2 backdrop-blur">
       <Button asChild variant="ghost" size="icon" aria-label="Back">
         <Link to="/chapter/$bookId" params={{ bookId: String(bookId) }}>
           <ChevronLeft className="size-5" />
