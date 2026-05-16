@@ -250,7 +250,7 @@ export default function ChatScreen() {
                     <H4>Ask anything about the textbook</H4>
                     <Text fontSize="$2" color="$color11" textAlign="center">
                       Try “What grammar is in Book 1 Lesson 3?”, “How do I introduce
-                      myself?”, or “Explain when to use 了 vs 過.”
+                      myself?”, or “Show me workbook listening exercises.”
                     </Text>
                   </YStack>
                 </Card>

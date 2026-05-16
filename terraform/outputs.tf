@@ -28,3 +28,14 @@ output "acr_admin_password" {
   value       = azurerm_container_registry.main.admin_password
   sensitive   = true
 }
+
+output "pwa_url" {
+  description = "URL of the deployed PWA (Static Web App)"
+  value       = "https://${azurerm_static_web_app.pwa.default_host_name}"
+}
+
+output "pwa_deployment_token" {
+  description = "Deployment token for uploading the PWA build to the Static Web App"
+  value       = azurerm_static_web_app.pwa.api_key
+  sensitive   = true
+}
