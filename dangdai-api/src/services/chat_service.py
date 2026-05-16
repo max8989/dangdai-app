@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from typing import Any
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -78,6 +79,74 @@ def _embed_query(query: str) -> list[float]:
     return response.data[0].embedding
 
 
+# Maps Chinese numerals 一-十 (and a few past 十) to ints. Used by the
+# 第N課 parser so users can write "第三課" or "第十二課" in the query.
+_CN_NUM: dict[str, int] = {
+    "一": 1, "二": 2, "兩": 2, "三": 3, "四": 4, "五": 5,
+    "六": 6, "七": 7, "八": 8, "九": 9, "十": 10,
+}
+
+
+def _cn_to_int(s: str) -> int | None:
+    """Parse a short Chinese numeral like "三", "十", "十二", "二十". Returns None if unparseable."""
+    if not s:
+        return None
+    if s.isdigit():
+        return int(s)
+    if "十" not in s:
+        if len(s) == 1 and s in _CN_NUM:
+            return _CN_NUM[s]
+        return None
+    left, _, right = s.partition("十")
+    tens = _CN_NUM[left] if left else 1
+    ones = _CN_NUM[right] if right else 0
+    if tens is None or ones is None:
+        return None
+    return tens * 10 + ones
+
+
+def extract_book_lesson(query: str) -> tuple[int | None, int | None]:
+    """Pull explicit Book / Lesson hints out of a free-form query.
+
+    Recognizes English forms ("Book 1 Lesson 3", "B1L3", "lesson 3 of book 1")
+    and Chinese forms ("第三課", "第3課"). Returns (book, lesson); either may
+    be None if not mentioned. The caller decides whether to apply these as
+    filters (only when the request did not pass them explicitly).
+    """
+    if not query:
+        return None, None
+    q = query.strip()
+
+    book: int | None = None
+    lesson: int | None = None
+
+    m = re.search(r"\bb(?:ook)?\s*(\d+)\s*[,\-]?\s*l(?:esson)?\s*(\d+)\b", q, re.IGNORECASE)
+    if m:
+        book = int(m.group(1))
+        lesson = int(m.group(2))
+        return book, lesson
+
+    m = re.search(r"\bl(?:esson)?\s*(\d+)\s+(?:of|in|from)\s+b(?:ook)?\s*(\d+)\b", q, re.IGNORECASE)
+    if m:
+        lesson = int(m.group(1))
+        book = int(m.group(2))
+        return book, lesson
+
+    m = re.search(r"\bbook\s*(\d+)\b", q, re.IGNORECASE)
+    if m:
+        book = int(m.group(1))
+
+    m = re.search(r"\b(?:lesson|chapter)\s*(\d+)\b", q, re.IGNORECASE)
+    if m:
+        lesson = int(m.group(1))
+
+    m_cn = re.search(r"第\s*([一二兩三四五六七八九十百\d]+)\s*課", q)
+    if m_cn and lesson is None:
+        lesson = _cn_to_int(m_cn.group(1))
+
+    return book, lesson
+
+
 def _build_context(chunks: list[dict[str, Any]]) -> str:
     """Format retrieved chunks into a single context string for the LLM.
 
@@ -134,6 +203,24 @@ class ChatService:
         Returns:
             ChatResponse with the answer, source citations, and model name.
         """
+        # When the client did not pass explicit book/lesson filters, try to
+        # pull them from the natural-language query (e.g. "Book 1 Lesson 3",
+        # "第三課"). Without this the embedding search returns grammatically
+        # similar chunks from the wrong chapter.
+        if book is None or lesson is None:
+            parsed_book, parsed_lesson = extract_book_lesson(query)
+            if book is None and parsed_book is not None:
+                book = parsed_book
+            if lesson is None and parsed_lesson is not None:
+                lesson = parsed_lesson
+            if parsed_book is not None or parsed_lesson is not None:
+                logger.info(
+                    "Chat: parsed scope from query book=%s lesson=%s (query=%r)",
+                    book,
+                    lesson,
+                    query[:120],
+                )
+
         query_embedding = _embed_query(query)
 
         chunks = self._vector_store.semantic_search(
