@@ -1,4 +1,14 @@
-import { Loader2, RefreshCw, Sparkles, ThumbsUp, Target, AlertTriangle } from 'lucide-react'
+import { useState } from 'react'
+import {
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  RefreshCw,
+  Sparkles,
+  Target,
+  ThumbsUp,
+} from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -129,13 +139,22 @@ function SummaryBody({
   onRegenerate: () => void
   isPending: boolean
 }) {
+  const [expanded, setExpanded] = useState(false)
   const { summary } = data
+
   return (
     <div
-      className="rounded-lg border bg-card p-5 space-y-4"
+      className="rounded-lg border bg-card p-5 space-y-3"
       data-testid="learning-summary-card"
     >
-      <div className="flex items-start justify-between gap-3">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full flex items-start justify-between gap-3 text-left"
+        aria-expanded={expanded}
+        aria-controls="learning-summary-details"
+        data-testid="learning-summary-toggle"
+      >
         <div className="flex-1 min-w-0">
           <h2 className="text-base font-semibold">Your learning summary</h2>
           <p className="text-xs text-muted-foreground mt-0.5">
@@ -143,55 +162,76 @@ function SummaryBody({
             {formatGeneratedAt(data.generatedAt)}
           </p>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onRegenerate}
-          disabled={isPending}
-          aria-label="Regenerate summary"
-          data-testid="regenerate-summary-button"
-        >
-          {isPending ? (
-            <Loader2 className="size-4 animate-spin" />
+        <div className="flex items-center gap-1 shrink-0">
+          <span
+            role="button"
+            tabIndex={0}
+            aria-label="Regenerate summary"
+            data-testid="regenerate-summary-button"
+            onClick={(e) => {
+              e.stopPropagation()
+              if (!isPending) onRegenerate()
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                e.stopPropagation()
+                if (!isPending) onRegenerate()
+              }
+            }}
+            className="inline-flex size-9 items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer"
+          >
+            {isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <RefreshCw className="size-4" />
+            )}
+          </span>
+          {expanded ? (
+            <ChevronUp className="size-5 text-muted-foreground" />
           ) : (
-            <RefreshCw className="size-4" />
+            <ChevronDown className="size-5 text-muted-foreground" />
           )}
-        </Button>
-      </div>
+        </div>
+      </button>
 
       {summary.headline && (
         <p className="text-sm text-foreground/90 italic">{summary.headline}</p>
       )}
 
-      <BulletList
-        icon={ThumbsUp}
-        title="Strengths"
-        items={summary.strengths}
-        tone="good"
-      />
-      <BulletList
-        icon={AlertTriangle}
-        title="Weaknesses"
-        items={summary.weaknesses}
-        tone="warn"
-      />
-      <BulletList
-        icon={Target}
-        title="Focus on"
-        items={summary.focus_areas}
-        tone="focus"
-      />
+      {expanded && (
+        <div id="learning-summary-details" className="space-y-4 pt-1">
+          <BulletList
+            icon={ThumbsUp}
+            title="Strengths"
+            items={summary.strengths}
+            tone="good"
+          />
+          <BulletList
+            icon={AlertTriangle}
+            title="Weaknesses"
+            items={summary.weaknesses}
+            tone="warn"
+          />
+          <BulletList
+            icon={Target}
+            title="Focus on"
+            items={summary.focus_areas}
+            tone="focus"
+          />
 
-      {summary.recommendations.length > 0 && (
-        <div className="space-y-2 pt-1">
-          <div className="text-sm font-medium text-foreground">
-            Recommended practice
-          </div>
-          <div className="flex flex-col gap-2">
-            {summary.recommendations.map((rec, idx) => (
-              <RecommendationButton key={idx} rec={rec} />
-            ))}
-          </div>
+          {summary.recommendations.length > 0 && (
+            <div className="space-y-2 pt-1">
+              <div className="text-sm font-medium text-foreground">
+                Recommended practice
+              </div>
+              <div className="flex flex-col gap-2">
+                {summary.recommendations.map((rec, idx) => (
+                  <RecommendationButton key={idx} rec={rec} />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

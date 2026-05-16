@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { CheckCircle2, XCircle, Loader2 } from 'lucide-react'
 
 import { useAnswerValidation } from '@/hooks/useAnswerValidation'
 import type { DialogueQuestion } from '@/types/quiz'
 import type { ValidationResult } from '@/hooks/useAnswerValidation'
 import { cn } from '@/lib/utils'
+import { shuffleArray } from '@/lib/shuffle'
 
 export interface DialogueAnswerResult {
   correct: boolean
@@ -61,14 +62,20 @@ export function DialogueCard({ question, onAnswerResult, disabled = false }: Dia
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null)
 
   const hasSelected = selectedAnswer !== null
-  const safeOptions: string[] = (question.options ?? []).map((o: unknown) => {
-    if (typeof o === 'string') return o
-    if (o && typeof o === 'object') {
-      const rec = o as Record<string, unknown>
-      return (rec.text as string) ?? (rec.value as string) ?? JSON.stringify(o)
-    }
-    return String(o)
-  })
+  const safeOptions: string[] = useMemo(
+    () =>
+      shuffleArray(
+        (question.options ?? []).map((o: unknown) => {
+          if (typeof o === 'string') return o
+          if (o && typeof o === 'object') {
+            const rec = o as Record<string, unknown>
+            return (rec.text as string) ?? (rec.value as string) ?? JSON.stringify(o)
+          }
+          return String(o)
+        }),
+      ),
+    [question.options],
+  )
 
   const handleOptionClick = (option: string) => {
     if (hasSelected || disabled) return

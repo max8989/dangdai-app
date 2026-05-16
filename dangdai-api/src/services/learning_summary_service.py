@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from collections import Counter
 from typing import Any
 
@@ -31,8 +32,9 @@ student learning from 當代中文課程 (A Course in Contemporary Chinese).
 
 You will be given a JSON payload describing the student's last few quiz
 exercises (chapter_id uses the convention book_id*100 + chapter_number, so 105
-= Book 1 Chapter 5). Each exercise has an exercise_type, a correct boolean, and
-optional vocabulary_item / grammar_pattern metadata.
+= Book 1 Chapter 5, 211 = Book 2 Chapter 11). Each exercise has an
+exercise_type, a correct boolean, and optional vocabulary_item /
+grammar_pattern metadata.
 
 Produce a structured JSON learning summary the home screen will display. The
 summary must:
@@ -40,6 +42,10 @@ summary must:
 - Be specific. Cite real chapters, real grammar patterns, and real vocabulary
   the student has actually been quizzed on. Never invent topics not in the
   data.
+- ALWAYS refer to chapters in user-visible strings as "Book X Chapter Y" —
+  NEVER use the raw composite chapter_id (e.g. "211"). Translate every
+  chapter_id before mentioning it. For example, chapter_id 211 must be
+  written as "Book 2 Chapter 11", chapter_id 101 as "Book 1 Chapter 1".
 - Be short. Each bullet ≤ 12 words. Headline ≤ 18 words. Plain English (no
   emoji, no markdown).
 - Be encouraging but honest. If the student is consistently strong at
@@ -49,13 +55,16 @@ summary must:
   practice target with: a short label, an exercise_type the student should
   practice, the chapter_ids it should draw from, and a question_count.
   Recommendations should target the user's actual weak spots in the data.
+  Labels are also user-visible and must use the "Book X Chapter Y" form.
 
 Allowed exercise_type values:
 vocabulary, grammar, fill_in_blank, matching, dialogue_completion,
 sentence_construction, reading_comprehension, mixed.
 
 Output ONLY a JSON object matching this exact shape — no prose, no markdown
-fences, no explanations:
+fences, no explanations. ``question_count`` must be between 5 and 15
+inclusive. ``chapter_ids`` must contain at least one valid composite id
+(book*100 + chapter) drawn from the data above.
 
 {
   "headline": "string",
@@ -67,7 +76,7 @@ fences, no explanations:
       "label": "string",
       "exercise_type": "vocabulary|grammar|fill_in_blank|matching|dialogue_completion|sentence_construction|reading_comprehension|mixed",
       "chapter_ids": [int, ...],
-      "question_count": int
+      "question_count": int  // 5..15
     }
   ]
 }
@@ -118,6 +127,54 @@ def _build_user_prompt(results: list[dict[str, Any]]) -> str:
         + json.dumps(results, ensure_ascii=False, default=str, indent=2)
         + "\n\nReturn the JSON summary now."
     )
+
+
+_CHAPTER_ID_RE = re.compile(
+    r"\bchapter\s*(?:#|id\s*)?(\d{3,4})\b",
+    re.IGNORECASE,
+)
+
+
+def _humanize_chapter_ids(value: str) -> str:
+    """Rewrite raw composite chapter IDs (e.g. "Chapter 211") to "Book 2 Chapter 11".
+
+    Defensive post-processing in case the LLM ignores the prompt instruction.
+    """
+
+    def _sub(match: re.Match[str]) -> str:
+        cid = int(match.group(1))
+        if cid < 100:
+            return match.group(0)
+        book = cid // 100
+        chapter = cid % 100
+        if chapter == 0:
+            return match.group(0)
+        return f"Book {book} Chapter {chapter}"
+
+    return _CHAPTER_ID_RE.sub(_sub, value)
+
+
+def _humanize_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Walk the LLM payload and humanize every user-facing string field."""
+    for key in ("headline",):
+        v = payload.get(key)
+        if isinstance(v, str):
+            payload[key] = _humanize_chapter_ids(v)
+    for key in ("strengths", "weaknesses", "focus_areas"):
+        items = payload.get(key)
+        if isinstance(items, list):
+            payload[key] = [
+                _humanize_chapter_ids(it) if isinstance(it, str) else it
+                for it in items
+            ]
+    recs = payload.get("recommendations")
+    if isinstance(recs, list):
+        for rec in recs:
+            if isinstance(rec, dict):
+                label = rec.get("label")
+                if isinstance(label, str):
+                    rec["label"] = _humanize_chapter_ids(label)
+    return payload
 
 
 def _empty_summary(reason: str) -> LearningSummaryPayload:
@@ -189,7 +246,33 @@ class LearningSummaryService:
         text = _strip_code_fence(raw)
 
         try:
-            payload = LearningSummaryPayload.model_validate_json(text)
+            raw_obj = json.loads(text)
+        except json.JSONDecodeError as exc:
+            logger.warning(
+                "[learning_summary] JSON parse failed for user=%s; raw=%r err=%s",
+                user_id,
+                text[:500],
+                exc,
+            )
+            raw_obj = None
+
+        if isinstance(raw_obj, dict):
+            recs = raw_obj.get("recommendations")
+            if isinstance(recs, list):
+                for rec in recs:
+                    if not isinstance(rec, dict):
+                        continue
+                    qc = rec.get("question_count")
+                    if isinstance(qc, int):
+                        rec["question_count"] = max(5, min(20, qc))
+            raw_obj = _humanize_payload(raw_obj)
+
+        try:
+            payload = (
+                LearningSummaryPayload.model_validate(raw_obj)
+                if isinstance(raw_obj, dict)
+                else LearningSummaryPayload.model_validate_json(text)
+            )
         except ValidationError as exc:
             logger.warning(
                 "[learning_summary] validation failed for user=%s; raw=%r err=%s",

@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { AnswerOptionGrid } from './AnswerOptionGrid'
 import type { ComprehensionSubQuestion } from '@/types/quiz'
+import { shuffleArray } from '@/lib/shuffle'
 
 interface ReadingPassageCardProps {
   passage: string
@@ -57,6 +58,11 @@ export function ReadingPassageCard({
 
   const currentQuestion = comprehensionQuestions[currentSubQuestionIndex]
 
+  const shuffledOptions = useMemo(
+    () => shuffleArray(currentQuestion.options),
+    [currentQuestion.options],
+  )
+
   const handleAnswerSelect = (answer: string) => {
     if (disabled || selectedOption !== null) return
     const isCorrect = answer === currentQuestion.correct_answer
@@ -95,7 +101,7 @@ export function ReadingPassageCard({
       <div className="space-y-3">
         <p className="text-lg font-semibold">{currentQuestion.question}</p>
         <AnswerOptionGrid
-          options={currentQuestion.options}
+          options={shuffledOptions}
           selectedOption={selectedOption}
           correctAnswer={correctAnswer}
           onSelect={handleAnswerSelect}

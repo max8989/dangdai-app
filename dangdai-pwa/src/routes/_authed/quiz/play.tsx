@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
@@ -26,6 +26,7 @@ import {
   parseCorrectAnswers,
   allBlanksFilled,
 } from '@/lib/validateFillInBlank'
+import { shuffleArray } from '@/lib/shuffle'
 import { EXERCISE_TYPE_LABELS } from '@/types/quiz'
 import type {
   ExerciseType,
@@ -245,7 +246,18 @@ function PlayPage() {
     (currentQuestion?.input_type !== 'multiple_choice' &&
       (!currentQuestion?.options || currentQuestion.options.length === 0))
 
-  const wordBank: string[] = currentQuestion?.word_bank ?? []
+  const wordBank: string[] = useMemo(
+    () => shuffleArray(currentQuestion?.word_bank ?? []),
+    [currentQuestion?.word_bank],
+  )
+
+  const shuffledOptions: string[] | undefined = useMemo(
+    () =>
+      currentQuestion?.options && currentQuestion.options.length > 0
+        ? shuffleArray(currentQuestion.options)
+        : currentQuestion?.options,
+    [currentQuestion?.options],
+  )
 
   const usedIndices = new Set<number>(
     Object.values(blankAnswerIndices).filter((i): i is number => i !== null),
@@ -801,9 +813,9 @@ function PlayPage() {
                 display={displayVariant}
                 feedback={feedbackState}
               />
-              {currentQuestion.options && currentQuestion.options.length > 0 ? (
+              {shuffledOptions && shuffledOptions.length > 0 ? (
                 <AnswerOptionGrid
-                  options={currentQuestion.options}
+                  options={shuffledOptions}
                   selectedOption={selectedAnswer}
                   correctAnswer={
                     selectedAnswer !== null ? currentQuestion.correct_answer : null
