@@ -4,6 +4,8 @@ import {
   ArrowRight,
   BookOpen,
   BookOpenCheck,
+  ChevronDown,
+  ChevronRight,
   Languages,
   Layers,
   Loader2,
@@ -11,7 +13,6 @@ import {
   Minus,
   PencilLine,
   Plus,
-  Shuffle,
   Sparkles,
   type LucideIcon,
 } from 'lucide-react'
@@ -40,7 +41,6 @@ const SELECTABLE_EXERCISE_TYPES: ExerciseType[] = [
   'vocabulary',
   'grammar',
   'fill_in_blank',
-  'matching',
   'dialogue_completion',
   'sentence_construction',
   'reading_comprehension',
@@ -50,7 +50,7 @@ const EXERCISE_TYPE_ICONS: Record<ExerciseType, LucideIcon> = {
   vocabulary: Languages,
   grammar: BookOpen,
   fill_in_blank: PencilLine,
-  matching: Shuffle,
+  matching: Layers,
   dialogue_completion: MessagesSquare,
   sentence_construction: Layers,
   reading_comprehension: BookOpenCheck,
@@ -255,6 +255,7 @@ function GeneratePage() {
     'grammar',
   ])
   const [submitting, setSubmitting] = useState(false)
+  const [typesExpanded, setTypesExpanded] = useState(false)
 
   const startId = chapterIdFor(startBook, startChapter)
   const endId = chapterIdFor(endBook, endChapter)
@@ -603,44 +604,57 @@ function GeneratePage() {
         </div>
       </div>
 
-      {/* Exercise types grid */}
+      {/* Exercise types grid (collapsible) */}
       <div className="rounded-2xl border bg-card p-4 shadow-sm">
-        <div className="mb-2.5 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => setTypesExpanded((v) => !v)}
+          data-testid="exercise-types-toggle"
+          aria-expanded={typesExpanded}
+          className="flex w-full items-center justify-between focus-visible:outline-none"
+        >
           <p className="text-sm font-semibold">Exercise types</p>
-          <span className="text-[11px] text-muted-foreground">
+          <span className="flex items-center gap-2 text-[11px] text-muted-foreground">
             {selectedTypes.length} selected
+            {typesExpanded ? (
+              <ChevronDown className="size-4" />
+            ) : (
+              <ChevronRight className="size-4" />
+            )}
           </span>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          {SELECTABLE_EXERCISE_TYPES.map((type) => {
-            const Icon = EXERCISE_TYPE_ICONS[type]
-            const active = selectedTypes.includes(type)
-            return (
-              <button
-                key={type}
-                type="button"
-                onClick={() => toggleType(type)}
-                data-testid={`type-${type}`}
-                className={cn(
-                  'flex items-center gap-2 rounded-xl border p-2.5 text-left text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                  active
-                    ? 'border-primary bg-primary/10 text-foreground shadow-sm'
-                    : 'border-border bg-background text-foreground hover:bg-muted hover:border-muted-foreground/30',
-                )}
-              >
-                <span
+        </button>
+        {typesExpanded && (
+          <div className="mt-2.5 grid grid-cols-2 gap-2">
+            {SELECTABLE_EXERCISE_TYPES.map((type) => {
+              const Icon = EXERCISE_TYPE_ICONS[type]
+              const active = selectedTypes.includes(type)
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => toggleType(type)}
+                  data-testid={`type-${type}`}
                   className={cn(
-                    'flex size-7 shrink-0 items-center justify-center rounded-lg transition-colors',
-                    active ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
+                    'flex items-center gap-2 rounded-xl border p-2.5 text-left text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    active
+                      ? 'border-primary bg-primary/10 text-foreground shadow-sm'
+                      : 'border-border bg-background text-foreground hover:bg-muted hover:border-muted-foreground/30',
                   )}
                 >
-                  <Icon className="size-3.5" />
-                </span>
-                <span className="truncate text-xs">{EXERCISE_TYPE_LABELS[type]}</span>
-              </button>
-            )
-          })}
-        </div>
+                  <span
+                    className={cn(
+                      'flex size-7 shrink-0 items-center justify-center rounded-lg transition-colors',
+                      active ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
+                    )}
+                  >
+                    <Icon className="size-3.5" />
+                  </span>
+                  <span className="truncate text-xs">{EXERCISE_TYPE_LABELS[type]}</span>
+                </button>
+              )
+            })}
+          </div>
+        )}
         {!typesValid && (
           <p className="mt-2 text-xs text-destructive">Pick at least one exercise type.</p>
         )}
