@@ -359,9 +359,14 @@ function ChatPage() {
           empty state / latest messages sit just above the input bar. Without this,
           iOS Safari's keyboard auto-scroll exposes the empty top half of the list. */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-4">
-        <div className="flex min-h-full flex-col justify-end gap-3">
+        <div
+          className={cn(
+            'flex min-h-full flex-col gap-3',
+            messages.length === 0 && !submitting ? 'justify-start' : 'justify-end',
+          )}
+        >
           {messages.length === 0 && !submitting && (
-            <div className="flex flex-col items-center gap-4 text-center">
+            <div className="flex flex-col items-center gap-4 pt-4 text-center">
               <div className="rounded-2xl bg-primary/10 p-3">
                 <Sparkles className="size-6 text-primary" />
               </div>
