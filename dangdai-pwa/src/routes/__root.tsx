@@ -40,8 +40,28 @@ function useThemeSync() {
   }, [theme]);
 }
 
+function useIosStandaloneSafeAreaFix() {
+  useEffect(() => {
+    // iOS standalone PWA bug: env(safe-area-inset-*) can return 0 on first
+    // paint and only updates after the first user interaction. Nudging the
+    // scroll position forces WebKit to recompute the insets so fixed-position
+    // chrome (e.g. the bottom tab bar) sits above the home indicator on launch.
+    const recompute = () => {
+      window.scrollTo(0, 1);
+      window.scrollTo(0, 0);
+    };
+    const raf = requestAnimationFrame(recompute);
+    const timeout = window.setTimeout(recompute, 300);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(timeout);
+    };
+  }, []);
+}
+
 function RootComponent() {
   useThemeSync();
+  useIosStandaloneSafeAreaFix();
   return (
     <>
       <Outlet />
