@@ -18,7 +18,8 @@ import {
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Slider } from '@/components/ui/slider'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { BOOKS } from '@/constants/books'
 import { CHAPTERS, getChapter } from '@/constants/chapters'
 import { api } from '@/lib/api'
@@ -69,30 +70,62 @@ function chapterLabel(bookId: number, chapterNumber: number): string {
   return ch ? `Ch ${chapterNumber}: ${ch.titleEnglish}` : `Ch ${chapterNumber}`
 }
 
-interface PillButtonProps {
-  active: boolean
-  onClick: () => void
-  children: React.ReactNode
-  testId?: string
-  size?: 'sm' | 'md'
+const MIN_BOOK_ID = BOOKS[0].id
+const MAX_BOOK_ID = BOOKS[BOOKS.length - 1].id
+const MAX_CHAPTER_COUNT = BOOKS.reduce(
+  (acc, b) => Math.max(acc, b.chapterCount),
+  1,
+)
+
+function chapterCountFor(bookId: number): number {
+  return BOOKS.find((b) => b.id === bookId)?.chapterCount ?? 1
 }
 
-function PillButton({ active, onClick, children, testId, size = 'md' }: PillButtonProps) {
+interface RangeSliderRowProps {
+  label: string
+  startLabel: string
+  endLabel: string
+  min: number
+  max: number
+  values: [number, number]
+  onValueChange: (values: [number, number]) => void
+  testId?: string
+}
+
+function RangeSliderRow({
+  label,
+  startLabel,
+  endLabel,
+  min,
+  max,
+  values,
+  onValueChange,
+  testId,
+}: RangeSliderRowProps) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      data-testid={testId}
-      className={cn(
-        'rounded-full border font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        size === 'sm' ? 'px-2.5 py-1 text-xs' : 'px-3 py-1.5 text-sm',
-        active
-          ? 'border-primary bg-primary text-primary-foreground shadow-sm'
-          : 'border-border bg-background text-foreground hover:bg-muted hover:border-muted-foreground/30',
-      )}
-    >
-      {children}
-    </button>
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          {label}
+        </p>
+        <p className="text-sm font-semibold tabular-nums">
+          {startLabel} <span className="text-muted-foreground">—</span> {endLabel}
+        </p>
+      </div>
+      <Slider
+        min={min}
+        max={max}
+        step={1}
+        minStepsBetweenThumbs={0}
+        value={values}
+        onValueChange={(v) => {
+          if (v.length < 2) return
+          const next: [number, number] = [v[0], v[1]]
+          onValueChange(next)
+        }}
+        data-testid={testId}
+      />
+    </div>
   )
 }
 
@@ -118,50 +151,6 @@ function ChapterChip({ active, onClick, number, testId }: ChapterChipProps) {
     >
       {number}
     </button>
-  )
-}
-
-interface BookChapterPickerProps {
-  bookId: number
-  chapterNumber: number
-  onChange: (bookId: number, chapterNumber: number) => void
-  slug: string
-}
-
-function BookChapterPicker({ bookId, chapterNumber, onChange, slug }: BookChapterPickerProps) {
-  const book = BOOKS.find((b) => b.id === bookId)
-  const chapterCount = book?.chapterCount ?? 1
-
-  return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap gap-1.5">
-        {BOOKS.map((b) => (
-          <PillButton
-            key={b.id}
-            active={b.id === bookId}
-            onClick={() => onChange(b.id, 1)}
-            testId={`${slug}-book-${b.id}`}
-            size="sm"
-          >
-            {b.title}
-          </PillButton>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-8 gap-1.5">
-        {Array.from({ length: chapterCount }, (_, i) => i + 1).map((n) => (
-          <ChapterChip
-            key={n}
-            active={n === chapterNumber}
-            onClick={() => onChange(bookId, n)}
-            number={n}
-            testId={`${slug}-chapter-${n}`}
-          />
-        ))}
-      </div>
-
-      <p className="text-xs text-muted-foreground">{chapterLabel(bookId, chapterNumber)}</p>
-    </div>
   )
 }
 
@@ -480,40 +469,44 @@ function GeneratePage() {
               </span>
             </div>
 
-            <Tabs defaultValue="from" className="p-3">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="from">From</TabsTrigger>
-                <TabsTrigger value="to">To</TabsTrigger>
-              </TabsList>
+            <div className="space-y-5 p-4">
+              <RangeSliderRow
+                label="Books"
+                startLabel={`Book ${startBook}`}
+                endLabel={`Book ${endBook}`}
+                min={MIN_BOOK_ID}
+                max={MAX_BOOK_ID}
+                values={[startBook, endBook]}
+                testId="book-range-slider"
+                onValueChange={([s, e]) => {
+                  setStartBook(s)
+                  setEndBook(e)
+                  const sMax = chapterCountFor(s)
+                  const eMax = chapterCountFor(e)
+                  if (startChapter > sMax) setStartChapter(sMax)
+                  if (endChapter > eMax) setEndChapter(eMax)
+                }}
+              />
 
-              <TabsContent value="from" className="mt-3">
-                <BookChapterPicker
-                  bookId={startBook}
-                  chapterNumber={startChapter}
-                  slug="from"
-                  onChange={(b, c) => {
-                    setStartBook(b)
-                    setStartChapter(c)
-                    if (b * 100 + c > endBook * 100 + endChapter) {
-                      setEndBook(b)
-                      setEndChapter(c)
-                    }
-                  }}
-                />
-              </TabsContent>
+              <RangeSliderRow
+                label="Chapters"
+                startLabel={`Ch ${startChapter}`}
+                endLabel={`Ch ${endChapter}`}
+                min={1}
+                max={MAX_CHAPTER_COUNT}
+                values={[startChapter, endChapter]}
+                testId="chapter-range-slider"
+                onValueChange={([s, e]) => {
+                  setStartChapter(Math.min(s, chapterCountFor(startBook)))
+                  setEndChapter(Math.min(e, chapterCountFor(endBook)))
+                }}
+              />
 
-              <TabsContent value="to" className="mt-3">
-                <BookChapterPicker
-                  bookId={endBook}
-                  chapterNumber={endChapter}
-                  slug="to"
-                  onChange={(b, c) => {
-                    setEndBook(b)
-                    setEndChapter(c)
-                  }}
-                />
-              </TabsContent>
-            </Tabs>
+              <p className="text-xs text-muted-foreground">
+                {chapterLabel(startBook, startChapter)} →{' '}
+                {chapterLabel(endBook, endChapter)}
+              </p>
+            </div>
           </div>
 
           {!rangeValid && (
