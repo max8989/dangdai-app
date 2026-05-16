@@ -61,6 +61,9 @@ export const queryKeys = {
   vocabularyCount: (bookId: number, lessonId: number) => ['vocabularyCount', bookId, lessonId] as const,
   grammarPointsCount: (bookId: number, lessonId: number) => ['grammarPointsCount', bookId, lessonId] as const,
   dialoguesCount: (bookId: number, lessonId: number) => ['dialoguesCount', bookId, lessonId] as const,
+
+  // Learning summary (home-screen insights)
+  learningSummary: (userId: string) => ['learningSummary', userId] as const,
 } as const
 
 // Type helper for query key extraction

@@ -224,6 +224,30 @@ export type Database = {
         }
         Relationships: []
       }
+      learning_summaries: {
+        Row: {
+          exercises_analyzed: number
+          generated_at: string
+          model: string
+          summary: Json
+          user_id: string
+        }
+        Insert: {
+          exercises_analyzed?: number
+          generated_at?: string
+          model: string
+          summary: Json
+          user_id: string
+        }
+        Update: {
+          exercises_analyzed?: number
+          generated_at?: string
+          model?: string
+          summary?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
       paused_quizzes: {
         Row: {
           chapter_id: number

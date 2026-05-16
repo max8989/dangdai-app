@@ -492,6 +492,62 @@ class ChatResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Learning summary (home-screen insights)
+# ---------------------------------------------------------------------------
+
+
+class LearningRecommendation(BaseModel):
+    """One actionable practice recommendation rendered as a tappable CTA."""
+
+    label: str = Field(
+        ..., description="Short user-facing label, e.g. 'Practice 把 from Book 1 Ch 5'"
+    )
+    exercise_type: ExerciseType = Field(
+        ..., description="Exercise type to deep-link into"
+    )
+    chapter_ids: list[int] = Field(
+        ...,
+        min_length=1,
+        max_length=10,
+        description="Composite chapter IDs (book_id*100+chapter) the quiz should draw from",
+    )
+    question_count: int = Field(
+        default=10, ge=5, le=20, description="Suggested number of questions"
+    )
+
+
+class LearningSummaryPayload(BaseModel):
+    """Structured summary returned by the LLM and stored in learning_summaries.summary."""
+
+    headline: str = Field(
+        ..., description="One-sentence, encouraging headline summarizing recent performance"
+    )
+    strengths: list[str] = Field(
+        ..., max_length=5, description="Up to 5 short bullet strings"
+    )
+    weaknesses: list[str] = Field(
+        ..., max_length=5, description="Up to 5 short bullet strings"
+    )
+    focus_areas: list[str] = Field(
+        ..., max_length=5, description="Up to 5 short focus suggestions"
+    )
+    recommendations: list[LearningRecommendation] = Field(
+        ...,
+        max_length=4,
+        description="Up to 4 actionable quiz recommendations with deep-link metadata",
+    )
+
+
+class LearningSummaryResponse(BaseModel):
+    """Full learning-summary response (what the API returns to the client)."""
+
+    summary: LearningSummaryPayload
+    exercises_analyzed: int
+    model: str
+    generated_at: str = Field(..., description="ISO8601 timestamp")
+
+
+# ---------------------------------------------------------------------------
 # Legacy aliases (kept for backward compatibility with HealthResponse import)
 # ---------------------------------------------------------------------------
 

@@ -42,6 +42,9 @@ const EXERCISE_GENERATION_TIMEOUT_MS = 130_000
 /** Client-side timeout for chat / RAG Q&A requests. */
 const CHAT_TIMEOUT_MS = 60_000
 
+/** Client-side timeout for learning-summary generation (LLM call). */
+const LEARNING_SUMMARY_TIMEOUT_MS = 60_000
+
 /**
  * Categorize an HTTP error response into a typed QuizGenerationError.
  */
@@ -461,6 +464,61 @@ export const api = {
       throw new ChatError('network', 'Check your connection and try again.')
     }
   },
+
+  /**
+   * Generate (and persist) the learning summary for the authenticated user.
+   *
+   * Calls POST /api/insights/learning-summary. The backend reads the user's
+   * recent question_results, asks the LLM for a structured summary, upserts
+   * it into Supabase, and returns the freshly generated row.
+   */
+  async generateLearningSummary(): Promise<LearningSummaryApiResponse> {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    if (!session?.access_token) {
+      throw new LearningSummaryError('auth', 'Not authenticated. Please sign in.')
+    }
+
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), LEARNING_SUMMARY_TIMEOUT_MS)
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/insights/learning-summary`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({}),
+        signal: controller.signal,
+      })
+
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new LearningSummaryError(
+            'auth',
+            'Your session has expired. Please sign in again.',
+          )
+        }
+        throw new LearningSummaryError('server', "Couldn't generate your summary. Please try again.")
+      }
+
+      return (await response.json()) as LearningSummaryApiResponse
+    } catch (error) {
+      clearTimeout(timeoutId)
+
+      if (error instanceof LearningSummaryError) throw error
+
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new LearningSummaryError('timeout', 'Generation is taking too long. Please try again.')
+      }
+
+      throw new LearningSummaryError('network', 'Check your connection and try again.')
+    }
+  },
 }
 
 /** One prior message turn sent with a chat request. */
@@ -516,4 +574,39 @@ export interface ExerciseGenerateResponse {
   title: string
   instructions: string
   content: { questions: any[] }
+}
+
+/** One actionable practice recommendation in a learning summary. */
+export interface LearningRecommendation {
+  label: string
+  exercise_type: ExerciseType
+  chapter_ids: number[]
+  question_count: number
+}
+
+/** Structured learning summary payload (matches backend LearningSummaryPayload). */
+export interface LearningSummaryPayload {
+  headline: string
+  strengths: string[]
+  weaknesses: string[]
+  focus_areas: string[]
+  recommendations: LearningRecommendation[]
+}
+
+/** Response shape from POST /api/insights/learning-summary. */
+export interface LearningSummaryApiResponse {
+  summary: LearningSummaryPayload
+  exercises_analyzed: number
+  model: string
+  generated_at: string
+}
+
+/** Typed error for learning-summary generation requests. */
+export class LearningSummaryError extends Error {
+  category: 'auth' | 'network' | 'timeout' | 'server'
+  constructor(category: LearningSummaryError['category'], message: string) {
+    super(message)
+    this.category = category
+    this.name = 'LearningSummaryError'
+  }
 }

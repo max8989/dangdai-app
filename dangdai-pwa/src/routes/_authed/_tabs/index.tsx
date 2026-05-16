@@ -1,9 +1,8 @@
-import { Link, createFileRoute, useNavigate } from '@tanstack/react-router';
-import { BookOpen, CheckCircle2, Loader2, Pause, Play, Sparkles, Trash2, XCircle } from 'lucide-react';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { CheckCircle2, Loader2, Pause, Play, Sparkles, Trash2, XCircle } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { MaixinLogo } from '@/components/MaixinLogo';
-import { APP_NAME } from '@/constants/app';
+import { LearningSummaryCard } from '@/components/LearningSummaryCard';
 import { getChapter } from '@/constants/chapters';
 import { useAllPausedQuizzes } from '@/hooks/usePausedQuiz';
 import { usePauseQuiz } from '@/hooks/usePauseQuiz';
@@ -219,12 +218,8 @@ function HomePage() {
   const errorJobs = allJobs.filter((j) => j.status === 'error');
 
   return (
-    <section className="flex flex-col gap-6 p-4 pt-8">
-      <header className="flex flex-col items-center gap-2 text-center">
-        <MaixinLogo width={220} />
-        <h1 className="sr-only">{APP_NAME}</h1>
-        <p className="text-sm text-muted-foreground">Learn Chinese through quizzes</p>
-      </header>
+    <section className="flex flex-col gap-6 p-4 pt-6">
+      <LearningSummaryCard />
 
       {readyJobs.length > 0 && (
         <div className="flex flex-col gap-3">
@@ -261,13 +256,6 @@ function HomePage() {
           ))}
         </div>
       )}
-
-      <Button asChild size="lg" className="gap-2">
-        <Link to="/books">
-          <BookOpen className="size-5" />
-          Browse books
-        </Link>
-      </Button>
     </section>
   );
 }
