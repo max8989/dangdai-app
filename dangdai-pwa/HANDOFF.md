@@ -1,10 +1,54 @@
-# dangdai-pwa Handoff (Phase 4 onward)
+# dangdai-pwa Handoff (Phase 5 onward)
 
 You are picking up the migration of `dangdai-mobile/` (React Native + Expo + Tamagui) into `dangdai-pwa/` (Vite + React + shadcn/ui + Tailwind v4 + TanStack Router).
 
-**Phases 1 (auth), 2 (books + chapter navigation), and 3 (quiz flow without DnD) are complete and live-tested.** Your next job is **Phase 4: sentence construction (DnD)**. After that, continue through Phases 5–6 from the original plan (reproduced in §6 below).
+**Phases 1 (auth), 2 (books + chapter navigation), 3 (quiz flow without DnD), and 4 (sentence construction with `@dnd-kit`) are complete and live-tested.** Your next job is **Phase 5: Generate / Chat / Settings + real audio for `useSound`**. After that, finish with Phase 6 polish.
 
 The Supabase project and FastAPI backend are unchanged — same data, same endpoints. Only the client is being rebuilt.
+
+---
+
+## 0. What just got done (Phase 4)
+
+### Dependencies added
+`npm install @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities` — see `package.json`. `@dnd-kit/sortable` is installed but currently unused; Phase 5 / 6 can drop it if no other feature needs it. `@dnd-kit/utilities` is also a transitive dep but installed explicitly so future features can import `CSS` / `transform` helpers without churn.
+
+### Sentence construction component
+`src/components/quiz/SentenceBuilder.tsx` — full rewrite for web, none of the mobile DnD code copied:
+- **`@dnd-kit/core`** with `PointerSensor` (distance: 5px activation constraint so onClick still fires for tap-to-place) + `KeyboardSensor` (space to pick up, arrow keys to move, space to drop, esc to cancel).
+- **Two droppable zones** via `useDroppable`: `sentence-builder-answer-area` (top) and `sentence-builder-word-bank` (bottom). Each renders an `<DropZone>` wrapper that highlights with a ring when hovered.
+- **Each tile** is a `<DraggableTile>` (`useDraggable` + `<button>`) — both draggable AND clickable. `onClick` does the tap-to-place / tap-to-return; drag is secondary. Tap-to-place remains the primary interaction (per the original Phase 0 plan).
+- **`<DragOverlay>`** renders a non-interactive `<TileButton>` clone during drag so the tile visually follows the cursor smoothly.
+- **State** lives in `useQuizStore.placedTileIds` — same store the mobile component used. Each tile id is `tile-N` where N is the index into `scrambled_words[]`. Duplicate words get distinct ids.
+- **`onDragEnd`**: if `over.id === ANSWER_AREA_ID` and the tile is not yet placed → `placeTile(id)`. If `over.id === WORD_BANK_ID` and the tile is placed → `removeTile(id)`. Everything else is a no-op (the snap-back animation is implicit because dnd-kit clears the transform on drop).
+- **Submit flow**: disabled until `placedTileIds.length === scrambled_words.length`. On submit, calls `useAnswerValidation().validate(...)` synchronously (no LLM — see §0a Phase 3 notes), then sets per-tile feedback (correct = green, incorrect = red, all-green for an LLM-confirmed alternative ordering), shows internal "Correct! / Not quite / Your answer is also valid!" feedback section with the correct sentence reveal when wrong, plus explanation + source citation. Immediately calls `onAnswer(result.isCorrect)` so `play.tsx` can fire its `FeedbackOverlay` for the Next button.
+- **Double-submit guard**: `isSubmittingRef` flips synchronously before any state updates so a fast second tap is a no-op (same pattern as mobile M1 fix).
+
+### Routing changes
+`src/routes/_authed/quiz/play.tsx`:
+- New import: `SentenceBuilder` from `@/components/quiz/SentenceBuilder`.
+- New callback: `handleSentenceConstructionAnswer(isCorrect)` — same shape as `handleDialogueAnswer`. Reads `placedTileIds` from `useQuizStore.getState()` on call (not via subscription) and joins them with `scrambled_words` into a `userSentence` string, then `setAnswer / addScore / saveQuestionResult / handleAnswerResult`.
+- Replaced the Phase 3 "coming soon" card for `sentence_construction` with a real `<SentenceBuilder>` render, gated on `currentQuestion.scrambled_words && currentQuestion.correct_order` so malformed payloads still fall back to a safe (null) render. The `matching` placeholder is unchanged — that type is permanently skipped per HANDOFF scope.
+
+### Verified end-to-end in Chrome DevTools
+Seeded `dangdai-quiz-store` localStorage with a 2-question `sentence_construction` payload, then navigated to `/quiz/play`:
+- Q1 ("我很喜歡咖啡。"): tap-to-place all five tiles in correct order → Submit enables → tap Submit → tiles flash green (per-tile feedback) → internal "Correct!" + explanation + citation render → FeedbackOverlay shows "+10 pts" + Next button.
+- Q2 ("你是學生嗎？"): seeded fresh state advanced cleanly (no stale placedTileIds bleed-over). Placed tiles in WRONG order ("學生是你嗎？") → Submit → tiles flash red → internal "Not quite" + "Correct sentence: 你是學生嗎？" + explanation render → FeedbackOverlay shows "Next" → CompletionScreen renders with 1/2 correct (50%), "Sentence Construction" progress row at 50%, "You struggled with" entry showing the wrong answer.
+- Tap-to-return: tapping a placed tile sends it back to the word bank, answer area returns to "Tap or drag words below to place them here" placeholder.
+- Drag-and-drop: the live region announces drop events (`"Draggable item tile-3 was dropped over droppable area sentence-builder-word-bank"`), proving the dnd-kit wiring fires. The chrome-devtools `drag` tool's simulated drag-end coordinates are imprecise so the smoke test didn't successfully verify a cross-zone drag visually — verify by hand in real Chrome if you change the layout. Tap-to-place is the primary interaction, so this is a low-stakes path.
+- No console errors or warnings during any of the above.
+- `npm run build` is green (main chunk 587 KB, gzipped 170 KB — `@dnd-kit` added ~30 KB minified to the play chunk, splitting still a Phase 6 concern).
+
+### Phase 4 gotchas worth remembering
+
+1. **`PointerSensor` needs an activation distance, not delay.** With `{ distance: 5 }`, a click that doesn't move ≥5px fires `onClick`, so tap-to-place still works. Without the constraint, every press would start a drag and onClick would never fire. Don't use `{ delay }` — it adds a 250ms wait before press feels responsive.
+2. **The draggable element is also the click target.** Putting the `onClick` directly on the `<button>` that also has `setNodeRef`/`{...listeners}` is fine *because* of the activation constraint. If you split them (e.g. inner button with onClick, outer div with listeners), the listeners' pointer events will block the click — don't refactor that way without good reason.
+3. **`onClick`-only mode for keyboard users requires `aria-description`.** The `KeyboardSensor` wires up space/arrow/escape automatically and dnd-kit announces drag actions via a hidden live region, but the explicit `aria-description` on each tile spells out the tap-vs-drag affordance for screen readers.
+4. **Live region announcement labels the drop targets.** dnd-kit reads droppable `id`s verbatim — so `sentence-builder-answer-area` and `sentence-builder-word-bank` become user-facing strings. Don't rename them to short ids without checking how they sound.
+5. **`useQuizStore.getState()` inside the play.tsx callback** is intentional — `placedTileIds` is not persisted and isn't part of the callback closure. Reading via `getState()` at call time avoids stale-closure bugs and keeps the callback dep list small.
+6. **Internal feedback section duplicates the FeedbackOverlay's explanation/citation.** Same as DialogueCard (Phase 3). The internal section gives per-tile color feedback and the correct sentence reveal that the overlay can't; the overlay owns the Next button. Both render — that's the established pattern, don't try to consolidate without a UX call.
+7. **`@dnd-kit/sortable` is installed but unused.** The mobile SentenceBuilder doesn't support reordering within the answer area (placeTile just appends), and neither does this one. If a Phase 5+ feature needs sortable reordering inside a placed-tiles row, the package is already in `node_modules`. Otherwise it's safe to drop with `npm uninstall @dnd-kit/sortable` if you're trimming bundle size in Phase 6.
+8. **No `pre`/`post` quiz weakness data is wired yet.** Same as Phase 3 — `CompletionScreen` accepts `preQuizWeaknesses` / `postQuizWeaknesses` props but `play.tsx` doesn't pass them. Carry-over for Phase 5.
 
 ---
 
@@ -184,7 +228,10 @@ Pick (1) for the home placeholder you'll replace anyway; consider (2) when build
 - Path alias: `@/* → src/*`
 
 ### shadcn components added so far
-`button`, `input`, `label`, `card`, `sonner` (Phase 1), `skeleton`, `scroll-area`, `separator`, `avatar`, `tabs` (Phase 2), `progress`, `dialog`, `alert-dialog`, `radio-group` (Phase 3).
+`button`, `input`, `label`, `card`, `sonner` (Phase 1), `skeleton`, `scroll-area`, `separator`, `avatar`, `tabs` (Phase 2), `progress`, `dialog`, `alert-dialog`, `radio-group` (Phase 3). No shadcn additions in Phase 4 — `@dnd-kit` is not a shadcn component.
+
+### Non-shadcn deps added in Phase 4
+`@dnd-kit/core`, `@dnd-kit/sortable` (unused — see Phase 4 gotcha 7), `@dnd-kit/utilities`.
 
 ### Files that already exist (don't redo)
 
@@ -220,7 +267,8 @@ Pick (1) for the home placeholder you'll replace anyway; consider (2) when build
 | `src/components/quiz/*` | ✅ Phase 3 (QuizQuestionCard, AnswerOptionGrid, QuizProgress, PointsCounter, FeedbackOverlay, FillInBlankSentence, WordBankSelector, DialogueCard, ReadingPassageCard, TextInputAnswer, ExerciseTypeProgressList, CompletionScreen, ExitConfirmationModal, PausedQuizBanner) |
 | `src/hooks/{useQuizGeneration,useQuizPersistence,useAnswerValidation,useQuestionTimer,usePausedQuiz,usePauseQuiz,usePremadeExercises,usePremadeExercise,useExerciseTypeProgress,useUserStats}.ts` | ✅ Phase 3 |
 | `src/hooks/useSound.ts` | ⚠️ Phase 3 (no-op stub; Phase 5 must wire `HTMLAudioElement`) |
-| `src/routes/_authed/quiz/{$chapterId,loading,ai-loading,play,premade}.tsx` | ✅ Phase 3 |
+| `src/routes/_authed/quiz/{$chapterId,loading,ai-loading,play,premade}.tsx` | ✅ Phase 3 (play.tsx extended with `SentenceBuilder` integration in Phase 4) |
+| `src/components/quiz/SentenceBuilder.tsx` | ✅ Phase 4 (`@dnd-kit/core` + tap-to-place + drag-and-drop) |
 
 ### Env
 `.env.local` is populated; `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_API_URL=http://localhost:8000`. Test account: **test@test.com / maxime11**.
@@ -329,24 +377,23 @@ From `dangdai-mobile/components/chapter/` → `dangdai-pwa/src/components/chapte
 
 ---
 
-## 5. Drag and drop (Phase 4 only, but plan ahead)
+## 5. Drag and drop (Phase 4 — done; reference only)
 
-Only `sentence_construction` needs DnD in the active set. Use `@dnd-kit/core` + `@dnd-kit/sortable` + `@dnd-kit/utilities`. See §5 of the original Phase 0 doc (now in `git log` if you need it) for the sentence-builder mapping. **Skip `matching` and `mixed` entirely** — `matching` is disabled in mobile due to a Reanimated bug; `mixed` is hidden for now. Keep them in the `ExerciseType` union but never render UI for them.
+`sentence_construction` is the only DnD-using exercise in the active set, and it's now wired (see §0 Phase 4). **Skip `matching` and `mixed` entirely** — `matching` is disabled in mobile due to a Reanimated bug; `mixed` is hidden for now. Keep them in the `ExerciseType` union but never render UI for them.
+
+If you add another DnD feature later, follow the SentenceBuilder pattern: `PointerSensor` with a 5px activation distance + `KeyboardSensor`, `<DragOverlay>` for visual feedback, and tap-to-place wired on the same button that's the draggable so simple interactions don't require dragging.
 
 ---
 
 ## 6. Remaining phases at a glance
 
-After Phase 3, continue with the original plan:
-
-### Phase 4 — Sentence construction
-`npm install @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities` and build `SentenceBuilder.tsx` with two droppable zones (answer slot + word bank), `PointerSensor` + `KeyboardSensor`, `<DragOverlay>`. **Keep tap-to-place** as the primary interaction.
+After Phase 4, continue with the original plan:
 
 ### Phase 5 — Generate, Chat, Settings
-Port `generate.tsx`, `chat.tsx`, `settings.tsx`. `useSound` needs a web rewrite (mobile uses `expo-av` → use `HTMLAudioElement`).
+Port `generate.tsx`, `chat.tsx`, `settings.tsx`. `useSound` needs a web rewrite (mobile uses `expo-av` → use `HTMLAudioElement`). Also a good moment to wire `pre`/`post` quiz weakness data into `CompletionScreen` (still carried forward from Phase 3).
 
 ### Phase 6 — Polish
-Dark mode (`useResolvedColorScheme` web version + Tailwind `dark:`), PWA icons (`pwa-192x192.png`, `pwa-512x512.png`, `pwa-maskable-512x512.png`, `apple-touch-icon.png`, `favicon.svg`), Lighthouse audit. Apple Sign-in only if user confirms scope.
+Dark mode (`useResolvedColorScheme` web version + Tailwind `dark:`), PWA icons (`pwa-192x192.png`, `pwa-512x512.png`, `pwa-maskable-512x512.png`, `apple-touch-icon.png`, `favicon.svg`), Lighthouse audit. Apple Sign-in only if user confirms scope. Optional: drop `@dnd-kit/sortable` if nothing else uses it (Phase 4 gotcha 7).
 
 ---
 

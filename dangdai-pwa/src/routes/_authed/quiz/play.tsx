@@ -18,6 +18,7 @@ import { DialogueCard } from '@/components/quiz/DialogueCard'
 import type { DialogueAnswerResult } from '@/components/quiz/DialogueCard'
 import { ReadingPassageCard } from '@/components/quiz/ReadingPassageCard'
 import { TextInputAnswer } from '@/components/quiz/TextInputAnswer'
+import { SentenceBuilder } from '@/components/quiz/SentenceBuilder'
 import { ExitConfirmationModal } from '@/components/quiz/ExitConfirmationModal'
 import { usePauseQuiz } from '@/hooks/usePauseQuiz'
 import {
@@ -393,6 +394,49 @@ function PlayPage() {
     ],
   )
 
+  const handleSentenceConstructionAnswer = useCallback(
+    (isCorrect: boolean) => {
+      if (!currentQuestion) return
+      const timeSpentMs = timer.stopTimer()
+
+      const placedTileIds = useQuizStore.getState().placedTileIds
+      const scrambled = currentQuestion.scrambled_words ?? []
+      const userSentence = placedTileIds
+        .map((id) => {
+          const index = parseInt(id.replace('tile-', ''), 10)
+          return scrambled[index] ?? ''
+        })
+        .join('')
+
+      setAnswer(currentQuestionIndex, userSentence)
+      if (isCorrect) addScore(POINTS_PER_CORRECT)
+
+      saveQuestionResult({
+        chapterId: chapterId ?? quizPayload?.chapter_id ?? 0,
+        bookId: bookId ?? quizPayload?.book_id ?? 0,
+        exerciseType: currentQuestion.exercise_type,
+        vocabularyItem: null,
+        grammarPattern: null,
+        correct: isCorrect,
+        timeSpentMs,
+      })
+
+      handleAnswerResult(isCorrect)
+    },
+    [
+      currentQuestion,
+      currentQuestionIndex,
+      setAnswer,
+      addScore,
+      handleAnswerResult,
+      timer,
+      saveQuestionResult,
+      chapterId,
+      bookId,
+      quizPayload,
+    ],
+  )
+
   const handleTextInputAnswer = useCallback(
     (userAnswer: string, isCorrect: boolean) => {
       if (!currentQuestion) return
@@ -656,17 +700,33 @@ function PlayPage() {
         </div>
 
         <main className="flex-1 px-4 pt-4 pb-4 space-y-4">
-          {isMatching || isSentenceConstruction ? (
+          {isMatching ? (
             <div
               key={currentQuestionIndex}
               className="rounded-md border bg-card p-4 text-center text-muted-foreground"
             >
               <p className="font-medium mb-1">
-                {isMatching ? 'Matching exercises' : 'Sentence construction'} are coming soon
+                Matching exercises are coming soon
               </p>
               <p className="text-sm">
                 Tap Leave and pick another exercise type while we finish this one on the web.
               </p>
+            </div>
+          ) : isSentenceConstruction &&
+            currentQuestion.scrambled_words &&
+            currentQuestion.correct_order ? (
+            <div key={currentQuestionIndex}>
+              <SentenceBuilder
+                questionText={currentQuestion.question_text}
+                scrambledWords={currentQuestion.scrambled_words}
+                correctOrder={currentQuestion.correct_order}
+                correctAnswer={currentQuestion.correct_answer}
+                explanation={currentQuestion.explanation}
+                sourceCitation={currentQuestion.source_citation}
+                acceptableAnswerVariants={currentQuestion.acceptable_answer_variants}
+                onAnswer={handleSentenceConstructionAnswer}
+                disabled={showFeedback}
+              />
             </div>
           ) : isReadingComprehension &&
             currentQuestion.passage &&
