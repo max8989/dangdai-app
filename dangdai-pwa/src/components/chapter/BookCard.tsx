@@ -9,11 +9,30 @@ interface BookCardProps {
   onClick: () => void;
 }
 
-const coverColorMap: Record<string, string> = {
-  $blue9: 'bg-blue-500',
-  $green9: 'bg-emerald-500',
-  $orange9: 'bg-orange-500',
-  $purple9: 'bg-purple-500',
+const coverStyleMap: Record<string, { gradient: string; ring: string }> = {
+  $blue9: {
+    gradient: 'bg-gradient-to-br from-sky-400 via-blue-500 to-indigo-600',
+    ring: 'ring-blue-300/40',
+  },
+  $green9: {
+    gradient: 'bg-gradient-to-br from-emerald-400 via-emerald-500 to-teal-600',
+    ring: 'ring-emerald-300/40',
+  },
+  $orange9: {
+    gradient: 'bg-gradient-to-br from-amber-400 via-orange-500 to-rose-500',
+    ring: 'ring-orange-300/40',
+  },
+  $purple9: {
+    gradient: 'bg-gradient-to-br from-fuchsia-400 via-purple-500 to-violet-700',
+    ring: 'ring-purple-300/40',
+  },
+};
+
+const chineseNumerals: Record<number, string> = {
+  1: '一',
+  2: '二',
+  3: '三',
+  4: '四',
 };
 
 export function BookCard({ book, progress, onClick }: BookCardProps) {
@@ -21,7 +40,8 @@ export function BookCard({ book, progress, onClick }: BookCardProps) {
     progress.totalChapters > 0
       ? Math.round((progress.chaptersCompleted / progress.totalChapters) * 100)
       : 0;
-  const coverClass = coverColorMap[book.coverColor] ?? 'bg-blue-500';
+  const cover = coverStyleMap[book.coverColor] ?? coverStyleMap.$blue9;
+  const numeral = chineseNumerals[book.id] ?? String(book.id);
 
   return (
     <button
@@ -32,11 +52,16 @@ export function BookCard({ book, progress, onClick }: BookCardProps) {
     >
       <div
         className={cn(
-          'flex h-20 w-14 shrink-0 items-center justify-center rounded-md text-3xl font-bold text-white',
-          coverClass,
+          'relative flex h-20 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md text-white shadow-md ring-1',
+          cover.gradient,
+          cover.ring,
         )}
       >
-        {book.id}
+        <span className="absolute inset-y-2 left-1 w-px bg-white/30" />
+        <span className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent" />
+        <span className="relative font-serif text-3xl font-semibold drop-shadow-sm">
+          {numeral}
+        </span>
       </div>
 
       <div className="flex flex-1 flex-col gap-1.5">
