@@ -455,7 +455,14 @@ function adaptAIGeneratedQuestions(questions: any[]): QuizQuestion[] {
       word_bank: Array.isArray(q.word_bank) ? q.word_bank.map((w: any) => typeof w === 'string' ? w : String(w)) : [],
       blank_positions: q.blank_positions,
       scrambled_words: q.scrambled_words,
-      correct_order: q.correct_order?.map(String),
+      correct_order: Array.isArray(q.correct_order)
+        ? q.correct_order.map((entry: unknown) => {
+            if (typeof entry === 'number' && Array.isArray(q.scrambled_words)) {
+              return q.scrambled_words[entry] ?? String(entry)
+            }
+            return String(entry)
+          })
+        : q.correct_order,
       left_items: q.left_items,
       right_items: q.right_items,
       correct_pairs: q.correct_pairs,
