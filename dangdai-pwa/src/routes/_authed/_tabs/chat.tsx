@@ -7,6 +7,7 @@ import {
   Send,
   SlidersHorizontal,
   Sparkles,
+  Trash2,
   X,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -109,16 +110,20 @@ interface ChatPageHeaderProps {
   scopeLabel: string
   hasActiveScope: boolean
   filtersOpen: boolean
+  hasMessages: boolean
   onToggleFilters: () => void
   onClearScope: () => void
+  onClearChat: () => void
 }
 
 function ChatPageHeader({
   scopeLabel,
   hasActiveScope,
   filtersOpen,
+  hasMessages,
   onToggleFilters,
   onClearScope,
+  onClearChat,
 }: ChatPageHeaderProps) {
   return (
     <div className="flex items-center gap-2 border-b bg-card/40 px-3 py-2.5">
@@ -152,6 +157,17 @@ function ChatPageHeader({
           data-testid="chat-clear-scope"
         >
           <X className="size-3.5" />
+        </button>
+      )}
+      {hasMessages && (
+        <button
+          type="button"
+          onClick={onClearChat}
+          className="flex size-7 shrink-0 items-center justify-center rounded-full border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="Clear chat"
+          data-testid="chat-clear-messages"
+        >
+          <Trash2 className="size-3.5" />
         </button>
       )}
     </div>
@@ -188,6 +204,11 @@ function ChatPage() {
     setBookFilter(null)
     setLessonFilter(null)
     setContentType(null)
+  }, [])
+
+  const onClearChat = useCallback(() => {
+    setMessages([])
+    setInput('')
   }, [])
 
   const hasActiveScope =
@@ -267,8 +288,10 @@ function ChatPage() {
         scopeLabel={scopeLabel}
         hasActiveScope={hasActiveScope}
         filtersOpen={filtersOpen}
+        hasMessages={messages.length > 0}
         onToggleFilters={() => setFiltersOpen((o) => !o)}
         onClearScope={onClearScope}
+        onClearChat={onClearChat}
       />
 
       {/* Collapsible filter panel */}

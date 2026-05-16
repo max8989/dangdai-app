@@ -79,6 +79,82 @@ def _embed_query(query: str) -> list[float]:
     return response.data[0].embedding
 
 
+# Heuristic threshold: with text-embedding-3-small, on-topic chunks for this
+# corpus consistently score > 0.30; below ~0.25 the matches are usually noise.
+_LOW_SIMILARITY_THRESHOLD = 0.25
+
+def _expansion_model() -> str:
+    """Pick the model for the cheap query-expansion call.
+
+    Resolved at call time so newly-granted model access takes effect without
+    a restart. Priority:
+      1. ``CHAT_EXPANSION_MODEL`` — explicit override.
+      2. ``OPENAI_MODEL`` / ``LLM_MODEL`` — whatever the main chat is using
+         (guaranteed-available for this project).
+      3. ``gpt-4o-mini`` — fast/cheap default.
+    """
+    return (
+        os.getenv("CHAT_EXPANSION_MODEL", "")
+        or os.getenv("OPENAI_MODEL", "")
+        or os.getenv("LLM_MODEL", "")
+        or "gpt-4o-mini"
+    )
+
+
+def expand_query_for_retrieval(query: str) -> str:
+    """Rewrite an English query into a bilingual search form.
+
+    The corpus is overwhelmingly Traditional Chinese, so an English-only query
+    like "how can I ask for direction" embeds poorly — the search ends up
+    matching the figurative meaning of "direction" instead of the textbook's
+    actual phrasing (怎麼走 / 怎麼去 / 在哪裡 / 往 …).
+
+    We ask a small LLM to produce a short bilingual paraphrase containing
+    likely Chinese keywords. The original query is preserved separately for
+    answer generation; only the embedding step sees the expansion.
+
+    Returns the augmented query, or the original on any failure (fail-open).
+    """
+    if not query or not query.strip():
+        return query
+
+    # If the query is already mostly Chinese, skip the rewrite — there is
+    # nothing to translate and it only adds latency.
+    chinese_chars = sum(1 for ch in query if "一" <= ch <= "鿿")
+    if chinese_chars >= max(2, len(query) // 6):
+        return query
+
+    try:
+        from openai import OpenAI
+
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", ""))
+        prompt = (
+            "You are helping a vector search find passages in the Traditional "
+            "Chinese textbook 當代中文課程. Rewrite the user's question into a "
+            "short bilingual search query (under 40 words) that contains the "
+            "likely Traditional Chinese keywords, common phrasings, and "
+            "synonyms a textbook dialogue would use. Output ONLY the rewritten "
+            "query — no preamble, no quotes.\n\n"
+            f"User question: {query}"
+        )
+        resp = client.chat.completions.create(
+            model=_expansion_model(),
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2,
+            max_tokens=120,
+        )
+        rewritten = (resp.choices[0].message.content or "").strip()
+        if not rewritten:
+            return query
+        # Keep the original so we don't lose any signal it has.
+        combined = f"{query}\n{rewritten}"
+        logger.info("Chat: expanded query for retrieval: %r", rewritten[:160])
+        return combined
+    except Exception as exc:
+        logger.warning("Chat: query expansion failed, falling back to raw: %s", exc)
+        return query
+
+
 # Maps Chinese numerals 一-十 (and a few past 十) to ints. Used by the
 # 第N課 parser so users can write "第三課" or "第十二課" in the query.
 _CN_NUM: dict[str, int] = {
@@ -237,7 +313,8 @@ class ChatService:
                 if book is not None and lesson is not None:
                     break
 
-        query_embedding = _embed_query(query)
+        retrieval_query = expand_query_for_retrieval(query)
+        query_embedding = _embed_query(retrieval_query)
 
         chunks = self._vector_store.semantic_search(
             query_embedding=query_embedding,
@@ -266,6 +343,31 @@ class ChatService:
             )
 
         context = _build_context(chunks)
+
+        top_similarity = max(
+            (c.get("similarity") or 0.0 for c in chunks),
+            default=0.0,
+        )
+        retrieval_was_weak = top_similarity < _LOW_SIMILARITY_THRESHOLD
+        if retrieval_was_weak:
+            logger.info(
+                "Chat: weak retrieval (top_similarity=%.3f < %.2f) for query=%r",
+                top_similarity,
+                _LOW_SIMILARITY_THRESHOLD,
+                query[:120],
+            )
+
+        weak_retrieval_note = (
+            "\n\nIMPORTANT: The retrieved passages have LOW semantic similarity "
+            "to the question (top score < 0.25), so they may not actually "
+            "contain the answer. If the passages don't directly address the "
+            "question, say so plainly — do NOT invent a fake textbook citation. "
+            "You may still give general Mandarin guidance, but make it clear "
+            "that part is from your own knowledge, not the textbook.\n"
+            if retrieval_was_weak
+            else ""
+        )
+
         user_prompt = (
             "Based on the following content from 當代中文課程 textbooks and workbooks, "
             "please answer the question.\n\n"
@@ -281,6 +383,7 @@ class ChatService:
             "(and whether textbook or workbook) the information comes from\n"
             "7. If the chunks contain the requested information but it's fragmented, "
             "synthesize it into a coherent answer"
+            f"{weak_retrieval_note}"
         )
 
         messages: list[BaseMessage] = [SystemMessage(content=SYSTEM_PROMPT)]
